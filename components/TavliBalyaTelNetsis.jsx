@@ -9644,7 +9644,55 @@ const TavliBalyaTelNetsis = () => {
       }
     });
 
-    // YM ST REÇETE Sheet - Raw materials (shared with Galvanizli, priority 0 only)
+    // YM TT REÇETE ALT 1 Sheet (from priority 1 recipes)
+    const ymTtReceteAlt1Sheet = receteWorkbook.addWorksheet('YM TT REÇETE ALT 1');
+    ymTtReceteAlt1Sheet.addRow(receteHeaders);
+
+    const ymTtAlt1Recetes = allYmTtRecetes.filter(r => (r.priority || 0) === 1);
+    const ymTtAlt1ByProduct = {};
+    ymTtAlt1Recetes.forEach(recipe => {
+      if (!ymTtAlt1ByProduct[recipe.mamul_kodu]) {
+        ymTtAlt1ByProduct[recipe.mamul_kodu] = [];
+      }
+      ymTtAlt1ByProduct[recipe.mamul_kodu].push(recipe);
+    });
+
+    const sortedYmTtAlt1StokCodes = Object.keys(ymTtAlt1ByProduct).sort();
+    sortedYmTtAlt1StokCodes.forEach(stokKodu => {
+      if (ymTtAlt1ByProduct[stokKodu] && ymTtAlt1ByProduct[stokKodu].length > 0) {
+        let productSiraNo = 1;
+        ymTtAlt1ByProduct[stokKodu].forEach(recipe => {
+          ymTtReceteAlt1Sheet.addRow(generateTavliBalyaMmReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          productSiraNo++;
+        });
+      }
+    });
+
+    // YM TT REÇETE ALT 2 Sheet (from priority 2 recipes)
+    const ymTtReceteAlt2Sheet = receteWorkbook.addWorksheet('YM TT REÇETE ALT 2');
+    ymTtReceteAlt2Sheet.addRow(receteHeaders);
+
+    const ymTtAlt2Recetes = allYmTtRecetes.filter(r => (r.priority || 0) === 2);
+    const ymTtAlt2ByProduct = {};
+    ymTtAlt2Recetes.forEach(recipe => {
+      if (!ymTtAlt2ByProduct[recipe.mamul_kodu]) {
+        ymTtAlt2ByProduct[recipe.mamul_kodu] = [];
+      }
+      ymTtAlt2ByProduct[recipe.mamul_kodu].push(recipe);
+    });
+
+    const sortedYmTtAlt2StokCodes = Object.keys(ymTtAlt2ByProduct).sort();
+    sortedYmTtAlt2StokCodes.forEach(stokKodu => {
+      if (ymTtAlt2ByProduct[stokKodu] && ymTtAlt2ByProduct[stokKodu].length > 0) {
+        let productSiraNo = 1;
+        ymTtAlt2ByProduct[stokKodu].forEach(recipe => {
+          ymTtReceteAlt2Sheet.addRow(generateTavliBalyaMmReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          productSiraNo++;
+        });
+      }
+    });
+
+    // YM ST REÇETE Sheet - Raw materials (priority 0 only)
     const ymStReceteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
@@ -9658,7 +9706,7 @@ const TavliBalyaTelNetsis = () => {
       ymStByProduct[recipe.mamul_kodu].push(recipe);
     });
 
-    // Add main YM ST recipes (priority 0 only, no alternatives for Tavli/Balya)
+    // Add main YM ST recipes (priority 0 only)
     const sortedYmStStokCodes = Object.keys(ymStByProduct).sort();
     sortedYmStStokCodes.forEach(stokKodu => {
       if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
@@ -9670,13 +9718,50 @@ const TavliBalyaTelNetsis = () => {
       }
     });
 
+    // YM ST REÇETE ALT 1-8 Sheets (generated from COILER matrix for .ST products only)
+    // Get all .ST products from allYMSTProducts
+    const stProducts = allYMSTProducts.filter(p => p.stok_kodu && p.stok_kodu.endsWith('.ST'));
+
+    // Generate alternatives using COILER matrix
+    const ymStAltRecipes = generateCoilerAlternatives(mainYmStRecetes, stProducts);
+
+    // Create sheets for each priority (1-8)
+    for (let priority = 1; priority <= 8; priority++) {
+      const altRecipes = ymStAltRecipes[priority];
+      if (altRecipes && altRecipes.length > 0) {
+        const altSheet = receteWorkbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
+        altSheet.addRow(receteHeaders);
+
+        // Group by mamul_kodu
+        const altByProduct = {};
+        altRecipes.forEach(recipe => {
+          if (!altByProduct[recipe.mamul_kodu]) {
+            altByProduct[recipe.mamul_kodu] = [];
+          }
+          altByProduct[recipe.mamul_kodu].push(recipe);
+        });
+
+        // Add recipes sorted by stok_kodu
+        const sortedAltStokCodes = Object.keys(altByProduct).sort();
+        sortedAltStokCodes.forEach(stokKodu => {
+          if (altByProduct[stokKodu] && altByProduct[stokKodu].length > 0) {
+            let productSiraNo = 1;
+            altByProduct[stokKodu].forEach(recipe => {
+              altSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, priority));
+              productSiraNo++;
+            });
+          }
+        });
+      }
+    }
+
     // Save Reçete Excel
     const receteBuffer = await receteWorkbook.xlsx.writeBuffer();
     const receteTimestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
     const receteFilename = `Toplu_Recete_TT_${receteTimestamp}.xlsx`;
     saveAs(new Blob([receteBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), receteFilename);
 
-    console.log(`✅ BULK EXCEL TT: Generated Recipe Excel with ${Object.keys(mmByProduct).length} MM TT, ${Object.keys(ymTtByProduct).length} YM TT, ${Object.keys(ymStpByProduct).length} YM STP, ${Object.keys(ymStByProduct).length} YM ST recipes`);
+    console.log(`✅ BULK EXCEL TT: Generated Recipe Excel with ${Object.keys(mmByProduct).length} MM TT, ${Object.keys(ymTtByProduct).length} YM TT (+ ALT 1: ${sortedYmTtAlt1StokCodes.length}, ALT 2: ${sortedYmTtAlt2StokCodes.length}), ${Object.keys(ymStpByProduct).length} YM STP, ${Object.keys(ymStByProduct).length} YM ST (+ COILER ALTs) recipes`);
   };
 
   // Generate Excel files from multiple requests (creates combined stok and recipe Excel files)
@@ -9705,26 +9790,32 @@ const TavliBalyaTelNetsis = () => {
     setExcelProgress({ current: 0, total: totalSteps, operation: 'Excel hazırlanıyor...', currentProduct: '' });
 
     // ✅ FIXED: Fetch ALL data upfront for priority-based logic (same as bulk function)
-    const [ymGtResponse, ymStResponse, ymGtRecetesResponse, ymStRecetesResponse] = await Promise.all([
+    const [ymGtResponse, ymStpResponse, ymStResponse, ymGtRecetesResponse, ymStpRecetesResponse, ymStRecetesResponse] = await Promise.all([
       fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=5000`),
+      fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?limit=5000`),
       fetchWithAuth(`${API_URLS.galYmSt}?limit=5000`),
       fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=10000`),
+      fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?limit=10000`),
       fetchWithAuth(`${API_URLS.galYmStRecete}?limit=10000`)
     ]);
 
     const ymGtData = (ymGtResponse && ymGtResponse.ok) ? await ymGtResponse.json() : [];
+    const ymStpData = (ymStpResponse && ymStpResponse.ok) ? await ymStpResponse.json() : [];
     const ymStData = (ymStResponse && ymStResponse.ok) ? await ymStResponse.json() : [];
     const ymGtRecipeData = (ymGtRecetesResponse && ymGtRecetesResponse.ok) ? await ymGtRecetesResponse.json() : [];
+    const ymStpRecipeData = (ymStpRecetesResponse && ymStpRecetesResponse.ok) ? await ymStpRecetesResponse.json() : [];
     const ymStRecipeData = (ymStRecetesResponse && ymStRecetesResponse.ok) ? await ymStRecetesResponse.json() : [];
 
 
     // Collect all products from all requests (using Maps to avoid duplicates)
     const mmMap = new Map(); // key: stok_kodu, value: MM TT data
     const ymGtMap = new Map(); // key: stok_kodu, value: YM TT data (variable name kept for compatibility)
+    const ymStpMap = new Map(); // key: stok_kodu, value: YM STP data (.P products)
     const ymStMap = new Map(); // key: stok_kodu, value: YM ST data (main only)
     const ymStAltMaps = {}; // Dynamic: { 1: Map, 2: Map, 3: Map, ... } for unlimited alternatives
     const mmRecipeMap = new Map(); // key: `${mm_gt_stok_kodu}-${bilesen_kodu}`, value: recipe
     const ymGtRecipeMap = new Map(); // key: `${ym_gt_stok_kodu}-${bilesen_kodu}`, value: recipe
+    const ymStpRecipeMap = new Map(); // key: `${ym_stp_stok_kodu}-${bilesen_kodu}`, value: recipe
     const ymStRecipeMap = new Map(); // key: `${ym_st_stok_kodu}-${bilesen_kodu}`, value: recipe (main only)
     const ymStAltRecipeMaps = {}; // Dynamic: { 1: Map, 2: Map, 3: Map, ... } for unlimited alternative recipes
 
@@ -9902,7 +9993,7 @@ const TavliBalyaTelNetsis = () => {
                       });
                     });
 
-                    // STEP 4: Extract main YM ST from YM TT recipes
+                    // STEP 4: Extract main YM ST or YM STP from YM TT recipes
                     const mainYmStRecipe = ymGtRecipes.find(r =>
                       (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
                       r.bilesen_kodu &&
@@ -9910,32 +10001,69 @@ const TavliBalyaTelNetsis = () => {
                     );
 
                     if (mainYmStRecipe) {
+                      const bilesenKodu = mainYmStRecipe.bilesen_kodu;
 
-                      // Fetch main YM ST
-                      const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
-                      if (allYmStResponse && allYmStResponse.ok) {
-                        const allYmSt = await allYmStResponse.json();
-                        const ymSt = allYmSt.find(r => r.stok_kodu === mainYmStRecipe.bilesen_kodu);
+                      // Check if it's a YM STP (.P product) or YM ST (non-.P product)
+                      if (bilesenKodu.endsWith('.P')) {
+                        // YM STP product - fetch from ymStpData
+                        const ymStp = ymStpData.find(r => r.stok_kodu === bilesenKodu);
+
+                        if (ymStp) {
+                          console.log(`✅ Found main YM STP: ${ymStp.stok_kodu} (ID: ${ymStp.id})`);
+                          ymStpMap.set(ymStp.stok_kodu, ymStp);
+
+                          // Fetch YM STP recipes from upfront data
+                          const ymStpRecipes = ymStpRecipeData.filter(r => r.ym_stp_id == ymStp.id);
+                          console.log(`✅ Found ${ymStpRecipes.length} main YM STP recipes`);
+
+                          ymStpRecipes.forEach(r => {
+                            const key = `${ymStp.stok_kodu}-${r.bilesen_kodu}`;
+                            ymStpRecipeMap.set(key, {
+                              ...r,
+                              ym_stp_stok_kodu: ymStp.stok_kodu
+                            });
+                          });
+
+                          // Also fetch the underlying YM ST (without .P) that was pressed
+                          const baseYmStKodu = bilesenKodu.replace('.P', '');
+                          const baseYmSt = ymStData.find(r => r.stok_kodu === baseYmStKodu);
+
+                          if (baseYmSt) {
+                            console.log(`✅ Found base YM ST for pressing: ${baseYmSt.stok_kodu} (ID: ${baseYmSt.id})`);
+                            ymStMap.set(baseYmSt.stok_kodu, baseYmSt);
+
+                            // Fetch base YM ST recipes
+                            const baseYmStRecipes = ymStRecipeData.filter(r => r.ym_st_id == baseYmSt.id);
+                            console.log(`✅ Found ${baseYmStRecipes.length} base YM ST recipes`);
+
+                            baseYmStRecipes.forEach(r => {
+                              const key = `${baseYmSt.stok_kodu}-${r.bilesen_kodu}`;
+                              ymStRecipeMap.set(key, {
+                                ...r,
+                                ym_st_stok_kodu: baseYmSt.stok_kodu
+                              });
+                            });
+                          }
+                        }
+                      } else {
+                        // YM ST product (non-.P) - fetch from ymStData
+                        const ymSt = ymStData.find(r => r.stok_kodu === bilesenKodu);
 
                         if (ymSt) {
                           console.log(`✅ Found main YM ST: ${ymSt.stok_kodu} (ID: ${ymSt.id})`);
                           ymStMap.set(ymSt.stok_kodu, ymSt);
 
-                          // Fetch main YM ST recipes
-                          const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
-                          if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
-                            const allYmStRecipes = await allYmStRecipesResponse.json();
-                            const ymStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymSt.id);
-                            console.log(`✅ Found ${ymStRecipes.length} main YM ST recipes`);
+                          // Fetch main YM ST recipes from upfront data
+                          const ymStRecipes = ymStRecipeData.filter(r => r.ym_st_id == ymSt.id);
+                          console.log(`✅ Found ${ymStRecipes.length} main YM ST recipes`);
 
-                            ymStRecipes.forEach(r => {
-                              const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
-                              ymStRecipeMap.set(key, {
-                                ...r,
-                                ym_st_stok_kodu: ymSt.stok_kodu
-                              });
+                          ymStRecipes.forEach(r => {
+                            const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
+                            ymStRecipeMap.set(key, {
+                              ...r,
+                              ym_st_stok_kodu: ymSt.stok_kodu
                             });
-                          }
+                          });
                         }
                       }
                     }
@@ -9976,16 +10104,46 @@ const TavliBalyaTelNetsis = () => {
                 }
               });
 
-              // ✅ FIXED: Find YM ST bilesen from YM TT recipe
+              // ✅ FIXED: Find YM ST/STP bilesen from YM TT recipe
               const ymStRecipe = ymGtRecipesForPriority.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
               if (ymStRecipe) {
                 const mainYmStCode = ymStRecipe.bilesen_kodu;
-                console.log(`📋 BATCH: Main YM ST bilesen: ${mainYmStCode}`);
+                console.log(`📋 BATCH: Main YM ST/STP bilesen: ${mainYmStCode}`);
 
-                // Find main YM ST product (might already be in map from earlier code)
-                let mainYmSt = ymStMap.get(mainYmStCode);
+                // Check if it's a .P product (YM STP) or non-.P (YM ST)
+                const isStpProduct = mainYmStCode.endsWith('.P');
+                let baseYmStCode = mainYmStCode;
+                let mainYmSt = null;
+                let mainYmStp = null;
+
+                if (isStpProduct) {
+                  // YM STP product - find it in ymStpData
+                  mainYmStp = ymStpMap.get(mainYmStCode) || ymStpData.find(ym => ym.stok_kodu === mainYmStCode);
+                  if (mainYmStp) {
+                    console.log(`✅ BATCH: Adding main YM STP: ${mainYmStp.stok_kodu}`);
+                    ymStpMap.set(mainYmStp.stok_kodu, mainYmStp);
+
+                    // Add YM STP recipes
+                    const mainYmStpRecipes = ymStpRecipeData.filter(r => r.ym_stp_id == mainYmStp.id);
+                    mainYmStpRecipes.forEach(r => {
+                      const key = `${mainYmStp.stok_kodu}-${r.bilesen_kodu}`;
+                      if (!ymStpRecipeMap.has(key)) {
+                        ymStpRecipeMap.set(key, {
+                          ...r,
+                          ym_stp_stok_kodu: mainYmStp.stok_kodu
+                        });
+                      }
+                    });
+                  }
+
+                  // Get base YM ST code (without .P) for finding alternatives
+                  baseYmStCode = mainYmStCode.replace('.P', '');
+                }
+
+                // Find/add main YM ST product (either the base for pressing or direct YM ST)
+                mainYmSt = ymStMap.get(baseYmStCode);
                 if (!mainYmSt) {
-                  mainYmSt = ymStData.find(ym => ym.stok_kodu === mainYmStCode);
+                  mainYmSt = ymStData.find(ym => ym.stok_kodu === baseYmStCode);
                   if (mainYmSt) {
                     console.log(`✅ BATCH: Adding main YM ST from ymStData: ${mainYmSt.stok_kodu} (priority: ${mainYmSt.priority || 0})`);
                     ymStMap.set(mainYmSt.stok_kodu, mainYmSt);
@@ -10054,6 +10212,29 @@ const TavliBalyaTelNetsis = () => {
                           ym_st_stok_kodu: ymSt.stok_kodu
                         });
                       });
+
+                      // If main product was .P (YM STP), also collect the .P version of this alternative
+                      if (isStpProduct) {
+                        const ymStpKodu = ymSt.stok_kodu + '.P';
+                        const ymStp = ymStpData.find(ym => ym.stok_kodu === ymStpKodu);
+
+                        if (ymStp) {
+                          console.log(`📦 BATCH: Adding YM STP alternative: ${ymStp.stok_kodu}`);
+                          ymStpMap.set(ymStp.stok_kodu, ymStp);
+
+                          // Add YM STP alternative recipes
+                          const ymStpRecipes = ymStpRecipeData.filter(r => r.ym_stp_id == ymStp.id);
+                          ymStpRecipes.forEach(r => {
+                            const key = `${ymStp.stok_kodu}-${r.bilesen_kodu}`;
+                            if (!ymStpRecipeMap.has(key)) {
+                              ymStpRecipeMap.set(key, {
+                                ...r,
+                                ym_stp_stok_kodu: ymStp.stok_kodu
+                              });
+                            }
+                          });
+                        }
+                      }
                     });
                   } else {
                     console.warn(`⚠️ BATCH: Could not extract diameter from ${mainYmStCode}`);
@@ -10084,6 +10265,8 @@ const TavliBalyaTelNetsis = () => {
     // Convert Maps to arrays for Excel generation
     console.log('🗂️ === FINAL MAP CONTENTS ===');
     console.log(`MM TT Map keys: [${Array.from(mmMap.keys()).join(', ')}]`);
+    console.log(`YM TT Map keys: [${Array.from(ymGtMap.keys()).join(', ')}]`);
+    console.log(`YM STP Map keys: [${Array.from(ymStpMap.keys()).join(', ')}]`);
     console.log(`YM ST Map keys: [${Array.from(ymStMap.keys()).join(', ')}]`);
 
     // Log alternative maps dynamically
@@ -10093,6 +10276,7 @@ const TavliBalyaTelNetsis = () => {
 
     const allMmGtData = Array.from(mmMap.values());
     const allYmGtData = Array.from(ymGtMap.values());
+    const allYmStpData = Array.from(ymStpMap.values());
     const allYmStData = Array.from(ymStMap.values());
 
     // Convert alternative maps to arrays dynamically
@@ -10103,6 +10287,7 @@ const TavliBalyaTelNetsis = () => {
 
     const allMmGtRecipes = Array.from(mmRecipeMap.values());
     const allYmGtRecipes = Array.from(ymGtRecipeMap.values());
+    const allYmStpRecipes = Array.from(ymStpRecipeMap.values());
     const allYmStRecipes = Array.from(ymStRecipeMap.values());
 
     // Convert alternative recipe maps to arrays dynamically
@@ -10114,6 +10299,10 @@ const TavliBalyaTelNetsis = () => {
     console.log('📊 === BATCH DATA COLLECTION SUMMARY ===');
     console.log(`MM TT Products: ${allMmGtData.length}`);
     console.log(`MM TT Recipes: ${allMmGtRecipes.length} (should be ~${allMmGtData.length * 8} for 8 components per product)`);
+    console.log(`YM TT Products: ${allYmGtData.length}`);
+    console.log(`YM TT Recipes: ${allYmGtRecipes.length}`);
+    console.log(`YM STP Products: ${allYmStpData.length}`);
+    console.log(`YM STP Recipes: ${allYmStpRecipes.length}`);
     console.log(`YM ST Products (Ana): ${allYmStData.length}`);
     console.log(`YM ST Recipes (Ana): ${allYmStRecipes.length}`);
 
@@ -10172,62 +10361,34 @@ const TavliBalyaTelNetsis = () => {
       });
     });
 
-    // 🔧 CRITICAL FIX: Fetch COILER alternative products from recipes
-    // For .ST products, alternatives are generated dynamically from COILER matrix
-    // We need to fetch those products and add them to sortedYmStAltData
-    console.log('🔄 BATCH: Fetching COILER alternative YM ST products...');
-
-    // Generate COILER alternatives to find what products we need
-    const coilerAlternativesPreview = generateCoilerAlternatives(allYmStRecipes, sortedYmStData);
-    const altPrioritiesPreview = Object.keys(coilerAlternativesPreview).map(Number).sort((a, b) => a - b);
-    console.log(`📋 BATCH: Preview found ${altPrioritiesPreview.length} priority levels with COILER alternatives`);
-
-    for (const priority of altPrioritiesPreview) {
-      const altRecipes = coilerAlternativesPreview[priority];
-      if (!altRecipes || altRecipes.length === 0) continue;
-
-      // Extract unique bilesen_kodu values (alternative YM ST products)
-      const uniqueBilesenCodes = [...new Set(
-        altRecipes
-          .filter(r => r.operasyon_bilesen === 'B' && r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'))
-          .map(r => r.bilesen_kodu)
-      )];
-
-      console.log(`  Priority ${priority}: Found ${uniqueBilesenCodes.length} unique alternative YM ST products`);
-
-      // Fetch these products from database and add to sortedYmStAltData
-      if (!sortedYmStAltData[priority]) {
-        sortedYmStAltData[priority] = [];
+    // Sort YM STP products (already collected from ymStpMap)
+    const sortedYmStpData = allYmStpData.sort((a, b) => {
+      const capA = parseFloat(a.cap) || 0;
+      const capB = parseFloat(b.cap) || 0;
+      if (capA !== capB) {
+        return capA - capB;
       }
-
-      for (const bilesenKodu of uniqueBilesenCodes) {
-        try {
-          const response = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(bilesenKodu)}`);
-          if (response && response.ok) {
-            const data = await response.json();
-            if (data && data.length > 0) {
-              // Check if not already in list (avoid duplicates)
-              const exists = sortedYmStAltData[priority].some(p => p.stok_kodu === bilesenKodu);
-              if (!exists) {
-                sortedYmStAltData[priority].push({ ...data[0], priority });
-                console.log(`    ✅ Added to YM ST ALT ${priority}: ${bilesenKodu}`);
-              }
-            } else {
-              console.warn(`    ⚠️ Not found in database: ${bilesenKodu}`);
-            }
-          }
-        } catch (error) {
-          console.error(`    ❌ Error fetching ${bilesenKodu}:`, error);
-        }
-      }
-    }
-
-    console.log(`✅ BATCH: COILER alternative products added to sortedYmStAltData`);
-    Object.keys(sortedYmStAltData).forEach(priority => {
-      console.log(`  YM ST ALT ${priority}: ${sortedYmStAltData[priority].length} products`);
+      return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
 
-    // Recipe order will be determined by sorted product data in generateBatchReceteExcel
+    // ===========================================================================================
+    // FINAL DATA STRUCTURE SUMMARY:
+    // ===========================================================================================
+    //
+    // STOK KARTI Excel (Product Cards):
+    //   - MM TT: All MM TT final products (NO alternatives exist)
+    //   - YM TT: All YM TT annealed products (NO alternatives exist - all YM TT are unique products)
+    //   - YM STP: All YM STP pressed products with .P suffix (collected from tavli_netsis_ym_stp table)
+    //             Includes main + alternatives (alternatives come from FİLMAŞİN matrix priorities)
+    //   - YM ST:  All YM ST wire-drawn products (collected from tavli_netsis_ym_st table)
+    //             Includes main + alternatives (alternatives come from FİLMAŞİN or COILER matrices)
+    //
+    // RECETE Excel (Recipes):
+    //   - MM TT REÇETE: How to make MM TT from YM TT (NO alternatives, single sheet)
+    //   - YM TT REÇETE + ALT 1, ALT 2: How to make YM TT from YM STP/ST (alternatives from FİLMAŞİN matrix)
+    //   - YM STP REÇETE: How to make YM STP from YM ST by pressing (NO alternatives, single sheet)
+    //   - YM ST REÇETE + ALT 1-8: How to make YM ST from FLM/coils (alternatives ONLY for .ST products < 1.5mm)
+    // ===========================================================================================
     
     
     // Final data collection summary (after sorting)
@@ -10250,9 +10411,16 @@ const TavliBalyaTelNetsis = () => {
         cap: y.cap
       })));
     }
+    if (sortedYmStpData.length > 0) {
+      console.log('📦 YM STP Products details (sorted by cap):', sortedYmStpData.map(s => ({
+        stok_kodu: s.stok_kodu,
+        id: s.id,
+        cap: s.cap
+      })));
+    }
     if (sortedYmStData.length > 0) {
-      console.log('📦 YM ST Products details (sorted by cap):', sortedYmStData.map(s => ({ 
-        stok_kodu: s.stok_kodu, 
+      console.log('📦 YM ST Products details (sorted by cap):', sortedYmStData.map(s => ({
+        stok_kodu: s.stok_kodu,
         id: s.id,
         cap: s.cap,
         filmasin: s.filmasin
@@ -10281,22 +10449,22 @@ const TavliBalyaTelNetsis = () => {
       current: requestsList.length + 1,
       total: totalSteps,
       operation: 'Stok Kartı Excel oluşturuluyor...',
-      currentProduct: `${sortedMmGtData.length} MM TT, ${sortedYmGtData.length} YM TT, ${sortedYmStData.length} YM ST (Ana)${altCounts ? ', ' + altCounts : ''}`
+      currentProduct: `${sortedMmGtData.length} MM TT, ${sortedYmGtData.length} YM TT, ${sortedYmStpData.length} YM STP, ${sortedYmStData.length} YM ST (Ana)${altCounts ? ', ' + altCounts : ''}`
     });
-    await generateBatchStokKartiExcel(sortedMmGtData, sortedYmGtData, sortedYmStData, sortedYmStAltData);
+    await generateBatchStokKartiExcel(sortedMmGtData, sortedYmGtData, sortedYmStpData, sortedYmStData, sortedYmStAltData);
 
     console.log('📄 Starting Reçete Excel generation...');
 
     // Calculate total recipes (ALT recipes will be generated dynamically)
-    const totalRecipes = allMmGtRecipes.length + allYmGtRecipes.length + allYmStRecipes.length;
+    const totalRecipes = allMmGtRecipes.length + allYmGtRecipes.length + allYmStpRecipes.length + allYmStRecipes.length;
 
     setExcelProgress({
       current: requestsList.length + 2,
       total: totalSteps,
       operation: 'Reçete Excel oluşturuluyor...',
-      currentProduct: `${totalRecipes} ana reçete (ALT reçeteler dinamik olarak oluşturulacak)`
+      currentProduct: `${totalRecipes} ana reçete (MM: ${allMmGtRecipes.length}, YM TT: ${allYmGtRecipes.length}, YM STP: ${allYmStpRecipes.length}, YM ST: ${allYmStRecipes.length})`
     });
-    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData);
+    await generateBatchReceteExcel(allMmGtRecipes, allYmGtRecipes, allYmStpRecipes, allYmStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStpData, sortedYmStData);
     
     console.log('🎉 === BATCH EXCEL GENERATION COMPLETED SUCCESSFULLY ===');
     setExcelProgress({ 
@@ -10345,53 +10513,28 @@ const TavliBalyaTelNetsis = () => {
       }
     }
 
-    // YM ST Sheet (Ana) - Main products only
+    // YM ST Sheet - ALL YM ST products in ONE sheet (main + alternatives)
+    // According to analysis: STOK KARTI should NOT have separate "YM ST ALT 1", "YM ST ALT 2" sheets
+    // But the single "YM ST" sheet should contain ALL products (priority 0, 1, 2)
     const ymStSheet = workbook.addWorksheet('YM ST');
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
 
-    // Categorize all YM STs by priority (from ymStData and ymStAltDataObj)
-    const allYmSts = [...ymStData];
+    // Add main YM ST products (priority 0)
+    ymStData.forEach(ymSt => {
+      ymStSheet.addRow(generateYmStStokKartiData(ymSt));
+    });
+
+    // Add alternative YM ST products (priority 1, 2) to the SAME sheet
     if (ymStAltDataObj) {
       Object.values(ymStAltDataObj).forEach(altArray => {
         if (Array.isArray(altArray)) {
-          allYmSts.push(...altArray);
+          altArray.forEach(ymSt => {
+            ymStSheet.addRow(generateYmStStokKartiData(ymSt));
+          });
         }
       });
     }
-
-    // Group by priority
-    const ymStsByPriority = {};
-    allYmSts.forEach(ymSt => {
-      const priority = ymSt.priority !== undefined ? ymSt.priority : 0;
-      if (!ymStsByPriority[priority]) {
-        ymStsByPriority[priority] = [];
-      }
-      ymStsByPriority[priority].push(ymSt);
-    });
-
-    // Add YM STs dynamically for each priority
-    const priorities = Object.keys(ymStsByPriority).map(Number).sort((a, b) => a - b);
-
-    priorities.forEach(priority => {
-      const ymSts = ymStsByPriority[priority];
-
-      if (priority === 0) {
-        // Main products (priority 0) - add to main YM ST sheet
-        ymSts.forEach(ymSt => {
-          ymStSheet.addRow(generateYmStStokKartiData(ymSt));
-        });
-      } else if (priority > 0) {
-        // ✅ FIXED: Alternative products (priority 1, 2, 3, ...) - Only create ALT sheets for priority >= 1
-        if (ymSts.length > 0) {
-          const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
-          altSheet.addRow(ymStHeaders);
-          ymSts.forEach(ymSt => {
-            altSheet.addRow(generateYmStStokKartiData(ymSt));
-          });
-        }
-      }
-    });
 
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
@@ -10441,13 +10584,15 @@ const TavliBalyaTelNetsis = () => {
       }
     });
 
-    // YM TT REÇETE Sheet (Annealed Intermediate - always exists)
+    // YM TT REÇETE Sheet (Annealed Intermediate - priority 0 / main)
     if (ymTtRecipes && ymTtRecipes.length > 0) {
       const ymTtReceteSheet = workbook.addWorksheet('YM TT REÇETE');
       ymTtReceteSheet.addRow(receteHeaders);
 
+      // Filter main recipes (priority 0)
+      const ymTtMainRecipes = ymTtRecipes.filter(r => (r.priority || 0) === 0);
       const ymTtByProduct = {};
-      ymTtRecipes.forEach(recipe => {
+      ymTtMainRecipes.forEach(recipe => {
         if (!ymTtByProduct[recipe.ym_tt_stok_kodu]) {
           ymTtByProduct[recipe.ym_tt_stok_kodu] = [];
         }
@@ -10460,7 +10605,7 @@ const TavliBalyaTelNetsis = () => {
 
       sortedYmTtStokCodes.forEach(stokKodu => {
         if (ymTtByProduct[stokKodu] && ymTtByProduct[stokKodu].length > 0) {
-          console.log(`✅ Adding ${ymTtByProduct[stokKodu].length} recipes for YM TT: ${stokKodu}`);
+          console.log(`✅ Adding ${ymTtByProduct[stokKodu].length} main recipes for YM TT: ${stokKodu}`);
           let productSiraNo = 1;
           ymTtByProduct[stokKodu].forEach(recipe => {
             ymTtReceteSheet.addRow(generateYmTtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_tt_stok_kodu, recipe.operasyon_bilesen));
@@ -10469,7 +10614,69 @@ const TavliBalyaTelNetsis = () => {
         }
       });
 
-      console.log(`✅ YM TT REÇETE sheet created with ${ymTtRecipes.length} recipes`);
+      console.log(`✅ YM TT REÇETE sheet created with ${ymTtMainRecipes.length} main recipes`);
+
+      // YM TT REÇETE ALT 1 Sheet (priority 1)
+      const ymTtAlt1Recipes = ymTtRecipes.filter(r => (r.priority || 0) === 1);
+      if (ymTtAlt1Recipes.length > 0) {
+        const ymTtAlt1Sheet = workbook.addWorksheet('YM TT REÇETE ALT 1');
+        ymTtAlt1Sheet.addRow(receteHeaders);
+
+        const ymTtAlt1ByProduct = {};
+        ymTtAlt1Recipes.forEach(recipe => {
+          if (!ymTtAlt1ByProduct[recipe.ym_tt_stok_kodu]) {
+            ymTtAlt1ByProduct[recipe.ym_tt_stok_kodu] = [];
+          }
+          ymTtAlt1ByProduct[recipe.ym_tt_stok_kodu].push(recipe);
+        });
+
+        const sortedYmTtAlt1StokCodes = sortedYmTtData && sortedYmTtData.length > 0
+          ? sortedYmTtData.map(product => product.stok_kodu)
+          : Object.keys(ymTtAlt1ByProduct);
+
+        sortedYmTtAlt1StokCodes.forEach(stokKodu => {
+          if (ymTtAlt1ByProduct[stokKodu] && ymTtAlt1ByProduct[stokKodu].length > 0) {
+            let productSiraNo = 1;
+            ymTtAlt1ByProduct[stokKodu].forEach(recipe => {
+              ymTtAlt1Sheet.addRow(generateYmTtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_tt_stok_kodu, recipe.operasyon_bilesen));
+              productSiraNo++;
+            });
+          }
+        });
+
+        console.log(`✅ YM TT REÇETE ALT 1 sheet created with ${ymTtAlt1Recipes.length} recipes`);
+      }
+
+      // YM TT REÇETE ALT 2 Sheet (priority 2)
+      const ymTtAlt2Recipes = ymTtRecipes.filter(r => (r.priority || 0) === 2);
+      if (ymTtAlt2Recipes.length > 0) {
+        const ymTtAlt2Sheet = workbook.addWorksheet('YM TT REÇETE ALT 2');
+        ymTtAlt2Sheet.addRow(receteHeaders);
+
+        const ymTtAlt2ByProduct = {};
+        ymTtAlt2Recipes.forEach(recipe => {
+          if (!ymTtAlt2ByProduct[recipe.ym_tt_stok_kodu]) {
+            ymTtAlt2ByProduct[recipe.ym_tt_stok_kodu] = [];
+          }
+          ymTtAlt2ByProduct[recipe.ym_tt_stok_kodu].push(recipe);
+        });
+
+        const sortedYmTtAlt2StokCodes = sortedYmTtData && sortedYmTtData.length > 0
+          ? sortedYmTtData.map(product => product.stok_kodu)
+          : Object.keys(ymTtAlt2ByProduct);
+
+        sortedYmTtAlt2StokCodes.forEach(stokKodu => {
+          if (ymTtAlt2ByProduct[stokKodu] && ymTtAlt2ByProduct[stokKodu].length > 0) {
+            let productSiraNo = 1;
+            ymTtAlt2ByProduct[stokKodu].forEach(recipe => {
+              ymTtAlt2Sheet.addRow(generateYmTtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_tt_stok_kodu, recipe.operasyon_bilesen));
+              productSiraNo++;
+            });
+          }
+        });
+
+        console.log(`✅ YM TT REÇETE ALT 2 sheet created with ${ymTtAlt2Recipes.length} recipes`);
+      }
     }
 
     // YM STP REÇETE Sheet (Pressed Intermediate - only if cap > 1.8mm)
@@ -10513,13 +10720,17 @@ const TavliBalyaTelNetsis = () => {
     const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
     console.log(`📋 BATCH RECETE: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
-    // Group main recipes by product
+    // Group main recipes by product (priority 0 only)
     const ymStByProduct = {};
     ymStRecipes.forEach(recipe => {
-      if (!ymStByProduct[recipe.ym_st_stok_kodu]) {
-        ymStByProduct[recipe.ym_st_stok_kodu] = [];
+      // Only include priority 0 recipes in main sheet
+      const priority = recipe.ym_st_priority || 0;
+      if (priority === 0) {
+        if (!ymStByProduct[recipe.ym_st_stok_kodu]) {
+          ymStByProduct[recipe.ym_st_stok_kodu] = [];
+        }
+        ymStByProduct[recipe.ym_st_stok_kodu].push(recipe);
       }
-      ymStByProduct[recipe.ym_st_stok_kodu].push(recipe);
     });
 
     // Add main recipes (priority 0)
@@ -10540,7 +10751,8 @@ const TavliBalyaTelNetsis = () => {
       }
     });
 
-    // 🆕 Create YM ST REÇETE ALT 1-8 sheets dynamically based on generated alternatives
+    // 🆕 Create YM ST REÇETE ALT 1-8 sheets dynamically from COILER alternatives
+    // These are ONLY for .ST products (< 1.5mm)
     altPriorities.forEach(priority => {
       const altRecipes = coilerAlternatives[priority];
       if (!altRecipes || altRecipes.length === 0) return;
@@ -11998,82 +12210,13 @@ const TavliBalyaTelNetsis = () => {
           return true;
         });
 
-        console.log(`📋 SINGLE PRODUCT: Found ${alternativesForDiameter.length} alternatives for diameter ${targetDiameter/100}mm`);
+        console.log(`📋 SINGLE PRODUCT: Found ${alternativesForDiameter.length} alternatives with priority in database`);
+        console.log(`📋 IMPORTANT: These are YM TT alternative sources, NOT YM ST alternatives for STOK KARTI`);
+        console.log(`📋 YM ST alternatives (for .ST products) are generated in RECETE Excel only`);
 
-        // Group alternatives by priority
-        alternativesForDiameter.forEach(ymSt => {
-          const priority = ymSt.priority || 1;
-          if (!ymStAltDataObj[priority]) {
-            ymStAltDataObj[priority] = [];
-          }
-          ymStAltDataObj[priority].push(ymSt);
-          console.log(`  Priority ${priority}: ${ymSt.stok_kodu}`);
-        });
-
-        // 🔧 CRITICAL FIX: For COILER products, also fetch alternative products from COILER matrix
-        // because they're generated dynamically, not stored in DB with priority values
-        if (isCoilerProduct) {
-          console.log(`📋 SINGLE PRODUCT: COILER product detected, fetching matrix-based alternatives...`);
-
-          // First fetch the main YM ST recipe to generate alternatives from
-          const mainYmStRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${mainYmSt.id}`);
-          if (mainYmStRecipeResponse && mainYmStRecipeResponse.ok) {
-            const mainYmStRecipes = await mainYmStRecipeResponse.json();
-            mainYmStRecipes.forEach(recipe => {
-              recipe.ym_st_stok_kodu = mainYmSt.stok_kodu;
-            });
-
-            // Generate COILER alternatives
-            const coilerAlternativesPreview = generateCoilerAlternatives(mainYmStRecipes, [mainYmSt]);
-            const coilerAltPriorities = Object.keys(coilerAlternativesPreview).map(Number).sort((a, b) => a - b);
-            console.log(`📋 SINGLE PRODUCT: Generated ${coilerAltPriorities.length} priority levels from COILER matrix`);
-
-            // Fetch the alternative products
-            for (const priority of coilerAltPriorities) {
-              const altRecipes = coilerAlternativesPreview[priority];
-              if (!altRecipes || altRecipes.length === 0) continue;
-
-              // Extract unique bilesen_kodu values (alternative YM ST products)
-              const uniqueBilesenCodes = [...new Set(
-                altRecipes
-                  .filter(r => r.operasyon_bilesen === 'B' && r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'))
-                  .map(r => r.bilesen_kodu)
-              )];
-
-              console.log(`  Priority ${priority}: Found ${uniqueBilesenCodes.length} unique alternative products`);
-
-              if (!ymStAltDataObj[priority]) {
-                ymStAltDataObj[priority] = [];
-              }
-
-              for (const bilesenKodu of uniqueBilesenCodes) {
-                try {
-                  const response = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(bilesenKodu)}`);
-                  if (response && response.ok) {
-                    const data = await response.json();
-                    if (data && data.length > 0) {
-                      // Check if not already in list
-                      const exists = ymStAltDataObj[priority].some(p => p.stok_kodu === bilesenKodu);
-                      if (!exists) {
-                        ymStAltDataObj[priority].push({ ...data[0], priority });
-                        console.log(`    ✅ Added to YM ST ALT ${priority}: ${bilesenKodu}`);
-                      }
-                    } else {
-                      console.warn(`    ⚠️ Not found in database: ${bilesenKodu}`);
-                    }
-                  }
-                } catch (error) {
-                  console.error(`    ❌ Error fetching ${bilesenKodu}:`, error);
-                }
-              }
-            }
-
-            console.log(`✅ SINGLE PRODUCT: COILER alternative products added to ymStAltDataObj`);
-            Object.keys(ymStAltDataObj).forEach(priority => {
-              console.log(`  YM ST ALT ${priority}: ${ymStAltDataObj[priority].length} products`);
-            });
-          }
-        }
+        // Note: Do NOT add to ymStAltDataObj
+        // YM ST alternative PRODUCTS do NOT go in STOK KARTI Excel
+        // Only YM ST alternative RECIPES are generated for RECETE Excel (for .ST products only)
       }
 
       // 6. Fetch recipes from database for all products
