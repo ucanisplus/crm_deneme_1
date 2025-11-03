@@ -9729,7 +9729,7 @@ const TavliBalyaTelNetsis = () => {
 
     // ✅ Add FILTERED YM ST products (already filtered above based on collected bilesen)
     filteredYmStProducts.forEach(ymSt => {
-      ymStSheet.addRow(generateYmStStokKartiDataForBatch(ymSt));
+      ymStSheet.addRow(generateYmStStokKartiData(ymSt));
     });
 
     // Save Stok Kartları Excel
