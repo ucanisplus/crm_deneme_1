@@ -10982,102 +10982,13 @@ const TavliBalyaTelNetsis = () => {
 
       console.log(`✅ YM TT REÇETE sheet created with ${ymTtMainRecipes.length} main recipes`);
 
-      // ✅ GENERATE YM TT ALTERNATIVES DYNAMICALLY (same as TÜM ÜRÜNLER)
-      const ymTtAlt1RecipesGenerated = [];
-      const ymTtAlt2RecipesGenerated = [];
+      // ✅ FIX: Use alternatives FROM DATABASE (priority 1, 2, 3) instead of generating
+      // The database already has the correct alternatives saved by saveYmTtRecipes()
+      const ymTtAlt1RecipesGenerated = ymTtRecipes.filter(r => (r.priority || 0) === 1);
+      const ymTtAlt2RecipesGenerated = ymTtRecipes.filter(r => (r.priority || 0) === 2);
+      const ymTtAlt3RecipesGenerated = ymTtRecipes.filter(r => (r.priority || 0) === 3);
 
-      sortedYmTtStokCodes.forEach(stokKodu => {
-        if (ymTtByProduct[stokKodu] && ymTtByProduct[stokKodu].length > 0) {
-          const productRecipes = ymTtByProduct[stokKodu];
-
-          // ✅ FIX: Use SAME dynamic logic as TÜM ÜRÜNLER (bulk Excel)
-          // Track which ALT priorities have actual bilesen (not just operations)
-          let productHasAlt1Bilesen = false;
-          let productHasAlt2Bilesen = false;
-          let productHasAlt3Bilesen = false;
-
-          productRecipes.forEach(recipe => {
-            if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
-              // Extract YM ST bilesen diameter from bilesen_kodu (e.g., YM.ST.0156.0600.1006 -> 1.56mm)
-              const bilesenParts = recipe.bilesen_kodu.split('.');
-              const ymStDiamCode = bilesenParts.length >= 3 ? bilesenParts[2] : '0000';
-              const bilesenDiameter = parseFloat(ymStDiamCode) / 100.0;
-              const isPressed = recipe.bilesen_kodu.endsWith('.P');
-
-              if (bilesenDiameter >= 1.5 && bilesenDiameter <= 1.8) {
-                // YM ST bilesen 1.5-1.8mm (inclusive): ALT 1 = COILER .ST
-                const alt1Recipe = { ...recipe };
-                alt1Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.ST`;
-                alt1Recipe.priority = 1;
-                ymTtAlt1RecipesGenerated.push(alt1Recipe);
-                productHasAlt1Bilesen = true; // Mark that this product has ALT 1 bilesen
-
-                // ✅ FIX: Detect which priority MAIN is using, and generate ALT using OTHER priorities
-                const matrixAlts = getMatrixAlternatives(bilesenDiameter);
-                if (matrixAlts) {
-                  // Extract quality code from MAIN bilesen (e.g., YM.ST.0156.0600.1006 -> 1006)
-                  const mainQuality = bilesenParts.length >= 5 ? bilesenParts[4] : '';
-
-                  // Find which priority the MAIN recipe is using
-                  const mainPriority = matrixAlts.findIndex(e => e.quality === mainQuality);
-
-                  // Generate alternatives using OTHER priorities (not the one MAIN uses)
-                  const availableAlts = matrixAlts.filter((e, idx) => idx !== mainPriority);
-
-                  // ALT 2 = First alternative (if available)
-                  if (availableAlts.length > 0) {
-                    const alt2Entry = availableAlts[0];
-                    const alt2Recipe = { ...recipe };
-                    const filmasinDiamCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
-                    alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}`;
-                    alt2Recipe.priority = 2;
-                    ymTtAlt2RecipesGenerated.push(alt2Recipe);
-                    productHasAlt2Bilesen = true;
-                  }
-                }
-              } else if (bilesenDiameter < 1.5) {
-                // YM ST bilesen < 1.5mm: NO alternatives (main sheet already uses .ST)
-                // Do nothing
-              } else {
-                // YM ST bilesen > 1.8mm: NO ALT 1 (ALT 1 is only for 1.5-1.8mm COILER)
-                // ✅ FIX: Detect which priority MAIN is using, and generate ALT using OTHER priorities
-                const matrixAlts = getMatrixAlternatives(bilesenDiameter);
-                if (matrixAlts) {
-                  // Extract quality code from MAIN bilesen (e.g., YM.ST.0310.0600.1008.P -> 1008)
-                  const mainQuality = bilesenParts.length >= 5 ? bilesenParts[4] : '';
-
-                  // Find which priority the MAIN recipe is using
-                  const mainPriority = matrixAlts.findIndex(e => e.quality === mainQuality);
-
-                  // Generate alternatives using OTHER priorities (not the one MAIN uses)
-                  const availableAlts = matrixAlts.filter((e, idx) => idx !== mainPriority);
-
-                  // ALT 2 = First alternative (if available)
-                  if (availableAlts.length > 0) {
-                    const alt2Entry = availableAlts[0];
-                    const alt2Recipe = { ...recipe };
-                    const filmasinDiamCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
-                    alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}.P`;
-                    alt2Recipe.priority = 2;
-                    ymTtAlt2RecipesGenerated.push(alt2Recipe);
-                    productHasAlt2Bilesen = true;
-                  }
-                }
-              }
-            } else {
-              // Non-YM ST components (TAV01, etc.) - copy to alternatives ONLY if bilesen exists
-              if (productHasAlt1Bilesen) {
-                ymTtAlt1RecipesGenerated.push({ ...recipe, priority: 1 });
-              }
-              if (productHasAlt2Bilesen) {
-                ymTtAlt2RecipesGenerated.push({ ...recipe, priority: 2 });
-              }
-            }
-          });
-        }
-      });
-
-      console.log(`📋 BATCH: Generated YM TT alternatives - ALT 1: ${ymTtAlt1RecipesGenerated.length}, ALT 2: ${ymTtAlt2RecipesGenerated.length}`);
+      console.log(`📋 BATCH: Using YM TT alternatives FROM DATABASE - ALT 1: ${ymTtAlt1RecipesGenerated.length}, ALT 2: ${ymTtAlt2RecipesGenerated.length}, ALT 3: ${ymTtAlt3RecipesGenerated.length}`);
 
       // YM TT REÇETE ALT 1 Sheet (COILER alternatives)
       const ymTtAlt1Recipes = ymTtAlt1RecipesGenerated;
@@ -11139,6 +11050,37 @@ const TavliBalyaTelNetsis = () => {
         });
 
         console.log(`✅ YM TT REÇETE ALT 2 sheet created with ${ymTtAlt2Recipes.length} recipes`);
+      }
+
+      // YM TT REÇETE ALT 3 Sheet (priority 3)
+      const ymTtAlt3Recipes = ymTtAlt3RecipesGenerated;
+      if (ymTtAlt3Recipes.length > 0) {
+        const ymTtAlt3Sheet = workbook.addWorksheet('YM TT REÇETE ALT 3');
+        ymTtAlt3Sheet.addRow(receteHeaders);
+
+        const ymTtAlt3ByProduct = {};
+        ymTtAlt3Recipes.forEach(recipe => {
+          if (!ymTtAlt3ByProduct[recipe.ym_tt_stok_kodu]) {
+            ymTtAlt3ByProduct[recipe.ym_tt_stok_kodu] = [];
+          }
+          ymTtAlt3ByProduct[recipe.ym_tt_stok_kodu].push(recipe);
+        });
+
+        const sortedYmTtAlt3StokCodes = sortedYmTtData && sortedYmTtData.length > 0
+          ? sortedYmTtData.map(product => product.stok_kodu)
+          : Object.keys(ymTtAlt3ByProduct);
+
+        sortedYmTtAlt3StokCodes.forEach(stokKodu => {
+          if (ymTtAlt3ByProduct[stokKodu] && ymTtAlt3ByProduct[stokKodu].length > 0) {
+            let productSiraNo = 1;
+            ymTtAlt3ByProduct[stokKodu].forEach(recipe => {
+              ymTtAlt3Sheet.addRow(generateYmTtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.ym_tt_stok_kodu, recipe.operasyon_bilesen));
+              productSiraNo++;
+            });
+          }
+        });
+
+        console.log(`✅ YM TT REÇETE ALT 3 sheet created with ${ymTtAlt3Recipes.length} recipes`);
       }
     }
 
