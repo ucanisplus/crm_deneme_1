@@ -7142,8 +7142,9 @@ const TavliBalyaTelNetsis = () => {
           console.log(`📋 YM STP ${ymStpDiameter}mm → Category ${category}: ${alternatives.length} alternatives available`);
 
           alternatives.forEach(altDef => {
-            // ✅ FIX: Include priority 0 (Alt 0) - changed from > 0 to >= 0
-            if (altDef.priority >= 0) {
+            // ✅ FIX: Skip priority 0 (already added manually from main product above)
+            // Priority 0 exists in COILER_ALTERNATIVE_MATRIX but we add it separately above
+            if (altDef.priority > 0) {
               const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
               const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
               const stokKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
@@ -7360,67 +7361,74 @@ const TavliBalyaTelNetsis = () => {
               isCoilerYellow: true // Flag for Excel yellow coloring
             });
 
-            // ALT 2: FILMAŞIN priority 1 (shifted because COILER takes ALT 1)
-            const alt2 = matrixAlts.find(alt => alt.priority === 1);
-            if (alt2) {
+            // ✅ FIX: Detect which priority MAIN is using, generate ALT using OTHER priorities
+            // Extract quality code from MAIN bilesen (e.g., YM.ST.0156.0600.1006 -> 1006)
+            const mainBilesenParts = mainYmSt.stok_kodu.split('.');
+            const mainQuality = mainBilesenParts.length >= 5 ? mainBilesenParts[4] : '';
+
+            // Find which priority the MAIN recipe is using
+            const mainPriority = matrixAlts.findIndex(e => e.quality === mainQuality);
+            console.log(`   📍 1.5-1.8mm: MAIN uses quality ${mainQuality}, priority ${mainPriority}`);
+
+            // Generate alternatives using OTHER priorities (not the one MAIN uses)
+            const availableAlts = matrixAlts.filter((e, idx) => idx !== mainPriority);
+
+            // ALT 2: First available alternative (if available)
+            if (availableAlts.length > 0) {
+              const alt2Entry = availableAlts[0];
               const capCode = String(Math.round(ymStDiameter * 100)).padStart(4, '0');
-              const filmasinCode = String(Math.round(alt2.diameter * 100)).padStart(4, '0');
-              let stokKodu = `YM.ST.${capCode}.${filmasinCode}.${alt2.quality}`;
+              const filmasinCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
+              let stokKodu = `YM.ST.${capCode}.${filmasinCode}.${alt2Entry.quality}`;
 
               // NO .P for 1.5-1.8mm range (< 1.8mm means no pressing)
 
               ymStAlternatives.push({
                 stokKodu: stokKodu,
                 priority: 2,
-                ymStDiameter: alt2.cap
+                ymStDiameter: alt2Entry.diameter
               });
+              console.log(`   ✅ ALT 2: ${stokKodu}`);
             }
 
-            // ALT 3: FILMAŞIN priority 2 (if exists)
-            const alt3 = matrixAlts.find(alt => alt.priority === 2);
-            if (alt3) {
+            // ALT 3: Second available alternative (if exists)
+            if (availableAlts.length > 1) {
+              const alt3Entry = availableAlts[1];
               const capCode = String(Math.round(ymStDiameter * 100)).padStart(4, '0');
-              const filmasinCode = String(Math.round(alt3.diameter * 100)).padStart(4, '0');
-              let stokKodu = `YM.ST.${capCode}.${filmasinCode}.${alt3.quality}`;
+              const filmasinCode = String(Math.round(alt3Entry.diameter * 100)).padStart(4, '0');
+              let stokKodu = `YM.ST.${capCode}.${filmasinCode}.${alt3Entry.quality}`;
 
               // NO .P for 1.5-1.8mm range (< 1.8mm means no pressing)
 
               ymStAlternatives.push({
                 stokKodu: stokKodu,
                 priority: 3,
-                ymStDiameter: alt3.cap
+                ymStDiameter: alt3Entry.diameter
               });
+              console.log(`   ✅ ALT 3: ${stokKodu}`);
             }
 
           } else {
             // >= 1.8mm range: Use FILMAŞIN alternatives with .P suffix
-            console.log(`   📌 >= 1.8mm range: Use FILMAŞIN ALT 1 & 2 with .P suffix`);
+            console.log(`   📌 >= 1.8mm range: Use FILMAŞIN ALT with .P suffix`);
 
-            // ALT 1: FILMAŞIN priority 1 + .P
-            const alt1 = matrixAlts.find(alt => alt.priority === 1);
-            if (alt1) {
+            // ✅ FIX: Detect which priority MAIN is using, generate ALT using OTHER priorities
+            // Extract quality code from MAIN bilesen (e.g., YM.ST.0196.0600.1006.P -> 1006)
+            const mainBilesenParts = mainYmSt.stok_kodu.split('.');
+            const mainQuality = mainBilesenParts.length >= 5 ? mainBilesenParts[4] : '';
+
+            // Find which priority the MAIN recipe is using
+            const mainPriority = matrixAlts.findIndex(e => e.quality === mainQuality);
+            console.log(`   📍 >= 1.8mm: MAIN uses quality ${mainQuality}, priority ${mainPriority}`);
+
+            // Generate alternatives using OTHER priorities (not the one MAIN uses)
+            const availableAlts = matrixAlts.filter((e, idx) => idx !== mainPriority);
+
+            // ALT 2: First available alternative (if available)
+            if (availableAlts.length > 0) {
+              const alt2Entry = availableAlts[0];
               const capCode = String(Math.round(ymStDiameter * 100)).padStart(4, '0');
-              const filmasinCode = String(Math.round(alt1.diameter * 100)).padStart(4, '0');
-              let stokKodu = `YM.ST.${capCode}.${filmasinCode}.${alt1.quality}`;
-
-              // Add .P suffix since pressing needed
-              if (needsPressing) {
-                stokKodu += '.P';
-              }
-
-              ymStAlternatives.push({
-                stokKodu: stokKodu,
-                priority: 1,
-                ymStDiameter: alt1.cap
-              });
-            }
-
-            // ALT 2: FILMAŞIN priority 2 + .P
-            const alt2 = matrixAlts.find(alt => alt.priority === 2);
-            if (alt2) {
-              const capCode = String(Math.round(ymStDiameter * 100)).padStart(4, '0');
-              const filmasinCode = String(Math.round(alt2.diameter * 100)).padStart(4, '0');
-              let stokKodu = `YM.ST.${capCode}.${filmasinCode}.${alt2.quality}`;
+              const filmasinCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
+              let stokKodu = `YM.ST.${capCode}.${filmasinCode}.${alt2Entry.quality}`;
 
               // Add .P suffix since pressing needed
               if (needsPressing) {
@@ -7430,8 +7438,29 @@ const TavliBalyaTelNetsis = () => {
               ymStAlternatives.push({
                 stokKodu: stokKodu,
                 priority: 2,
-                ymStDiameter: alt2.cap
+                ymStDiameter: alt2Entry.cap
               });
+              console.log(`   ✅ ALT 2: ${stokKodu}`);
+            }
+
+            // ALT 3: Second available alternative (if exists)
+            if (availableAlts.length > 1) {
+              const alt3Entry = availableAlts[1];
+              const capCode = String(Math.round(ymStDiameter * 100)).padStart(4, '0');
+              const filmasinCode = String(Math.round(alt3Entry.diameter * 100)).padStart(4, '0');
+              let stokKodu = `YM.ST.${capCode}.${filmasinCode}.${alt3Entry.quality}`;
+
+              // Add .P suffix since pressing needed
+              if (needsPressing) {
+                stokKodu += '.P';
+              }
+
+              ymStAlternatives.push({
+                stokKodu: stokKodu,
+                priority: 3,
+                ymStDiameter: alt3Entry.cap
+              });
+              console.log(`   ✅ ALT 3: ${stokKodu}`);
             }
           }
         }
@@ -10961,30 +10990,90 @@ const TavliBalyaTelNetsis = () => {
         if (ymTtByProduct[stokKodu] && ymTtByProduct[stokKodu].length > 0) {
           const productRecipes = ymTtByProduct[stokKodu];
 
-          // ALT 1: COILER (.ST versions)
-          const alt1Recipes = productRecipes.map(recipe => {
-            const newRecipe = { ...recipe };
-            if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.') && !recipe.bilesen_kodu.endsWith('.ST')) {
-              const match = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\./);
-              if (match) {
-                newRecipe.bilesen_kodu = `YM.ST.${match[1]}.ST`;
-                newRecipe.priority = 1;
+          // ✅ FIX: Use SAME dynamic logic as TÜM ÜRÜNLER (bulk Excel)
+          // Track which ALT priorities have actual bilesen (not just operations)
+          let productHasAlt1Bilesen = false;
+          let productHasAlt2Bilesen = false;
+          let productHasAlt3Bilesen = false;
+
+          productRecipes.forEach(recipe => {
+            if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
+              // Extract YM ST bilesen diameter from bilesen_kodu (e.g., YM.ST.0156.0600.1006 -> 1.56mm)
+              const bilesenParts = recipe.bilesen_kodu.split('.');
+              const ymStDiamCode = bilesenParts.length >= 3 ? bilesenParts[2] : '0000';
+              const bilesenDiameter = parseFloat(ymStDiamCode) / 100.0;
+              const isPressed = recipe.bilesen_kodu.endsWith('.P');
+
+              if (bilesenDiameter >= 1.5 && bilesenDiameter <= 1.8) {
+                // YM ST bilesen 1.5-1.8mm (inclusive): ALT 1 = COILER .ST
+                const alt1Recipe = { ...recipe };
+                alt1Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.ST`;
+                alt1Recipe.priority = 1;
+                ymTtAlt1RecipesGenerated.push(alt1Recipe);
+                productHasAlt1Bilesen = true; // Mark that this product has ALT 1 bilesen
+
+                // ✅ FIX: Detect which priority MAIN is using, and generate ALT using OTHER priorities
+                const matrixAlts = getMatrixAlternatives(bilesenDiameter);
+                if (matrixAlts) {
+                  // Extract quality code from MAIN bilesen (e.g., YM.ST.0156.0600.1006 -> 1006)
+                  const mainQuality = bilesenParts.length >= 5 ? bilesenParts[4] : '';
+
+                  // Find which priority the MAIN recipe is using
+                  const mainPriority = matrixAlts.findIndex(e => e.quality === mainQuality);
+
+                  // Generate alternatives using OTHER priorities (not the one MAIN uses)
+                  const availableAlts = matrixAlts.filter((e, idx) => idx !== mainPriority);
+
+                  // ALT 2 = First alternative (if available)
+                  if (availableAlts.length > 0) {
+                    const alt2Entry = availableAlts[0];
+                    const alt2Recipe = { ...recipe };
+                    const filmasinDiamCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
+                    alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}`;
+                    alt2Recipe.priority = 2;
+                    ymTtAlt2RecipesGenerated.push(alt2Recipe);
+                    productHasAlt2Bilesen = true;
+                  }
+                }
+              } else if (bilesenDiameter < 1.5) {
+                // YM ST bilesen < 1.5mm: NO alternatives (main sheet already uses .ST)
+                // Do nothing
+              } else {
+                // YM ST bilesen > 1.8mm: NO ALT 1 (ALT 1 is only for 1.5-1.8mm COILER)
+                // ✅ FIX: Detect which priority MAIN is using, and generate ALT using OTHER priorities
+                const matrixAlts = getMatrixAlternatives(bilesenDiameter);
+                if (matrixAlts) {
+                  // Extract quality code from MAIN bilesen (e.g., YM.ST.0310.0600.1008.P -> 1008)
+                  const mainQuality = bilesenParts.length >= 5 ? bilesenParts[4] : '';
+
+                  // Find which priority the MAIN recipe is using
+                  const mainPriority = matrixAlts.findIndex(e => e.quality === mainQuality);
+
+                  // Generate alternatives using OTHER priorities (not the one MAIN uses)
+                  const availableAlts = matrixAlts.filter((e, idx) => idx !== mainPriority);
+
+                  // ALT 2 = First alternative (if available)
+                  if (availableAlts.length > 0) {
+                    const alt2Entry = availableAlts[0];
+                    const alt2Recipe = { ...recipe };
+                    const filmasinDiamCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
+                    alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}.P`;
+                    alt2Recipe.priority = 2;
+                    ymTtAlt2RecipesGenerated.push(alt2Recipe);
+                    productHasAlt2Bilesen = true;
+                  }
+                }
+              }
+            } else {
+              // Non-YM ST components (TAV01, etc.) - copy to alternatives ONLY if bilesen exists
+              if (productHasAlt1Bilesen) {
+                ymTtAlt1RecipesGenerated.push({ ...recipe, priority: 1 });
+              }
+              if (productHasAlt2Bilesen) {
+                ymTtAlt2RecipesGenerated.push({ ...recipe, priority: 2 });
               }
             }
-            return newRecipe;
           });
-          ymTtAlt1RecipesGenerated.push(...alt1Recipes);
-
-          // ALT 2: Filmasin quality (1006 → 1008)
-          const alt2Recipes = productRecipes.map(recipe => {
-            const newRecipe = { ...recipe };
-            if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('.0600.1006')) {
-              newRecipe.bilesen_kodu = recipe.bilesen_kodu.replace('.0600.1006', '.0600.1008');
-              newRecipe.priority = 2;
-            }
-            return newRecipe;
-          });
-          ymTtAlt2RecipesGenerated.push(...alt2Recipes);
         }
       });
 
