@@ -6697,7 +6697,7 @@ const TavliBalyaTelNetsis = () => {
       stok_adi: `YM Presleme Siyah Tel ${capValue.toFixed(2)} mm Quality: ${ymSt.quality}`,
       grup_kodu: 'YM',
       kod_1: 'STP',
-      kod_2: ymSt.filmasin.toString().padStart(4, '0'),
+      kod_2: '', // EMPTY for YM STP - filmasin value stored in separate 'filmasin' field
       kod_3: ymSt.quality,
       turu: 'Y', // Yarı mamul (Semi-finished)
       muh_detay: '28',
@@ -13585,8 +13585,8 @@ const TavliBalyaTelNetsis = () => {
       ymStp.stok_adi || `Preslenmiş Siyah Tel ${cap.toFixed(2).replace('.', ',')} mm`, // Stok Adı
       'YM', // Grup Kodu
       'STP', // Kod-1 (NOT "TT.BALYA"!)
-      ymStp.kod_2 || '', // Kod-2
-      ymStp.kod_3 || '', // Kod-3
+      '', // Kod-2 - ALWAYS EMPTY for YM STP (filmasin stored in database but not shown in Excel)
+      ymStp.quality || ymStp.kod_3 || '', // Kod-3 - Quality
       '20', // Satış KDV Oranı
       '28', // Muh.Detay
       '35', // Depo Kodu
@@ -15284,40 +15284,67 @@ const TavliBalyaTelNetsis = () => {
                       // ✅ FIXED: packagingDuration is already a number from OPERATION_DURATIONS function
                       updateIfNotDb(packagingOperation, packagingDuration);
 
-                      // ✅ FIXED: Only add components based on packaging options
-                      // Shrink - Only if packaging includes shrink
-                      if (paketlemeSecenekleri.shrink) {
+                      // ✅ CRITICAL FIX: Parse stok_adi to determine which packaging materials to add
+                      // Only add packaging materials that are explicitly indicated in stok_adi
+                      // Reference: tavli_4/2.csv and genel.csv
+                      const mmStokAdi = generateStokAdi();
+                      const isOiled = mmData.yaglama_tipi && mmData.yaglama_tipi !== 'Yağsız' && mmData.yaglama_tipi !== '' && mmData.yaglama_tipi !== 'Tavlısız';
+
+                      console.log(`\n📦 === PACKAGING MATERIALS CHECK for YM ST ${index} ===`);
+                      console.log(`📝 Stok Adı: ${mmStokAdi}`);
+                      console.log(`🔍 Is Oiled: ${isOiled} (yaglama_tipi: ${mmData.yaglama_tipi})`);
+
+                      // Shrink - Only if "Shrink" is in stok_adi
+                      if (mmStokAdi.includes('Shrink')) {
                         updateIfNotDb(shrinkCode, shrinkAmount);
+                        console.log(`  ✅ Adding Shrink (found in stok_adi)`);
+                      } else {
+                        console.log(`  ⏭️  Skipping Shrink (not in stok_adi)`);
                       }
 
-                      // ✅ CRITICAL FIX: Karton AND Plastik Çember - BOTH for oiled products only (per 2.csv)
-                      // "Yağlı ürünlerde ekle" - NOT controlled by checkbox, but by yaglama_tipi
-                      if (mmData.yaglama_tipi && mmData.yaglama_tipi !== 'Yağsız') {
-                        // Both MUST be added together for oiled products
+                      // Karton - Only if "Krtn" is in stok_adi AND product is oiled
+                      if (mmStokAdi.includes('Krtn') && isOiled) {
                         updateIfNotDb('AMB.ÇEM.KARTON.GAL', kartonValue);
-                        updateIfNotDb('AMB.PLASTİK.ÇEMBER', plastikCemberValue);
+                        console.log(`  ✅ Adding Karton (found in stok_adi AND oiled)`);
+                      } else {
+                        console.log(`  ⏭️  Skipping Karton (not in stok_adi or not oiled)`);
                       }
 
-                      // ✅ TAVLI-ONLY components (per 4.csv structure)
+                      // Plastik Çember - Only for oiled BALYA products (per genel.csv)
+                      // BALYA products with PSK/DLD use Plastik Çember instead of Çelik Çember
+                      if (mmData.product_type === 'BALYA' && isOiled) {
+                        updateIfNotDb('AMB.PLASTİK.ÇEMBER', plastikCemberValue);
+                        console.log(`  ✅ Adding Plastik Çember (BALYA + oiled)`);
+                      } else {
+                        console.log(`  ⏭️  Skipping Plastik Çember (not BALYA or not oiled)`);
+                      }
+
+                      // Palet - Only if "Plt" is in stok_adi
+                      if (mmStokAdi.includes('Plt')) {
+                        updateIfNotDb('AMB.PALET', paletValue);
+                        console.log(`  ✅ Adding Palet (found in stok_adi)`);
+                      } else {
+                        console.log(`  ⏭️  Skipping Palet (not in stok_adi)`);
+                      }
+
+                      // ✅ TAVLI-ONLY components (per 4.csv structure and genel.csv)
                       if (mmData.product_type === 'TAVLI') {
                         // Halka (Kaldırma Kancası) - TAVLI only (4 for packaging + 2 for pressing if cap >= 1.8mm)
                         // ✅ FIX: "4 adet paketleme + 2 adet presleme" → 6 total if pressing needed
                         const halkaTotalValue = needsPressing ? parseFloat((6 / 1200).toFixed(5)) : halkaValue;
                         updateIfNotDb('SM.7MMHALKA', halkaTotalValue);
+                        console.log(`  ✅ Adding Halka (TAVLI): ${halkaTotalValue}`);
 
                         // Çember Tokası - TAVLI only (4 for packaging + 4 for pressing if cap >= 1.8mm)
                         // "paketleme 4 + presleme 4" → 8 total if pressing needed
                         const tokaTotalValue = needsPressing ? parseFloat((8 / 1200).toFixed(5)) : tokaValue;
                         updateIfNotDb('AMB.TOKA.SIGNODE.114P. DKP', tokaTotalValue);
+                        console.log(`  ✅ Adding Toka (TAVLI): ${tokaTotalValue}`);
 
                         // Çelik Çember - TAVLI only, x2 if pressing needed (Galvaniz formula)
                         const celikCemberTotalValue = needsPressing ? parseFloat(((2.4 * (1000 / kg)) / 1000).toFixed(5)) : celikCemberValue;
                         updateIfNotDb('AMB.APEX CEMBER 38X080', celikCemberTotalValue);
-                      }
-
-                      // Palet - Only if packaging includes palet (both TAVLI and BALYA)
-                      if (paketlemeSecenekleri.paletli) {
-                        updateIfNotDb('AMB.PALET', paletValue);
+                        console.log(`  ✅ Adding Çelik Çember (TAVLI): ${celikCemberTotalValue}`);
                       }
                     });
 
