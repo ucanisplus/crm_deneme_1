@@ -9615,28 +9615,42 @@ const TavliBalyaTelNetsis = () => {
                 ymTtAlt1Recetes.push(alt1Recipe);
                 productHasAlt1Bilesen = true; // Mark that this product has ALT 1 bilesen
 
-                // ALT 2 = Filmasin priority 1 from FILMASIN_MATRIX
+                // ✅ FIX: Detect which priority MAIN is using, and generate ALT using OTHER priorities
                 const matrixAlts = getMatrixAlternatives(bilesenDiameter); // ✅ Use getMatrixAlternatives with rounding
                 if (matrixAlts) {
-                  const alt2Entry = matrixAlts.find(e => e.priority === 1);
-                  if (alt2Entry) {
+                  // Extract quality code from MAIN bilesen (e.g., YM.ST.0156.0600.1006 -> 1006)
+                  const bilesenParts = recipe.bilesen_kodu.split('.');
+                  const mainQuality = bilesenParts.length >= 5 ? bilesenParts[4] : '';
+
+                  // Find which priority the MAIN recipe is using
+                  const mainPriority = matrixAlts.findIndex(e => e.quality === mainQuality);
+                  console.log(`   📍 1.5-1.8mm: MAIN uses quality ${mainQuality}, priority ${mainPriority}`);
+
+                  // Generate alternatives using OTHER priorities (not the one MAIN uses)
+                  const availableAlts = matrixAlts.filter((e, idx) => idx !== mainPriority);
+
+                  // ALT 2 = First alternative (if available)
+                  if (availableAlts.length > 0) {
+                    const alt2Entry = availableAlts[0];
                     const alt2Recipe = { ...recipe };
                     const filmasinDiamCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
                     alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}`;
                     alt2Recipe.priority = 2;
                     ymTtAlt2Recetes.push(alt2Recipe);
-                    productHasAlt2Bilesen = true; // Mark that this product has ALT 2 bilesen
+                    productHasAlt2Bilesen = true;
+                    console.log(`   ✅ ALT 2: ${alt2Recipe.bilesen_kodu}`);
                   }
 
-                  // ALT 3 = Filmasin priority 2 from FILMASIN_MATRIX
-                  const alt3Entry = matrixAlts.find(e => e.priority === 2);
-                  if (alt3Entry) {
+                  // ALT 3 = Second alternative (if available)
+                  if (availableAlts.length > 1) {
+                    const alt3Entry = availableAlts[1];
                     const alt3Recipe = { ...recipe };
                     const filmasinDiamCode = String(Math.round(alt3Entry.diameter * 100)).padStart(4, '0');
                     alt3Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt3Entry.quality}`;
                     alt3Recipe.priority = 3;
                     ymTtAlt3Recetes.push(alt3Recipe);
-                    productHasAlt3Bilesen = true; // Mark that this product has ALT 3 bilesen
+                    productHasAlt3Bilesen = true;
+                    console.log(`   ✅ ALT 3: ${alt3Recipe.bilesen_kodu}`);
                   }
                 }
               } else if (bilesenDiameter < 1.5) {
@@ -9644,28 +9658,42 @@ const TavliBalyaTelNetsis = () => {
                 // Do nothing - no ALT 1, ALT 2, or ALT 3 for < 1.5mm bilesen
               } else {
                 // YM ST bilesen > 1.8mm: NO ALT 1 (ALT 1 is only for 1.5-1.8mm COILER)
-                // ALT 2 = Filmasin priority 1 + .P from FILMASIN_MATRIX
+                // ✅ FIX: Detect which priority MAIN is using, and generate ALT using OTHER priorities
                 const matrixAlts = getMatrixAlternatives(bilesenDiameter); // ✅ Use getMatrixAlternatives with rounding
                 if (matrixAlts) {
-                  const alt2Entry = matrixAlts.find(e => e.priority === 1);
-                  if (alt2Entry) {
+                  // Extract quality code from MAIN bilesen (e.g., YM.ST.0310.0600.1008.P -> 1008)
+                  const bilesenParts = recipe.bilesen_kodu.split('.');
+                  const mainQuality = bilesenParts.length >= 5 ? bilesenParts[4] : '';
+
+                  // Find which priority the MAIN recipe is using
+                  const mainPriority = matrixAlts.findIndex(e => e.quality === mainQuality);
+                  console.log(`   📍 MAIN uses quality ${mainQuality}, priority ${mainPriority}`);
+
+                  // Generate alternatives using OTHER priorities (not the one MAIN uses)
+                  const availableAlts = matrixAlts.filter((e, idx) => idx !== mainPriority);
+
+                  // ALT 2 = First alternative (if available)
+                  if (availableAlts.length > 0) {
+                    const alt2Entry = availableAlts[0];
                     const alt2Recipe = { ...recipe };
                     const filmasinDiamCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
                     alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}.P`;
                     alt2Recipe.priority = 2;
                     ymTtAlt2Recetes.push(alt2Recipe);
-                    productHasAlt2Bilesen = true; // Mark that this product has ALT 2 bilesen
+                    productHasAlt2Bilesen = true;
+                    console.log(`   ✅ ALT 2: ${alt2Recipe.bilesen_kodu}`);
                   }
 
-                  // ALT 3 = Filmasin priority 2 + .P from FILMASIN_MATRIX
-                  const alt3Entry = matrixAlts.find(e => e.priority === 2);
-                  if (alt3Entry) {
+                  // ALT 3 = Second alternative (if available)
+                  if (availableAlts.length > 1) {
+                    const alt3Entry = availableAlts[1];
                     const alt3Recipe = { ...recipe };
                     const filmasinDiamCode = String(Math.round(alt3Entry.diameter * 100)).padStart(4, '0');
                     alt3Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt3Entry.quality}.P`;
                     alt3Recipe.priority = 3;
                     ymTtAlt3Recetes.push(alt3Recipe);
-                    productHasAlt3Bilesen = true; // Mark that this product has ALT 3 bilesen
+                    productHasAlt3Bilesen = true;
+                    console.log(`   ✅ ALT 3: ${alt3Recipe.bilesen_kodu}`);
                   }
                 }
               }
