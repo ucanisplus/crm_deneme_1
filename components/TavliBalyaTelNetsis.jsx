@@ -9704,13 +9704,14 @@ const TavliBalyaTelNetsis = () => {
     });
 
     // YM STP Sheet (Pressed intermediate - used when cap > 1.8mm)
+    // ✅ FIXED: Use YM ST headers (no tolerance columns) per user requirement
     const ymStpSheet = stokWorkbook.addWorksheet('YM STP');
-    const ymStpHeaders = getTavliBalyaHeaders(); // YM STP uses same structure as MM TT
+    const ymStpHeaders = getYmStHeaders(); // Use YM ST structure (no tolerance columns)
     ymStpSheet.addRow(ymStpHeaders);
 
-    // Add all YM STP products
+    // Add all YM STP products using YM ST format (no tolerance columns)
     allYmStpProducts.forEach(ymStp => {
-      ymStpSheet.addRow(generateTavliBalyaStokKartiDataForBatch(ymStp));
+      ymStpSheet.addRow(generateYmStpStokKartiData(ymStp));
     });
 
     // YM ST Sheet - Raw materials (FILTERED to only TAVLI/BALYA-related products)
@@ -11704,13 +11705,15 @@ const TavliBalyaTelNetsis = () => {
       }
 
       // ✅ FIXED: YM STP Sheet (Pressed Intermediate - only if cap >= 1.8mm)
+      // User requirement: YM STP sheet shall use same columns as YM ST (no tolerance columns)
       if (ymStpData && ymStpData.length > 0) {
         const ymStpSheet = workbook.addWorksheet('YM STP');
-        ymStpSheet.addRow(mmHeaders); // Same headers as MM TT
+        const ymStHeaders = getYmStHeaders(); // Use YM ST headers (no tolerance columns)
+        ymStpSheet.addRow(ymStHeaders);
         for (const ymStp of ymStpData) {
           ymStpSheet.addRow(generateYmStpStokKartiData(ymStp));
         }
-        console.log(`✅ YM STP sheet created with ${ymStpData.length} products`);
+        console.log(`✅ YM STP sheet created with ${ymStpData.length} products (using YM ST columns)`);
       }
 
       // YM ST Sheet
@@ -13572,6 +13575,8 @@ const TavliBalyaTelNetsis = () => {
     ];
   };
 
+  // ✅ FIXED: Generate YM STP data using YM ST column structure (no tolerance columns)
+  // User requirement: "YM STP stock sheet shall get the same columns as YM ST sheet"
   const generateYmStpStokKartiData = (ymStp) => {
     const cap = parseFloat(ymStp.cap || 0);
 
@@ -13579,14 +13584,11 @@ const TavliBalyaTelNetsis = () => {
       ymStp.stok_kodu, // Stok Kodu
       ymStp.stok_adi || `Preslenmiş Siyah Tel ${cap.toFixed(2).replace('.', ',')} mm`, // Stok Adı
       'YM', // Grup Kodu
-      'STP', // Kod-1
+      'STP', // Kod-1 (NOT "TT.BALYA"!)
       ymStp.kod_2 || '', // Kod-2
-      '', // Cari/Satıcı Kodu
-      'M', // Türü
-      ymStp.stok_kodu, // Mamul Grup
-      ymStp.ingilizce_isim || `Pressed Black Wire ${cap.toFixed(2)} mm`, // İngilizce İsim
-      '', // Satıcı İsmi
-      '28', // Muh. Detay
+      ymStp.kod_3 || '', // Kod-3
+      '20', // Satış KDV Oranı
+      '28', // Muh.Detay
       '35', // Depo Kodu
       'KG', // Br-1
       'TN', // Br-2
@@ -13597,29 +13599,13 @@ const TavliBalyaTelNetsis = () => {
       '1', // Çevrim Pay-2
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
-      cap.toFixed(2).replace('.', ','), // Çap
-      '', // Kaplama
-      '', // Min Mukavemet
-      '', // Max Mukavemet
-      '', // KG
-      '', // İç Çap
-      '', // Dış Çap
-      '', // Çap2
-      '', // Shrink
-      '', // Tolerans(+)
-      '', // Tolerans(-)
-      '', // Ebat(En)
-      '', // Göz Aralığı
-      '', // Ebat(Boy)
-      '', // Hasır Tipi
-      '', // Özel Saha 8 (Alf.)
       '0', // Alış Fiyatı
       '1', // Fiyat Birimi
       '0', // Satış Fiyatı-1
       '0', // Satış Fiyatı-2
       '0', // Satış Fiyatı-3
       '0', // Satış Fiyatı-4
-      '1', // Satış Tipi
+      '1', // Döviz Tip
       '0', // Döviz Alış
       '0', // Döviz Maliyeti
       '0', // Döviz Satış Fiyatı
@@ -13627,40 +13613,38 @@ const TavliBalyaTelNetsis = () => {
       '0', // Asgari Stok
       '', // Döv.Tutar
       '0', // Döv.Tipi
+      '2', // Alış Döviz Tipi
       '0', // Bekleme Süresi
       '0', // Temin Süresi
       '0', // Birim Ağırlık
       '0', // Nakliye Tutar
-      '20', // Satış KDV Oranı
-      '20', // Alış KDV Oranı
       'D', // Stok Türü
       '', // Mali Grup Kodu
-      '', // Barkod 1
-      '', // Barkod 2
-      '', // Barkod 3
-      '', // Kod-3
+      ymStp.ingilizce_isim || `Pressed Black Wire ${cap.toFixed(2)} mm`, // İngilizce İsim
+      '1', // Özel Saha 1 (Say.)
+      '0', // Özel Saha 2 (Say.)
+      '0', // Özel Saha 3 (Say.)
+      '0', // Özel Saha 4 (Say.)
+      '0', // Özel Saha 5 (Say.)
+      '0', // Özel Saha 6 (Say.)
+      '0', // Özel Saha 7 (Say.)
+      '0', // Özel Saha 8 (Say.)
+      '', // Özel Saha 1 (Alf.)
+      '', // Özel Saha 2 (Alf.)
+      '', // Özel Saha 3 (Alf.)
+      '', // Özel Saha 4 (Alf.)
+      '', // Özel Saha 5 (Alf.)
+      '', // Özel Saha 6 (Alf.)
+      '', // Özel Saha 7 (Alf.)
+      '', // Özel Saha 8 (Alf.)
       '', // Kod-4
       '', // Kod-5
       'H', // Esnek Yapılandır
       'H', // Süper Reçete Kullanılsın
       '', // Bağlı Stok Kodu
       '', // Yapılandırma Kodu
-      '', // Yap. Açıklama
-      '2', // Alış Döviz Tipi
-      '', // Gümrük Tarife Kodu
-      '', // Dağıtıcı Kodu
-      '052', // Menşei
-      'Preslenmiş Siyah Tel', // METARIAL
-      cap.toFixed(2).replace('.', ','), // DIA (MM)
-      '', // DIA TOL (MM) +
-      '', // DIA TOL (MM) -
-      '', // ZING COATING (GR/M2)
-      '', // TENSILE ST. (MPA) MIN
-      '', // TENSILE ST. (MPA) MAX
-      '', // WAX
-      '', // LIFTING LUGS
-      '', // UNWINDING
-      '', // Tolerans Açıklama
+      '' // Yap. Açıklama
+      // NO TOLERANCE COLUMNS! Matches YM ST structure
     ];
   };
 
@@ -14177,22 +14161,22 @@ const TavliBalyaTelNetsis = () => {
     const productNameEn = mmData.product_type === 'TAVLI' ? 'Annealed Wire' : 'Bale Wire';
     let englishName = `${productNameEn} ${cap.toFixed(2)} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
 
-    // ✅ FIXED: Add yaglama and packaging suffixes
+    // ✅ FIXED: Translate oiling and packaging terms to English
     const suffixes = [];
 
-    // Add yaglama code FIRST
+    // Add yaglama translation FIRST
     if (!mmData.yaglama_tipi || mmData.yaglama_tipi === '' || mmData.yaglama_tipi === 'Tavlısız') {
-      suffixes.push('Yagsiz');
+      suffixes.push('Not Oiled');  // Yagsiz → Not Oiled
     } else if (mmData.yaglama_tipi === 'Püskürtme') {
-      suffixes.push('PSK');
+      suffixes.push('Slightly Oiled');  // PSK → Slightly Oiled
     } else if (mmData.yaglama_tipi === 'Daldırma') {
-      suffixes.push('DLD');
+      suffixes.push('Dipped Oiled');  // DLD → Dipped Oiled
     }
 
-    // Then add packaging suffixes
+    // Then add packaging suffixes (keep abbreviations as requested)
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-    if (paketlemeSecenekleri.karton) suffixes.push('Krtn');
+    if (paketlemeSecenekleri.karton) suffixes.push('Crtn');  // Krtn → Crtn
 
     if (suffixes.length > 0) {
       englishName += '-' + suffixes.join('-');
@@ -14221,23 +14205,23 @@ const TavliBalyaTelNetsis = () => {
     const productNameEn = mmData.product_type === 'TAVLI' ? 'Annealed Wire' : 'Bale Wire';
     let englishName = `${productNameEn} ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
 
-    // ✅ FIXED: Add yaglama and packaging suffixes
+    // ✅ FIXED: Translate oiling and packaging terms to English (Excel version)
     const suffixes = [];
 
-    // Add yaglama code FIRST
+    // Add yaglama translation FIRST
     if (!mmData.yaglama_tipi || mmData.yaglama_tipi === '' || mmData.yaglama_tipi === 'Tavlısız') {
-      suffixes.push('Yagsiz');
+      suffixes.push('Not Oiled');  // Yagsiz → Not Oiled
     } else if (mmData.yaglama_tipi === 'Püskürtme') {
-      suffixes.push('PSK');
+      suffixes.push('Slightly Oiled');  // PSK → Slightly Oiled
     } else if (mmData.yaglama_tipi === 'Daldırma') {
-      suffixes.push('DLD');
+      suffixes.push('Dipped Oiled');  // DLD → Dipped Oiled
     }
 
-    // Then add packaging suffixes
+    // Then add packaging suffixes (keep abbreviations as requested)
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-    if (paketlemeSecenekleri.karton) suffixes.push('Krtn');
-    
+    if (paketlemeSecenekleri.karton) suffixes.push('Crtn');  // Krtn → Crtn
+
     if (suffixes.length > 0) {
       englishName += '-' + suffixes.join('-');
     }
