@@ -9586,66 +9586,71 @@ const TavliBalyaTelNetsis = () => {
 
         productRecipes.forEach(recipe => {
           if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
-            const mainYmSt = allYMSTProducts.find(p => p.stok_kodu === recipe.bilesen_kodu);
-            if (mainYmSt) {
-              const targetDiameter = parseFloat(mainYmSt.cap);
-              const isPressed = recipe.bilesen_kodu.endsWith('.P');
+            // Extract target diameter from YM TT mamul_kodu (e.g., YM.TT.BAG.0160.00 -> 1.60mm)
+            const mamulParts = recipe.mamul_kodu.split('.');
+            const targetDiameter = mamulParts.length >= 4 ? parseFloat(mamulParts[3]) / 100.0 : 0;
 
-              if (targetDiameter >= 1.5 && targetDiameter < 1.8) {
+            // Extract YM ST diameter code from bilesen_kodu (e.g., YM.ST.0156.0600.1006 -> 0156)
+            const bilesenParts = recipe.bilesen_kodu.split('.');
+            const ymStDiamCode = bilesenParts.length >= 3 ? bilesenParts[2] : '0000';
+            const isPressed = recipe.bilesen_kodu.endsWith('.P');
+
+            if (targetDiameter >= 1.5 && targetDiameter < 1.8) {
                 // 1.5-1.8mm: ALT 1 = COILER .ST
-                const diamCode = String(Math.round(targetDiameter * 100)).padStart(4, '0');
                 const alt1Recipe = { ...recipe };
-                alt1Recipe.bilesen_kodu = `YM.ST.${diamCode}.ST`;
+                alt1Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.ST`;
                 alt1Recipe.priority = 1;
                 ymTtAlt1Recetes.push(alt1Recipe);
 
-                // ALT 2 = Filmasin priority 1 (or fallback to main source)
-                const alt2YmSt = allYMSTProducts.find(p =>
-                  Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
-                  (p.priority || 0) === 1 &&
-                  p.stok_kodu.endsWith(isPressed ? '.P' : '') && !p.stok_kodu.endsWith('.ST')
-                );
-                const alt2Recipe = { ...recipe };
-                alt2Recipe.bilesen_kodu = alt2YmSt ? alt2YmSt.stok_kodu : recipe.bilesen_kodu;
-                alt2Recipe.priority = 2;
-                ymTtAlt2Recetes.push(alt2Recipe);
+                // ALT 2 = Filmasin priority 1 from FILMASIN_MATRIX
+                const matrixAlts = FILMASIN_MATRIX[targetDiameter];
+                if (matrixAlts) {
+                  const alt2Entry = matrixAlts.find(e => e.priority === 1);
+                  if (alt2Entry) {
+                    const alt2Recipe = { ...recipe };
+                    const filmasinDiamCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
+                    alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}`;
+                    alt2Recipe.priority = 2;
+                    ymTtAlt2Recetes.push(alt2Recipe);
+                  }
 
-                // ALT 3 = Filmasin priority 2 (or fallback to main source)
-                const alt3YmSt = allYMSTProducts.find(p =>
-                  Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
-                  (p.priority || 0) === 2 &&
-                  p.stok_kodu.endsWith(isPressed ? '.P' : '') && !p.stok_kodu.endsWith('.ST')
-                );
-                const alt3Recipe = { ...recipe };
-                alt3Recipe.bilesen_kodu = alt3YmSt ? alt3YmSt.stok_kodu : recipe.bilesen_kodu;
-                alt3Recipe.priority = 3;
-                ymTtAlt3Recetes.push(alt3Recipe);
+                  // ALT 3 = Filmasin priority 2 from FILMASIN_MATRIX
+                  const alt3Entry = matrixAlts.find(e => e.priority === 2);
+                  if (alt3Entry) {
+                    const alt3Recipe = { ...recipe };
+                    const filmasinDiamCode = String(Math.round(alt3Entry.diameter * 100)).padStart(4, '0');
+                    alt3Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt3Entry.quality}`;
+                    alt3Recipe.priority = 3;
+                    ymTtAlt3Recetes.push(alt3Recipe);
+                  }
+                }
               } else if (targetDiameter < 1.5) {
                 // < 1.5mm: NO alternatives (main sheet already uses .ST, these are the only products that exist)
                 // Do nothing - no ALT 1, ALT 2, or ALT 3 for < 1.5mm
               } else {
                 // >= 1.8mm: NO ALT 1 (ALT 1 is only for 1.5-1.8mm COILER)
-                // ALT 2 = Filmasin priority 1 + .P (or fallback to main source)
-                const alt2YmSt = allYMSTProducts.find(p =>
-                  Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
-                  (p.priority || 0) === 1 &&
-                  p.stok_kodu.endsWith('.P')
-                );
-                const alt2Recipe = { ...recipe };
-                alt2Recipe.bilesen_kodu = alt2YmSt ? alt2YmSt.stok_kodu : recipe.bilesen_kodu;
-                alt2Recipe.priority = 2;
-                ymTtAlt2Recetes.push(alt2Recipe);
+                // ALT 2 = Filmasin priority 1 + .P from FILMASIN_MATRIX
+                const matrixAlts = FILMASIN_MATRIX[targetDiameter];
+                if (matrixAlts) {
+                  const alt2Entry = matrixAlts.find(e => e.priority === 1);
+                  if (alt2Entry) {
+                    const alt2Recipe = { ...recipe };
+                    const filmasinDiamCode = String(Math.round(alt2Entry.diameter * 100)).padStart(4, '0');
+                    alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}.P`;
+                    alt2Recipe.priority = 2;
+                    ymTtAlt2Recetes.push(alt2Recipe);
+                  }
 
-                // ALT 3 = Filmasin priority 2 + .P (or fallback to main source)
-                const alt3YmSt = allYMSTProducts.find(p =>
-                  Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
-                  (p.priority || 0) === 2 &&
-                  p.stok_kodu.endsWith('.P')
-                );
-                const alt3Recipe = { ...recipe };
-                alt3Recipe.bilesen_kodu = alt3YmSt ? alt3YmSt.stok_kodu : recipe.bilesen_kodu;
-                alt3Recipe.priority = 3;
-                ymTtAlt3Recetes.push(alt3Recipe);
+                  // ALT 3 = Filmasin priority 2 + .P from FILMASIN_MATRIX
+                  const alt3Entry = matrixAlts.find(e => e.priority === 2);
+                  if (alt3Entry) {
+                    const alt3Recipe = { ...recipe };
+                    const filmasinDiamCode = String(Math.round(alt3Entry.diameter * 100)).padStart(4, '0');
+                    alt3Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt3Entry.quality}.P`;
+                    alt3Recipe.priority = 3;
+                    ymTtAlt3Recetes.push(alt3Recipe);
+                  }
+                }
               }
             }
           } else {
