@@ -780,9 +780,8 @@ const TavliBalyaTelNetsis = () => {
       return String(value);
     }
 
-    // 5 ondalik basamak ile formatla - KEEP PERIOD for CSV compatibility!
-    // DO NOT replace with comma - commas break CSV field parsing!
-    return parseFloat(numValue.toFixed(5)).toString();
+    // Turkish format: 5 decimal places with comma separator
+    return numValue.toFixed(5).replace('.', ',');
   };
   
   // Consistent database formatting function
@@ -9574,57 +9573,49 @@ const TavliBalyaTelNetsis = () => {
                 alt1Recipe.priority = 1;
                 ymTtAlt1Recetes.push(alt1Recipe);
 
-                // ALT 2 = Filmasin priority 1
+                // ALT 2 = Filmasin priority 1 (or fallback to main source)
                 const alt2YmSt = allYMSTProducts.find(p =>
                   Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
                   (p.priority || 0) === 1 &&
                   p.stok_kodu.endsWith(isPressed ? '.P' : '') && !p.stok_kodu.endsWith('.ST')
                 );
-                if (alt2YmSt) {
-                  const alt2Recipe = { ...recipe };
-                  alt2Recipe.bilesen_kodu = alt2YmSt.stok_kodu;
-                  alt2Recipe.priority = 2;
-                  ymTtAlt2Recetes.push(alt2Recipe);
-                }
+                const alt2Recipe = { ...recipe };
+                alt2Recipe.bilesen_kodu = alt2YmSt ? alt2YmSt.stok_kodu : recipe.bilesen_kodu;
+                alt2Recipe.priority = 2;
+                ymTtAlt2Recetes.push(alt2Recipe);
 
-                // ALT 3 = Filmasin priority 2
+                // ALT 3 = Filmasin priority 2 (or fallback to main source)
                 const alt3YmSt = allYMSTProducts.find(p =>
                   Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
                   (p.priority || 0) === 2 &&
                   p.stok_kodu.endsWith(isPressed ? '.P' : '') && !p.stok_kodu.endsWith('.ST')
                 );
-                if (alt3YmSt) {
-                  const alt3Recipe = { ...recipe };
-                  alt3Recipe.bilesen_kodu = alt3YmSt.stok_kodu;
-                  alt3Recipe.priority = 3;
-                  ymTtAlt3Recetes.push(alt3Recipe);
-                }
+                const alt3Recipe = { ...recipe };
+                alt3Recipe.bilesen_kodu = alt3YmSt ? alt3YmSt.stok_kodu : recipe.bilesen_kodu;
+                alt3Recipe.priority = 3;
+                ymTtAlt3Recetes.push(alt3Recipe);
               } else {
-                // >= 1.8mm: ALT 1 = Filmasin priority 1 + .P
+                // >= 1.8mm: ALT 1 = Filmasin priority 1 + .P (or fallback to main source)
                 const alt1YmSt = allYMSTProducts.find(p =>
                   Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
                   (p.priority || 0) === 1 &&
                   p.stok_kodu.endsWith('.P')
                 );
-                if (alt1YmSt) {
-                  const alt1Recipe = { ...recipe };
-                  alt1Recipe.bilesen_kodu = alt1YmSt.stok_kodu;
-                  alt1Recipe.priority = 1;
-                  ymTtAlt1Recetes.push(alt1Recipe);
-                }
+                const alt1Recipe = { ...recipe };
+                alt1Recipe.bilesen_kodu = alt1YmSt ? alt1YmSt.stok_kodu : recipe.bilesen_kodu;
+                alt1Recipe.priority = 1;
+                ymTtAlt1Recetes.push(alt1Recipe);
 
-                // ALT 2 = Filmasin priority 2 + .P
+                // ALT 2 = Filmasin priority 2 + .P (or fallback to main source)
                 const alt2YmSt = allYMSTProducts.find(p =>
                   Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
                   (p.priority || 0) === 2 &&
                   p.stok_kodu.endsWith('.P')
                 );
-                if (alt2YmSt) {
-                  const alt2Recipe = { ...recipe };
-                  alt2Recipe.bilesen_kodu = alt2YmSt.stok_kodu;
-                  alt2Recipe.priority = 2;
-                  ymTtAlt2Recetes.push(alt2Recipe);
-                }
+                const alt2Recipe = { ...recipe };
+                alt2Recipe.bilesen_kodu = alt2YmSt ? alt2YmSt.stok_kodu : recipe.bilesen_kodu;
+                alt2Recipe.priority = 2;
+                ymTtAlt2Recetes.push(alt2Recipe);
               }
             }
           } else {
@@ -9786,31 +9777,6 @@ const TavliBalyaTelNetsis = () => {
       }
     });
 
-    // YM STP REÇETE Sheet (Pressed intermediate - uses YM ST as input)
-    const ymStpReceteSheet = receteWorkbook.addWorksheet('YM STP REÇETE');
-    ymStpReceteSheet.addRow(receteHeaders);
-
-    // Group YM STP recipes by mamul_kodu for proper sequencing
-    const ymStpByProduct = {};
-    allYmStpRecetes.forEach(recipe => {
-      if (!ymStpByProduct[recipe.mamul_kodu]) {
-        ymStpByProduct[recipe.mamul_kodu] = [];
-      }
-      ymStpByProduct[recipe.mamul_kodu].push(recipe);
-    });
-
-    // Add YM STP recipes with proper sequencing per product
-    const sortedYmStpStokCodes = Object.keys(ymStpByProduct).sort();
-    sortedYmStpStokCodes.forEach(stokKodu => {
-      if (ymStpByProduct[stokKodu] && ymStpByProduct[stokKodu].length > 0) {
-        let productSiraNo = 1;
-        ymStpByProduct[stokKodu].forEach(recipe => {
-          ymStpReceteSheet.addRow(generateYmStpReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, recipe.operasyon_bilesen));
-          productSiraNo++;
-        });
-      }
-    });
-
     // ✅ NOTE: YM TT alternatives already generated at the top of this function (before stok Excel creation)
 
     // YM TT REÇETE ALT 1 Sheet (COILER alternatives)
@@ -9905,6 +9871,31 @@ const TavliBalyaTelNetsis = () => {
 
       console.log(`📋 TÜM ÜRÜNLER: Generated YM TT ALT 3 sheet with ${ymTtAlt3Recetes.length} recipes`);
     }
+
+    // YM STP REÇETE Sheet (Pressed intermediate - uses YM ST as input)
+    const ymStpReceteSheet = receteWorkbook.addWorksheet('YM STP REÇETE');
+    ymStpReceteSheet.addRow(receteHeaders);
+
+    // Group YM STP recipes by mamul_kodu for proper sequencing
+    const ymStpByProduct = {};
+    allYmStpRecetes.forEach(recipe => {
+      if (!ymStpByProduct[recipe.mamul_kodu]) {
+        ymStpByProduct[recipe.mamul_kodu] = [];
+      }
+      ymStpByProduct[recipe.mamul_kodu].push(recipe);
+    });
+
+    // Add YM STP recipes with proper sequencing per product
+    const sortedYmStpStokCodes = Object.keys(ymStpByProduct).sort();
+    sortedYmStpStokCodes.forEach(stokKodu => {
+      if (ymStpByProduct[stokKodu] && ymStpByProduct[stokKodu].length > 0) {
+        let productSiraNo = 1;
+        ymStpByProduct[stokKodu].forEach(recipe => {
+          ymStpReceteSheet.addRow(generateYmStpReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, recipe.operasyon_bilesen));
+          productSiraNo++;
+        });
+      }
+    });
 
     // YM ST REÇETE Sheet - Raw materials (FILTERED to priority 0 + TAVLI/BALYA-related only)
     const ymStReceteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
