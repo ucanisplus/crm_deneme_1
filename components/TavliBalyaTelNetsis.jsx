@@ -14062,6 +14062,8 @@ const TavliBalyaTelNetsis = () => {
     const parts = ymTtStokKodu.split('.');
     const diamValue = parts.length >= 4 ? parseFloat(parts[3]) / 100.0 : 999;
 
+    console.log(`🔍 generateYmTtReceteRowForBatch: ymTt=${ymTtStokKodu}, diamValue=${diamValue}, bilesen=${bilesenKodu}`);
+
     // For products < 1.5mm: Convert YM ST bilesen to .ST format
     // e.g., YM.ST.0116.0600.1006 -> YM.ST.0116.ST
     let finalBilesenKodu = bilesenKodu;
@@ -14069,6 +14071,7 @@ const TavliBalyaTelNetsis = () => {
       const bilesenParts = bilesenKodu.split('.');
       if (bilesenParts.length >= 3) {
         finalBilesenKodu = `${bilesenParts[0]}.${bilesenParts[1]}.${bilesenParts[2]}.ST`;
+        console.log(`   ✏️ CONVERTED ${bilesenKodu} → ${finalBilesenKodu} (mamul < 1.5mm)`);
       }
     }
 
