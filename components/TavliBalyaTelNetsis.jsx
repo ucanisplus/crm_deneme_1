@@ -9591,8 +9591,8 @@ const TavliBalyaTelNetsis = () => {
               const targetDiameter = parseFloat(mainYmSt.cap);
               const isPressed = recipe.bilesen_kodu.endsWith('.P');
 
-              if (targetDiameter < 1.8) {
-                // < 1.8mm: ALT 1 = COILER .ST
+              if (targetDiameter >= 1.5 && targetDiameter < 1.8) {
+                // 1.5-1.8mm: ALT 1 = COILER .ST
                 const diamCode = String(Math.round(targetDiameter * 100)).padStart(4, '0');
                 const alt1Recipe = { ...recipe };
                 alt1Recipe.bilesen_kodu = `YM.ST.${diamCode}.ST`;
@@ -9620,37 +9620,51 @@ const TavliBalyaTelNetsis = () => {
                 alt3Recipe.bilesen_kodu = alt3YmSt ? alt3YmSt.stok_kodu : recipe.bilesen_kodu;
                 alt3Recipe.priority = 3;
                 ymTtAlt3Recetes.push(alt3Recipe);
+              } else if (targetDiameter < 1.5) {
+                // < 1.5mm: NO alternatives (main sheet already uses .ST, these are the only products that exist)
+                // Do nothing - no ALT 1, ALT 2, or ALT 3 for < 1.5mm
               } else {
-                // >= 1.8mm: ALT 1 = Filmasin priority 1 + .P (or fallback to main source)
-                const alt1YmSt = allYMSTProducts.find(p =>
-                  Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
-                  (p.priority || 0) === 1 &&
-                  p.stok_kodu.endsWith('.P')
-                );
-                const alt1Recipe = { ...recipe };
-                alt1Recipe.bilesen_kodu = alt1YmSt ? alt1YmSt.stok_kodu : recipe.bilesen_kodu;
-                alt1Recipe.priority = 1;
-                ymTtAlt1Recetes.push(alt1Recipe);
-
-                // ALT 2 = Filmasin priority 2 + .P (or fallback to main source)
+                // >= 1.8mm: NO ALT 1 (ALT 1 is only for 1.5-1.8mm COILER)
+                // ALT 2 = Filmasin priority 1 + .P (or fallback to main source)
                 const alt2YmSt = allYMSTProducts.find(p =>
                   Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
-                  (p.priority || 0) === 2 &&
+                  (p.priority || 0) === 1 &&
                   p.stok_kodu.endsWith('.P')
                 );
                 const alt2Recipe = { ...recipe };
                 alt2Recipe.bilesen_kodu = alt2YmSt ? alt2YmSt.stok_kodu : recipe.bilesen_kodu;
                 alt2Recipe.priority = 2;
                 ymTtAlt2Recetes.push(alt2Recipe);
+
+                // ALT 3 = Filmasin priority 2 + .P (or fallback to main source)
+                const alt3YmSt = allYMSTProducts.find(p =>
+                  Math.abs(parseFloat(p.cap) - targetDiameter) < 0.01 &&
+                  (p.priority || 0) === 2 &&
+                  p.stok_kodu.endsWith('.P')
+                );
+                const alt3Recipe = { ...recipe };
+                alt3Recipe.bilesen_kodu = alt3YmSt ? alt3YmSt.stok_kodu : recipe.bilesen_kodu;
+                alt3Recipe.priority = 3;
+                ymTtAlt3Recetes.push(alt3Recipe);
               }
             }
           } else {
-            // Non-YM ST components (TAV01, çember, etc.) - copy to all alternatives
-            ymTtAlt1Recetes.push({ ...recipe, priority: 1 });
-            ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
-            if (ymTtAlt3Recetes.length > 0 || recipe.bilesen_kodu === 'TAV01') {
+            // Non-YM ST components (TAV01, çember, etc.) - copy to alternatives based on product diameter
+            // Extract diameter from mamul_kodu (e.g., YM.TT.BAG.0160.00 -> 1.60mm)
+            const mamulParts = recipe.mamul_kodu.split('.');
+            const mamulDiam = mamulParts.length >= 4 ? parseFloat(mamulParts[3]) / 100.0 : 999;
+
+            if (mamulDiam >= 1.5 && mamulDiam < 1.8) {
+              // 1.5-1.8mm: Copy to ALT 1, ALT 2, ALT 3
+              ymTtAlt1Recetes.push({ ...recipe, priority: 1 });
+              ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
+              ymTtAlt3Recetes.push({ ...recipe, priority: 3 });
+            } else if (mamulDiam >= 1.8) {
+              // >= 1.8mm: Copy to ALT 2, ALT 3 only (no ALT 1)
+              ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
               ymTtAlt3Recetes.push({ ...recipe, priority: 3 });
             }
+            // < 1.5mm: Don't copy to any alternatives
           }
         });
       }
