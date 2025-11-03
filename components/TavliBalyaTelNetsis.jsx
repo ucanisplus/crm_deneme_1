@@ -9584,26 +9584,27 @@ const TavliBalyaTelNetsis = () => {
       if (ymTtByProduct[stokKodu] && ymTtByProduct[stokKodu].length > 0) {
         const productRecipes = ymTtByProduct[stokKodu];
 
+        // Track the YM ST bilesen diameter for this product (to determine which ALTs get operations)
+        let productBilesenDiameter = null;
+
         productRecipes.forEach(recipe => {
           if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
-            // Extract target diameter from YM TT mamul_kodu (e.g., YM.TT.BAG.0160.00 -> 1.60mm)
-            const mamulParts = recipe.mamul_kodu.split('.');
-            const targetDiameter = mamulParts.length >= 4 ? parseFloat(mamulParts[3]) / 100.0 : 0;
-
-            // Extract YM ST diameter code from bilesen_kodu (e.g., YM.ST.0156.0600.1006 -> 0156)
+            // Extract YM ST bilesen diameter from bilesen_kodu (e.g., YM.ST.0156.0600.1006 -> 1.56mm)
             const bilesenParts = recipe.bilesen_kodu.split('.');
             const ymStDiamCode = bilesenParts.length >= 3 ? bilesenParts[2] : '0000';
+            const bilesenDiameter = parseFloat(ymStDiamCode) / 100.0;
+            productBilesenDiameter = bilesenDiameter; // Store for operations copying
             const isPressed = recipe.bilesen_kodu.endsWith('.P');
 
-            if (targetDiameter >= 1.5 && targetDiameter < 1.8) {
-                // 1.5-1.8mm: ALT 1 = COILER .ST
+            if (bilesenDiameter >= 1.5 && bilesenDiameter <= 1.8) {
+                // YM ST bilesen 1.5-1.8mm (inclusive): ALT 1 = COILER .ST
                 const alt1Recipe = { ...recipe };
                 alt1Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.ST`;
                 alt1Recipe.priority = 1;
                 ymTtAlt1Recetes.push(alt1Recipe);
 
                 // ALT 2 = Filmasin priority 1 from FILMASIN_MATRIX
-                const matrixAlts = FILMASIN_MATRIX[targetDiameter];
+                const matrixAlts = FILMASIN_MATRIX[bilesenDiameter];
                 if (matrixAlts) {
                   const alt2Entry = matrixAlts.find(e => e.priority === 1);
                   if (alt2Entry) {
@@ -9624,13 +9625,13 @@ const TavliBalyaTelNetsis = () => {
                     ymTtAlt3Recetes.push(alt3Recipe);
                   }
                 }
-              } else if (targetDiameter < 1.5) {
-                // < 1.5mm: NO alternatives (main sheet already uses .ST, these are the only products that exist)
-                // Do nothing - no ALT 1, ALT 2, or ALT 3 for < 1.5mm
+              } else if (bilesenDiameter < 1.5) {
+                // YM ST bilesen < 1.5mm: NO alternatives (main sheet already uses .ST, these are the only products that exist)
+                // Do nothing - no ALT 1, ALT 2, or ALT 3 for < 1.5mm bilesen
               } else {
-                // >= 1.8mm: NO ALT 1 (ALT 1 is only for 1.5-1.8mm COILER)
+                // YM ST bilesen > 1.8mm: NO ALT 1 (ALT 1 is only for 1.5-1.8mm COILER)
                 // ALT 2 = Filmasin priority 1 + .P from FILMASIN_MATRIX
-                const matrixAlts = FILMASIN_MATRIX[targetDiameter];
+                const matrixAlts = FILMASIN_MATRIX[bilesenDiameter];
                 if (matrixAlts) {
                   const alt2Entry = matrixAlts.find(e => e.priority === 1);
                   if (alt2Entry) {
@@ -9653,22 +9654,20 @@ const TavliBalyaTelNetsis = () => {
                 }
               }
           } else {
-            // Non-YM ST components (TAV01, çember, etc.) - copy to alternatives based on product diameter
-            // Extract diameter from mamul_kodu (e.g., YM.TT.BAG.0160.00 -> 1.60mm)
-            const mamulParts = recipe.mamul_kodu.split('.');
-            const mamulDiam = mamulParts.length >= 4 ? parseFloat(mamulParts[3]) / 100.0 : 999;
-
-            if (mamulDiam >= 1.5 && mamulDiam < 1.8) {
-              // 1.5-1.8mm: Copy to ALT 1, ALT 2, ALT 3
-              ymTtAlt1Recetes.push({ ...recipe, priority: 1 });
-              ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
-              ymTtAlt3Recetes.push({ ...recipe, priority: 3 });
-            } else if (mamulDiam >= 1.8) {
-              // >= 1.8mm: Copy to ALT 2, ALT 3 only (no ALT 1)
-              ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
-              ymTtAlt3Recetes.push({ ...recipe, priority: 3 });
+            // Non-YM ST components (TAV01, çember, etc.) - copy to alternatives based on YM ST bilesen diameter
+            if (productBilesenDiameter !== null) {
+              if (productBilesenDiameter >= 1.5 && productBilesenDiameter <= 1.8) {
+                // YM ST bilesen 1.5-1.8mm (inclusive): Copy to ALT 1, ALT 2, ALT 3
+                ymTtAlt1Recetes.push({ ...recipe, priority: 1 });
+                ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
+                ymTtAlt3Recetes.push({ ...recipe, priority: 3 });
+              } else if (productBilesenDiameter > 1.8) {
+                // YM ST bilesen > 1.8mm: Copy to ALT 2, ALT 3 only (no ALT 1)
+                ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
+                ymTtAlt3Recetes.push({ ...recipe, priority: 3 });
+              }
+              // YM ST bilesen < 1.5mm: Don't copy to any alternatives
             }
-            // < 1.5mm: Don't copy to any alternatives
           }
         });
       }
