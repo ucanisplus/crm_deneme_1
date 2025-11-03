@@ -9611,7 +9611,7 @@ const TavliBalyaTelNetsis = () => {
                 ymTtAlt1Recetes.push(alt1Recipe);
 
                 // ALT 2 = Filmasin priority 1 from FILMASIN_MATRIX
-                const matrixAlts = FILMASIN_MATRIX[bilesenDiameter];
+                const matrixAlts = getMatrixAlternatives(bilesenDiameter); // ✅ Use getMatrixAlternatives with rounding
                 if (matrixAlts) {
                   const alt2Entry = matrixAlts.find(e => e.priority === 1);
                   if (alt2Entry) {
@@ -9638,7 +9638,7 @@ const TavliBalyaTelNetsis = () => {
               } else {
                 // YM ST bilesen > 1.8mm: NO ALT 1 (ALT 1 is only for 1.5-1.8mm COILER)
                 // ALT 2 = Filmasin priority 1 + .P from FILMASIN_MATRIX
-                const matrixAlts = FILMASIN_MATRIX[bilesenDiameter];
+                const matrixAlts = getMatrixAlternatives(bilesenDiameter); // ✅ Use getMatrixAlternatives with rounding
                 if (matrixAlts) {
                   const alt2Entry = matrixAlts.find(e => e.priority === 1);
                   if (alt2Entry) {
