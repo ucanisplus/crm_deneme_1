@@ -11756,11 +11756,11 @@ const TavliBalyaTelNetsis = () => {
       }
 
       // YM ST REÇETE Sheet - Use PERFECTED format
-      // ✅ FIX: Include ALL YM ST products used in YM TT recipes (not just from excelData)
+      // ✅ FIX: Include ALL YM ST products used in YM TT AND YM STP recipes (not just from excelData)
       const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
       ymStReceteSheet.addRow(receteHeaders);
 
-      // Extract all unique YM ST stok_kodu values from YM TT recipes
+      // Extract all unique YM ST stok_kodu values from YM TT recipes AND YM STP recipes
       const uniqueYmStCodes = new Set();
       ymTtRecipesFromDb.forEach(recipe => {
         if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
@@ -11768,11 +11768,19 @@ const TavliBalyaTelNetsis = () => {
         }
       });
 
-      console.log(`\n🔍 === EXTRACTING ALL YM ST PRODUCTS FROM YM TT RECIPES ===`);
-      console.log(`📊 Found ${uniqueYmStCodes.size} unique YM ST products used in YM TT:`);
+      // ✅ CRITICAL FIX: Also extract YM ST products from YM STP recipes
+      // YM STP uses YM ST products as components (e.g., base product before pressing)
+      ymStpRecipesFromDb.forEach(recipe => {
+        if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.') && !recipe.bilesen_kodu.endsWith('.P')) {
+          uniqueYmStCodes.add(recipe.bilesen_kodu);
+        }
+      });
+
+      console.log(`\n🔍 === EXTRACTING ALL YM ST PRODUCTS FROM YM TT AND YM STP RECIPES ===`);
+      console.log(`📊 Found ${uniqueYmStCodes.size} unique YM ST products used in YM TT and YM STP:`);
       Array.from(uniqueYmStCodes).forEach(code => console.log(`  - ${code}`));
 
-      // Fetch YM ST recipes from database for ALL products used in YM TT
+      // Fetch YM ST recipes from database for ALL products used in YM TT and YM STP
       const ymStRecipesFromDb = [];
       for (const ymStCode of uniqueYmStCodes) {
         try {
@@ -11820,7 +11828,7 @@ const TavliBalyaTelNetsis = () => {
         }
       });
 
-      console.log(`✅ YM ST REÇETE created with ALL ${sortedYmStCodes.length} YM ST products used in YM TT`);
+      console.log(`✅ YM ST REÇETE created with ALL ${sortedYmStCodes.length} YM ST products used in YM TT and YM STP`);
 
       // 🆕 Generate COILER alternatives dynamically for .ST products (up to 8 alternatives)
       console.log('🔄 POST-SAVE: Generating COILER alternatives for .ST products...');
