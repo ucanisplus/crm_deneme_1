@@ -9593,6 +9593,10 @@ const TavliBalyaTelNetsis = () => {
 
         // Track the YM ST bilesen diameter for this product (to determine which ALTs get operations)
         let productBilesenDiameter = null;
+        // Track which ALT priorities have actual bilesen (not just operations)
+        let productHasAlt1Bilesen = false;
+        let productHasAlt2Bilesen = false;
+        let productHasAlt3Bilesen = false;
 
         productRecipes.forEach(recipe => {
           if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
@@ -9609,6 +9613,7 @@ const TavliBalyaTelNetsis = () => {
                 alt1Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.ST`;
                 alt1Recipe.priority = 1;
                 ymTtAlt1Recetes.push(alt1Recipe);
+                productHasAlt1Bilesen = true; // Mark that this product has ALT 1 bilesen
 
                 // ALT 2 = Filmasin priority 1 from FILMASIN_MATRIX
                 const matrixAlts = getMatrixAlternatives(bilesenDiameter); // ✅ Use getMatrixAlternatives with rounding
@@ -9620,6 +9625,7 @@ const TavliBalyaTelNetsis = () => {
                     alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}`;
                     alt2Recipe.priority = 2;
                     ymTtAlt2Recetes.push(alt2Recipe);
+                    productHasAlt2Bilesen = true; // Mark that this product has ALT 2 bilesen
                   }
 
                   // ALT 3 = Filmasin priority 2 from FILMASIN_MATRIX
@@ -9630,6 +9636,7 @@ const TavliBalyaTelNetsis = () => {
                     alt3Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt3Entry.quality}`;
                     alt3Recipe.priority = 3;
                     ymTtAlt3Recetes.push(alt3Recipe);
+                    productHasAlt3Bilesen = true; // Mark that this product has ALT 3 bilesen
                   }
                 }
               } else if (bilesenDiameter < 1.5) {
@@ -9647,6 +9654,7 @@ const TavliBalyaTelNetsis = () => {
                     alt2Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt2Entry.quality}.P`;
                     alt2Recipe.priority = 2;
                     ymTtAlt2Recetes.push(alt2Recipe);
+                    productHasAlt2Bilesen = true; // Mark that this product has ALT 2 bilesen
                   }
 
                   // ALT 3 = Filmasin priority 2 + .P from FILMASIN_MATRIX
@@ -9657,23 +9665,21 @@ const TavliBalyaTelNetsis = () => {
                     alt3Recipe.bilesen_kodu = `YM.ST.${ymStDiamCode}.${filmasinDiamCode}.${alt3Entry.quality}.P`;
                     alt3Recipe.priority = 3;
                     ymTtAlt3Recetes.push(alt3Recipe);
+                    productHasAlt3Bilesen = true; // Mark that this product has ALT 3 bilesen
                   }
                 }
               }
           } else {
-            // Non-YM ST components (TAV01, çember, etc.) - copy to alternatives based on YM ST bilesen diameter
-            if (productBilesenDiameter !== null) {
-              if (productBilesenDiameter >= 1.5 && productBilesenDiameter <= 1.8) {
-                // YM ST bilesen 1.5-1.8mm (inclusive): Copy to ALT 1, ALT 2, ALT 3
-                ymTtAlt1Recetes.push({ ...recipe, priority: 1 });
-                ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
-                ymTtAlt3Recetes.push({ ...recipe, priority: 3 });
-              } else if (productBilesenDiameter > 1.8) {
-                // YM ST bilesen > 1.8mm: Copy to ALT 2, ALT 3 only (no ALT 1)
-                ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
-                ymTtAlt3Recetes.push({ ...recipe, priority: 3 });
-              }
-              // YM ST bilesen < 1.5mm: Don't copy to any alternatives
+            // Non-YM ST components (TAV01, çember, etc.) - copy to alternatives ONLY if bilesen exists
+            // ✅ FIX: Only copy operations to ALTs that have actual bilesen alternatives
+            if (productHasAlt1Bilesen) {
+              ymTtAlt1Recetes.push({ ...recipe, priority: 1 });
+            }
+            if (productHasAlt2Bilesen) {
+              ymTtAlt2Recetes.push({ ...recipe, priority: 2 });
+            }
+            if (productHasAlt3Bilesen) {
+              ymTtAlt3Recetes.push({ ...recipe, priority: 3 });
             }
           }
         });
