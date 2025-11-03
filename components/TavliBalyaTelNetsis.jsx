@@ -7309,8 +7309,15 @@ const TavliBalyaTelNetsis = () => {
         // CASE 1: < 1.5mm → MAIN only (no alternatives)
         console.log(`📍 YM ST < 1.5mm: MAIN only, NO alternatives`);
 
+        // ✅ FIX: < 1.5mm products MUST use .ST format (COILER), NOT filmasin format
+        // Force .ST ending regardless of what's in the database
+        const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+        const correctStKodu = `YM.ST.${capStr}.ST`;
+
         // Determine source: .P suffix if pressing needed
-        const sourceKodu = needsPressing ? `${mainYmSt.stok_kodu}.P` : mainYmSt.stok_kodu;
+        const sourceKodu = needsPressing ? `${correctStKodu}.P` : correctStKodu;
+
+        console.log(`   ✅ Forced .ST format for <1.5mm: ${sourceKodu}`);
 
         ymStAlternatives = [
           { stokKodu: sourceKodu, priority: 0, ymStDiameter: ymStDiameter }
@@ -9678,24 +9685,51 @@ const TavliBalyaTelNetsis = () => {
     // ✅ COLLECT ALL BILESEN FROM ALL RECIPES (main + alternatives)
     const allUsedYmStCodes = new Set();
 
+    // Helper to normalize YM ST bilesen codes: < 1.5mm must use .ST format
+    const normalizeYmStCode = (code) => {
+      if (!code || !code.startsWith('YM.ST.')) return code;
+
+      // Check if it's already .ST format or .P format
+      if (code.endsWith('.ST') || code.endsWith('.P') || code.endsWith('.ST.P')) return code;
+
+      // Extract cap from code (format: YM.ST.CCCC.FFFF.QQQQ or YM.ST.CCCC.FFFF.QQQQ.P)
+      const match = code.match(/YM\.ST\.(\d{4})\./);
+      if (!match) return code;
+
+      const cap = parseInt(match[1]) / 100;
+
+      // If < 1.5mm and NOT already .ST format, convert to .ST
+      if (cap < 1.5) {
+        const capCode = match[1]; // Already padded 4 digits
+        const correctedCode = `YM.ST.${capCode}.ST`;
+        console.log(`   🔧 Normalized <1.5mm code: ${code} → ${correctedCode}`);
+        return correctedCode;
+      }
+
+      return code;
+    };
+
     // From main YM TT recipes
     allYmTtRecetes.forEach(recipe => {
       if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
-        allUsedYmStCodes.add(recipe.bilesen_kodu);
+        const normalized = normalizeYmStCode(recipe.bilesen_kodu);
+        allUsedYmStCodes.add(normalized);
       }
     });
 
     // From YM TT ALT 1, 2, 3
     [...ymTtAlt1Recetes, ...ymTtAlt2Recetes, ...ymTtAlt3Recetes].forEach(recipe => {
       if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
-        allUsedYmStCodes.add(recipe.bilesen_kodu);
+        const normalized = normalizeYmStCode(recipe.bilesen_kodu);
+        allUsedYmStCodes.add(normalized);
       }
     });
 
     // From YM STP recipes
     allYmStpRecetes.forEach(recipe => {
       if (recipe.bilesen_kodu && !recipe.bilesen_kodu.endsWith('.P')) {
-        allUsedYmStCodes.add(recipe.bilesen_kodu);
+        const normalized = normalizeYmStCode(recipe.bilesen_kodu);
+        allUsedYmStCodes.add(normalized);
       }
     });
 
@@ -9975,7 +10009,9 @@ const TavliBalyaTelNetsis = () => {
       if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         ymStByProduct[stokKodu].forEach(recipe => {
-          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, 0));
+          // ✅ Normalize bilesen_kodu before writing to Excel (< 1.5mm must use .ST format)
+          const normalizedBilesen = normalizeYmStCode(recipe.bilesen_kodu);
+          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(normalizedBilesen, recipe.miktar, productSiraNo, recipe.mamul_kodu, 0));
           productSiraNo++;
         });
       }
