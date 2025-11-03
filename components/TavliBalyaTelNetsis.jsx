@@ -4846,6 +4846,30 @@ const TavliBalyaTelNetsis = () => {
         }
       }
 
+      // ✅ AUTO-CLEAR IC/OD: When yaglama_tipi changes, reset IC/OD if current selection becomes invalid
+      if (field === 'yaglama_tipi') {
+        const ic = parseFloat(prev.ic_cap);
+        const dis = parseFloat(prev.dis_cap);
+        let shouldClear = false;
+
+        if (normalizedValue === 'Püskürtme') {
+          // Püskürtme only allows: 23-35, 45-75, 50-90
+          // Clear if current is 15-30 or 21-34
+          shouldClear = !((ic >= 23 && dis <= 35) || (ic >= 45 && dis <= 75) || (ic >= 50 && dis <= 90));
+        } else if (normalizedValue === 'Daldırma') {
+          // Daldırma only allows: 15-30, 21-34
+          // Clear if current is 23-35, 45-75, 50-90
+          shouldClear = !((ic >= 15 && dis <= 30) || (ic >= 21 && dis <= 34));
+        }
+
+        if (shouldClear) {
+          console.warn(`IC-OD ${ic}-${dis} is invalid for ${normalizedValue}, resetting to default`);
+          newData.ic_cap = 45;
+          newData.dis_cap = 75;
+          toast.info(`IC-OD boyutları ${normalizedValue} yağlama tipi için uygun değil. Varsayılan 45-75 cm olarak ayarlandı.`);
+        }
+      }
+
       return newData;
     });
   };
@@ -5047,11 +5071,13 @@ const TavliBalyaTelNetsis = () => {
         }
 
         if (!isValid && validRanges.length > 0) {
-          // Show warning toast (not blocking error)
+          // BLOCKING ERROR - Prevent save
           const rangeText = validRanges.join(' veya ');
-          console.warn(`⚠️ ID-OD Uyarı: ${mmData.yaglama_tipi} için önerilen aralıklar: ${rangeText}`);
-          toast.warning(`⚠️ Dikkat: ${mmData.yaglama_tipi} yağlama tipi için önerilen IC-OD aralıkları: ${rangeText}. Mevcut: IC ${ic} - OD ${dis} cm`, {
-            duration: 8000
+          errors.ic_cap = `${mmData.yaglama_tipi} için izin verilen IC-OD aralıkları: ${rangeText}`;
+          errors.dis_cap = `Mevcut: IC ${ic} - OD ${dis} cm (Geçersiz!)`;
+          console.error(`❌ ID-OD Hatası: ${mmData.yaglama_tipi} için önerilen aralıklar: ${rangeText}`);
+          toast.error(`❌ Hata: ${mmData.yaglama_tipi} yağlama tipi için izin verilen IC-OD aralıkları: ${rangeText}. Mevcut: IC ${ic} - OD ${dis} cm`, {
+            duration: 10000
           });
         }
       }
@@ -13906,7 +13932,21 @@ const TavliBalyaTelNetsis = () => {
   // ===================================================================
 
   const generateYmTtReceteRowForBatch = (bilesenKodu, miktar, siraNo, ymTtStokKodu, operasyonBilesen) => {
-    const mappedBilesenKodu = mapBilesenKoduForExcel(bilesenKodu);
+    // Extract diameter from YM TT stok kodu (e.g., YM.TT.BAG.0120.00 -> 1.20mm)
+    const parts = ymTtStokKodu.split('.');
+    const diamValue = parts.length >= 4 ? parseFloat(parts[3]) / 100.0 : 999;
+
+    // For products < 1.5mm: Convert YM ST bilesen to .ST format
+    // e.g., YM.ST.0116.0600.1006 -> YM.ST.0116.ST
+    let finalBilesenKodu = bilesenKodu;
+    if (diamValue < 1.5 && bilesenKodu.startsWith('YM.ST.')) {
+      const bilesenParts = bilesenKodu.split('.');
+      if (bilesenParts.length >= 3) {
+        finalBilesenKodu = `${bilesenParts[0]}.${bilesenParts[1]}.${bilesenParts[2]}.ST`;
+      }
+    }
+
+    const mappedBilesenKodu = mapBilesenKoduForExcel(finalBilesenKodu);
     const isOperation = operasyonBilesen === 'O' || bilesenKodu === 'TAV01';
 
     return [
@@ -14570,11 +14610,54 @@ const TavliBalyaTelNetsis = () => {
                 }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
               >
-                <option value="21-34">ID: 21 cm - OD: 34 cm</option>
-                <option value="21-35">ID: 21 cm - OD: 35 cm</option>
-                <option value="25-35">ID: 25 cm - OD: 35 cm</option>
-                <option value="40-75">ID: 40 cm - OD: 75 cm</option>
-                <option value="45-75">ID: 45 cm - OD: 75 cm (Varsayılan)</option>
+                {/* Daldırma / Yagsiz Balya: 15-30, 21-34 */}
+                <option
+                  value="15-30"
+                  disabled={mmData.yaglama_tipi === 'Püskürtme'}
+                >
+                  ID: 15 cm - OD: 30 cm {mmData.yaglama_tipi === 'Püskürtme' && '(Sadece Daldırma/Yağsız)'}
+                </option>
+                <option
+                  value="21-34"
+                  disabled={mmData.yaglama_tipi === 'Püskürtme'}
+                >
+                  ID: 21 cm - OD: 34 cm {mmData.yaglama_tipi === 'Püskürtme' && '(Sadece Daldırma/Yağsız)'}
+                </option>
+
+                {/* Püskürtme only: 23-35, 45-75, 50-90 */}
+                <option
+                  value="23-35"
+                  disabled={mmData.yaglama_tipi === 'Daldırma'}
+                >
+                  ID: 23 cm - OD: 35 cm {mmData.yaglama_tipi === 'Daldırma' && '(Sadece Püskürtme)'}
+                </option>
+                <option
+                  value="25-35"
+                >
+                  ID: 25 cm - OD: 35 cm
+                </option>
+                <option
+                  value="21-35"
+                >
+                  ID: 21 cm - OD: 35 cm
+                </option>
+                <option
+                  value="40-75"
+                >
+                  ID: 40 cm - OD: 75 cm
+                </option>
+                <option
+                  value="45-75"
+                  disabled={mmData.yaglama_tipi === 'Daldırma'}
+                >
+                  ID: 45 cm - OD: 75 cm (Varsayılan) {mmData.yaglama_tipi === 'Daldırma' && '(Sadece Püskürtme)'}
+                </option>
+                <option
+                  value="50-90"
+                  disabled={mmData.yaglama_tipi === 'Daldırma'}
+                >
+                  ID: 50 cm - OD: 90 cm {mmData.yaglama_tipi === 'Daldırma' && '(Sadece Püskürtme)'}
+                </option>
               </select>
               <p className="text-xs text-gray-500 mt-1">Sabit bobin boyutu kombinasyonları</p>
             </div>
