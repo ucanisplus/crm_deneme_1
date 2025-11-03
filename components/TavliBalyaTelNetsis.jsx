@@ -9652,7 +9652,6 @@ const TavliBalyaTelNetsis = () => {
                   }
                 }
               }
-            }
           } else {
             // Non-YM ST components (TAV01, çember, etc.) - copy to alternatives based on product diameter
             // Extract diameter from mamul_kodu (e.g., YM.TT.BAG.0160.00 -> 1.60mm)
