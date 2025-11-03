@@ -9668,7 +9668,7 @@ const TavliBalyaTelNetsis = () => {
       if (ymTtByProduct[stokKodu] && ymTtByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         ymTtByProduct[stokKodu].forEach(recipe => {
-          ymTtReceteSheet.addRow(generateTavliBalyaMmReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          ymTtReceteSheet.addRow(generateYmTtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, recipe.operasyon_bilesen));
           productSiraNo++;
         });
       }
@@ -9693,7 +9693,7 @@ const TavliBalyaTelNetsis = () => {
       if (ymStpByProduct[stokKodu] && ymStpByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         ymStpByProduct[stokKodu].forEach(recipe => {
-          ymStpReceteSheet.addRow(generateTavliBalyaMmReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          ymStpReceteSheet.addRow(generateYmStpReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, recipe.operasyon_bilesen));
           productSiraNo++;
         });
       }
@@ -9766,7 +9766,7 @@ const TavliBalyaTelNetsis = () => {
 
         let productSiraNo = 1;
         ymTtAlt1ByProduct[stokKodu].forEach(recipe => {
-          const row = ymTtReceteAlt1Sheet.addRow(generateTavliBalyaMmReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          const row = ymTtReceteAlt1Sheet.addRow(generateYmTtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, recipe.operasyon_bilesen));
 
           // ✅ YELLOW ROW COLORING: ALL rows for COILER products in ALT 1 (for 1.5-1.8mm range)
           // Color the entire product (YM.ST, TAV01, auxiliary components)
@@ -9802,7 +9802,7 @@ const TavliBalyaTelNetsis = () => {
       if (ymTtAlt2ByProduct[stokKodu] && ymTtAlt2ByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         ymTtAlt2ByProduct[stokKodu].forEach(recipe => {
-          ymTtReceteAlt2Sheet.addRow(generateTavliBalyaMmReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          ymTtReceteAlt2Sheet.addRow(generateYmTtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, recipe.operasyon_bilesen));
           productSiraNo++;
         });
       }
