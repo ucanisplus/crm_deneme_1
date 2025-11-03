@@ -773,15 +773,16 @@ const TavliBalyaTelNetsis = () => {
     if (value === null || value === undefined || value === '') {
       return '';
     }
-    
+
     // Sayiya cevir
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(numValue)) {
       return String(value);
     }
 
-    // 5 ondalik basamak ile formatla ve noktalari virgul yap (sıfırları KALDIR!!!)
-    return parseFloat(numValue.toFixed(5)).toString().replace('.', ',');
+    // 5 ondalik basamak ile formatla - KEEP PERIOD for CSV compatibility!
+    // DO NOT replace with comma - commas break CSV field parsing!
+    return parseFloat(numValue.toFixed(5)).toString();
   };
   
   // Consistent database formatting function
@@ -9568,18 +9569,40 @@ const TavliBalyaTelNetsis = () => {
       ymStpSheet.addRow(generateTavliBalyaStokKartiDataForBatch(ymStp));
     });
 
-    // YM ST Sheet - Raw materials (shared with Galvanizli)
+    // YM ST Sheet - Raw materials (FILTERED to only TAVLI/BALYA-related products)
     const ymStSheet = stokWorkbook.addWorksheet('YM ST');
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
 
-    // Add ALL YM ST products sorted by priority (0 first, then 1, 2, ...)
-    const sortedYmStProducts = allYMSTProducts.sort((a, b) => {
+    // ✅ FILTER: Only include YM ST products used by TAVLI/BALYA (from YM TT and YM STP recipes)
+    const usedYmStCodes = new Set();
+
+    // Collect bilesen_kodu from YM TT recipes
+    allYmTtRecetes.forEach(recipe => {
+      if (recipe.bilesen_kodu && !recipe.bilesen_kodu.endsWith('.P')) {
+        usedYmStCodes.add(recipe.bilesen_kodu);
+      }
+    });
+
+    // Collect bilesen_kodu from YM STP recipes (base YM ST before pressing)
+    allYmStpRecetes.forEach(recipe => {
+      if (recipe.bilesen_kodu && !recipe.bilesen_kodu.endsWith('.P')) {
+        usedYmStCodes.add(recipe.bilesen_kodu);
+      }
+    });
+
+    console.log(`📋 TÜM ÜRÜNLER: Filtering YM ST products - Found ${usedYmStCodes.size} unique YM ST codes used by TAVLI/BALYA`);
+
+    // Filter and sort YM ST products
+    const filteredYmStProducts = allYMSTProducts.filter(ymSt => usedYmStCodes.has(ymSt.stok_kodu));
+    const sortedYmStProducts = filteredYmStProducts.sort((a, b) => {
       const priorityA = a.priority || 0;
       const priorityB = b.priority || 0;
       if (priorityA !== priorityB) return priorityA - priorityB;
       return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
+
+    console.log(`📋 TÜM ÜRÜNLER: After filtering - ${sortedYmStProducts.length} YM ST products (down from ${allYMSTProducts.length})`);
 
     sortedYmStProducts.forEach(ymSt => {
       const rowData = generateYmStStokKartiData(ymSt);
@@ -9676,11 +9699,54 @@ const TavliBalyaTelNetsis = () => {
       }
     });
 
-    // YM TT REÇETE ALT 1 Sheet (from priority 1 recipes)
+    // ✅ GENERATE YM TT ALTERNATIVES DYNAMICALLY (not stored in DB)
+    // ALT 1: COILER alternatives (.ST versions)
+    // ALT 2: Filmasin quality alternatives (1006 → 1008)
+    const ymTtAlt1Recetes = [];
+    const ymTtAlt2Recetes = [];
+
+    // Process each YM TT product to generate alternatives
+    sortedYmTtStokCodes.forEach(stokKodu => {
+      if (ymTtByProduct[stokKodu] && ymTtByProduct[stokKodu].length > 0) {
+        const productRecipes = ymTtByProduct[stokKodu];
+
+        // Generate ALT 1 (COILER) - swap YM ST component with .ST version
+        const alt1Recipes = productRecipes.map(recipe => {
+          const newRecipe = { ...recipe };
+          // Only modify the YM ST component (row 1)
+          if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.') && !recipe.bilesen_kodu.endsWith('.ST')) {
+            // Extract diameter code (e.g., 0116 from YM.ST.0116.0600.1006)
+            const match = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\./);
+            if (match) {
+              const diamCode = match[1];
+              newRecipe.bilesen_kodu = `YM.ST.${diamCode}.ST`;
+              newRecipe.priority = 1;
+            }
+          }
+          return newRecipe;
+        });
+        ymTtAlt1Recetes.push(...alt1Recipes);
+
+        // Generate ALT 2 (Filmasin quality) - swap 1006 → 1008 in YM ST component
+        const alt2Recipes = productRecipes.map(recipe => {
+          const newRecipe = { ...recipe };
+          // Only modify the YM ST component (row 1)
+          if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('.0600.1006')) {
+            newRecipe.bilesen_kodu = recipe.bilesen_kodu.replace('.0600.1006', '.0600.1008');
+            newRecipe.priority = 2;
+          }
+          return newRecipe;
+        });
+        ymTtAlt2Recetes.push(...alt2Recipes);
+      }
+    });
+
+    console.log(`📋 TÜM ÜRÜNLER: Generated YM TT alternatives - ALT 1: ${ymTtAlt1Recetes.length} recipes, ALT 2: ${ymTtAlt2Recetes.length} recipes`);
+
+    // YM TT REÇETE ALT 1 Sheet (COILER alternatives)
     const ymTtReceteAlt1Sheet = receteWorkbook.addWorksheet('YM TT REÇETE ALT 1');
     ymTtReceteAlt1Sheet.addRow(receteHeaders);
 
-    const ymTtAlt1Recetes = allYmTtRecetes.filter(r => (r.priority || 0) === 1);
     const ymTtAlt1ByProduct = {};
     ymTtAlt1Recetes.forEach(recipe => {
       if (!ymTtAlt1ByProduct[recipe.mamul_kodu]) {
@@ -9719,11 +9785,10 @@ const TavliBalyaTelNetsis = () => {
       }
     });
 
-    // YM TT REÇETE ALT 2 Sheet (from priority 2 recipes)
+    // YM TT REÇETE ALT 2 Sheet (Filmasin quality alternatives)
     const ymTtReceteAlt2Sheet = receteWorkbook.addWorksheet('YM TT REÇETE ALT 2');
     ymTtReceteAlt2Sheet.addRow(receteHeaders);
 
-    const ymTtAlt2Recetes = allYmTtRecetes.filter(r => (r.priority || 0) === 2);
     const ymTtAlt2ByProduct = {};
     ymTtAlt2Recetes.forEach(recipe => {
       if (!ymTtAlt2ByProduct[recipe.mamul_kodu]) {
@@ -9743,13 +9808,31 @@ const TavliBalyaTelNetsis = () => {
       }
     });
 
-    // YM ST REÇETE Sheet - Raw materials (priority 0 only)
+    // YM ST REÇETE Sheet - Raw materials (FILTERED to priority 0 + TAVLI/BALYA-related only)
     const ymStReceteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
-    // Group YM ST recipes by mamul_kodu for proper sequencing
+    // ✅ FILTER: Re-collect used YM ST codes from recipes (for recipe filtering)
+    const usedYmStCodesForRecipes = new Set();
+    allYmTtRecetes.forEach(recipe => {
+      if (recipe.bilesen_kodu && !recipe.bilesen_kodu.endsWith('.P')) {
+        usedYmStCodesForRecipes.add(recipe.bilesen_kodu);
+      }
+    });
+    allYmStpRecetes.forEach(recipe => {
+      if (recipe.bilesen_kodu && !recipe.bilesen_kodu.endsWith('.P')) {
+        usedYmStCodesForRecipes.add(recipe.bilesen_kodu);
+      }
+    });
+
+    // Group YM ST recipes by mamul_kodu for proper sequencing (FILTERED)
     const ymStByProduct = {};
-    const mainYmStRecetes = allYMSTRecetes.filter(r => (r.priority || 0) === 0);
+    const mainYmStRecetes = allYMSTRecetes.filter(r =>
+      (r.priority || 0) === 0 && usedYmStCodesForRecipes.has(r.mamul_kodu)
+    );
+
+    console.log(`📋 TÜM ÜRÜNLER: Filtering YM ST recipes - ${mainYmStRecetes.length} recipes (down from ${allYMSTRecetes.filter(r => (r.priority || 0) === 0).length})`);
+
     mainYmStRecetes.forEach(recipe => {
       if (!ymStByProduct[recipe.mamul_kodu]) {
         ymStByProduct[recipe.mamul_kodu] = [];
@@ -9770,8 +9853,12 @@ const TavliBalyaTelNetsis = () => {
     });
 
     // YM ST REÇETE ALT 1-8 Sheets (generated from COILER matrix for .ST products only)
-    // Get all .ST products from allYMSTProducts
-    const stProducts = allYMSTProducts.filter(p => p.stok_kodu && p.stok_kodu.endsWith('.ST'));
+    // ✅ FILTER: Get only .ST products that are used by TAVLI/BALYA
+    const stProducts = allYMSTProducts.filter(p =>
+      p.stok_kodu && p.stok_kodu.endsWith('.ST') && usedYmStCodesForRecipes.has(p.stok_kodu)
+    );
+
+    console.log(`📋 TÜM ÜRÜNLER: Found ${stProducts.length} .ST products used by TAVLI/BALYA for COILER alternatives`);
 
     // Generate alternatives using COILER matrix
     const ymStAltRecipes = generateCoilerAlternatives(mainYmStRecetes, stProducts);
@@ -10667,8 +10754,45 @@ const TavliBalyaTelNetsis = () => {
 
       console.log(`✅ YM TT REÇETE sheet created with ${ymTtMainRecipes.length} main recipes`);
 
-      // YM TT REÇETE ALT 1 Sheet (priority 1)
-      const ymTtAlt1Recipes = ymTtRecipes.filter(r => (r.priority || 0) === 1);
+      // ✅ GENERATE YM TT ALTERNATIVES DYNAMICALLY (same as TÜM ÜRÜNLER)
+      const ymTtAlt1RecipesGenerated = [];
+      const ymTtAlt2RecipesGenerated = [];
+
+      sortedYmTtStokCodes.forEach(stokKodu => {
+        if (ymTtByProduct[stokKodu] && ymTtByProduct[stokKodu].length > 0) {
+          const productRecipes = ymTtByProduct[stokKodu];
+
+          // ALT 1: COILER (.ST versions)
+          const alt1Recipes = productRecipes.map(recipe => {
+            const newRecipe = { ...recipe };
+            if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.') && !recipe.bilesen_kodu.endsWith('.ST')) {
+              const match = recipe.bilesen_kodu.match(/YM\.ST\.(\d{4})\./);
+              if (match) {
+                newRecipe.bilesen_kodu = `YM.ST.${match[1]}.ST`;
+                newRecipe.priority = 1;
+              }
+            }
+            return newRecipe;
+          });
+          ymTtAlt1RecipesGenerated.push(...alt1Recipes);
+
+          // ALT 2: Filmasin quality (1006 → 1008)
+          const alt2Recipes = productRecipes.map(recipe => {
+            const newRecipe = { ...recipe };
+            if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('.0600.1006')) {
+              newRecipe.bilesen_kodu = recipe.bilesen_kodu.replace('.0600.1006', '.0600.1008');
+              newRecipe.priority = 2;
+            }
+            return newRecipe;
+          });
+          ymTtAlt2RecipesGenerated.push(...alt2Recipes);
+        }
+      });
+
+      console.log(`📋 BATCH: Generated YM TT alternatives - ALT 1: ${ymTtAlt1RecipesGenerated.length}, ALT 2: ${ymTtAlt2RecipesGenerated.length}`);
+
+      // YM TT REÇETE ALT 1 Sheet (COILER alternatives)
+      const ymTtAlt1Recipes = ymTtAlt1RecipesGenerated;
       if (ymTtAlt1Recipes.length > 0) {
         const ymTtAlt1Sheet = workbook.addWorksheet('YM TT REÇETE ALT 1');
         ymTtAlt1Sheet.addRow(receteHeaders);
