@@ -14068,8 +14068,9 @@ const TavliBalyaTelNetsis = () => {
 
     console.log('📝 Product name:', productName);
 
-    // Parse values to remove trailing zeros - use parseFloat to strip .00
-    const capDisplay = parseFloat(cap.toFixed(2)); // Format then parse to remove trailing zeros
+    // ✅ FIXED: Preserve trailing zeros in diameter (e.g., 1.20 not 1.2)
+    // Match cleaned CSV format from currentvsfuture.csv
+    const capDisplay = cap.toFixed(2); // Keep trailing zeros: 1.20mm, 2.30mm, etc.
     const minMukavemet = parseFloat(mmData.min_mukavemet) || 0;
     const maxMukavemet = parseFloat(mmData.max_mukavemet) || 0;
     const icCap = parseFloat(mmData.ic_cap) || 45;
@@ -14172,8 +14173,9 @@ const TavliBalyaTelNetsis = () => {
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
 
     // Base english name - PRODUCT-SPECIFIC NAMES
+    // ✅ FIXED: Preserve trailing zeros in diameter for consistency
     const productNameEn = mmData.product_type === 'TAVLI' ? 'Annealed Wire' : 'Bale Wire';
-    let englishName = `${productNameEn} ${parseFloat(cap.toFixed(2))} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
+    let englishName = `${productNameEn} ${cap.toFixed(2)} mm ${toleranceText} ${parseFloat(mmData.min_mukavemet) || '0'}-${parseFloat(mmData.max_mukavemet) || '0'} MPa ID:${parseFloat(mmData.ic_cap) || '45'} cm OD:${parseFloat(mmData.dis_cap) || '75'} cm ${parseFloat(mmData.kg) || '0'}${bagAmount} kg`;
 
     // ✅ FIXED: Add yaglama and packaging suffixes
     const suffixes = [];
