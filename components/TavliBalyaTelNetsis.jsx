@@ -15328,23 +15328,26 @@ const TavliBalyaTelNetsis = () => {
                       }
 
                       // ✅ TAVLI-ONLY components (per 4.csv structure and genel.csv)
-                      if (mmData.product_type === 'TAVLI') {
+                      // BUT only for OILED TAVLI products (per 2.csv rules)
+                      if (mmData.product_type === 'TAVLI' && isOiled) {
                         // Halka (Kaldırma Kancası) - TAVLI only (4 for packaging + 2 for pressing if cap >= 1.8mm)
                         // ✅ FIX: "4 adet paketleme + 2 adet presleme" → 6 total if pressing needed
                         const halkaTotalValue = needsPressing ? parseFloat((6 / 1200).toFixed(5)) : halkaValue;
                         updateIfNotDb('SM.7MMHALKA', halkaTotalValue);
-                        console.log(`  ✅ Adding Halka (TAVLI): ${halkaTotalValue}`);
+                        console.log(`  ✅ Adding Halka (TAVLI + oiled): ${halkaTotalValue}`);
 
                         // Çember Tokası - TAVLI only (4 for packaging + 4 for pressing if cap >= 1.8mm)
                         // "paketleme 4 + presleme 4" → 8 total if pressing needed
                         const tokaTotalValue = needsPressing ? parseFloat((8 / 1200).toFixed(5)) : tokaValue;
                         updateIfNotDb('AMB.TOKA.SIGNODE.114P. DKP', tokaTotalValue);
-                        console.log(`  ✅ Adding Toka (TAVLI): ${tokaTotalValue}`);
+                        console.log(`  ✅ Adding Toka (TAVLI + oiled): ${tokaTotalValue}`);
 
                         // Çelik Çember - TAVLI only, x2 if pressing needed (Galvaniz formula)
                         const celikCemberTotalValue = needsPressing ? parseFloat(((2.4 * (1000 / kg)) / 1000).toFixed(5)) : celikCemberValue;
                         updateIfNotDb('AMB.APEX CEMBER 38X080', celikCemberTotalValue);
-                        console.log(`  ✅ Adding Çelik Çember (TAVLI): ${celikCemberTotalValue}`);
+                        console.log(`  ✅ Adding Çelik Çember (TAVLI + oiled): ${celikCemberTotalValue}`);
+                      } else if (mmData.product_type === 'TAVLI' && !isOiled) {
+                        console.log(`  ⏭️  Skipping Halka, Toka, Çelik Çember (TAVLI but Yagsiz - not oiled)`);
                       }
                     });
 
