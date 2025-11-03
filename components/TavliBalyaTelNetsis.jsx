@@ -9710,13 +9710,21 @@ const TavliBalyaTelNetsis = () => {
       // Must not be .P
       if (p.stok_kodu.endsWith('.P')) return false;
 
+      const cap = parseFloat(p.cap);
+
       // ✅ VALIDATE: .ST products must be < 1.8mm
       if (p.stok_kodu.endsWith('.ST')) {
-        const cap = parseFloat(p.cap);
         if (cap >= 1.8) {
           console.warn(`⚠️ INVALID .ST product ${p.stok_kodu} - cap ${cap}mm >= 1.8mm! Skipping...`);
           return false;
         }
+      }
+
+      // ✅ EXCLUDE: Products < 1.5mm with Filmaşin format (e.g., YM.ST.0116.0600.1006)
+      // These should ONLY have .ST ending (e.g., YM.ST.0116.ST)
+      if (cap < 1.5 && !p.stok_kodu.endsWith('.ST')) {
+        console.warn(`⚠️ INVALID Filmaşin format for <1.5mm product ${p.stok_kodu} - cap ${cap}mm! Should be .ST ending only. Skipping...`);
+        return false;
       }
 
       return true;
