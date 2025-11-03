@@ -7327,8 +7327,8 @@ const TavliBalyaTelNetsis = () => {
               isCoilerYellow: true // Flag for Excel yellow coloring
             });
 
-            // ALT 2: FILMAŞIN priority 2 (if exists)
-            const alt2 = matrixAlts.find(alt => alt.priority === 2);
+            // ALT 2: FILMAŞIN priority 1 (shifted because COILER takes ALT 1)
+            const alt2 = matrixAlts.find(alt => alt.priority === 1);
             if (alt2) {
               const capCode = String(Math.round(ymStDiameter * 100)).padStart(4, '0');
               const filmasinCode = String(Math.round(alt2.diameter * 100)).padStart(4, '0');
@@ -7340,6 +7340,22 @@ const TavliBalyaTelNetsis = () => {
                 stokKodu: stokKodu,
                 priority: 2,
                 ymStDiameter: alt2.cap
+              });
+            }
+
+            // ALT 3: FILMAŞIN priority 2 (if exists)
+            const alt3 = matrixAlts.find(alt => alt.priority === 2);
+            if (alt3) {
+              const capCode = String(Math.round(ymStDiameter * 100)).padStart(4, '0');
+              const filmasinCode = String(Math.round(alt3.diameter * 100)).padStart(4, '0');
+              let stokKodu = `YM.ST.${capCode}.${filmasinCode}.${alt3.quality}`;
+
+              // NO .P for 1.5-1.8mm range (< 1.8mm means no pressing)
+
+              ymStAlternatives.push({
+                stokKodu: stokKodu,
+                priority: 3,
+                ymStDiameter: alt3.cap
               });
             }
 
