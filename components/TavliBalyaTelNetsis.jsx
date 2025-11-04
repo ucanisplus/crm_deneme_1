@@ -10308,26 +10308,30 @@ const TavliBalyaTelNetsis = () => {
             }
 
             // STEP 2: Extract YM TT stok_kodu from MM TT recipes
+            // ✅ FIX: For Tavlı/Balya, look for YM.TT (not YM.GT)
             const ymGtRecipe = mmRecipes.find(r =>
               (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
               r.bilesen_kodu &&
-              r.bilesen_kodu.startsWith('YM.GT.')
+              r.bilesen_kodu.startsWith('YM.TT.')
             );
 
             let ymGtStokKodu = null;
             if (ymGtRecipe) {
-              // Extract and update YM TT stok_kodu with MM TT sequence
-              const mmSequence = mm.stok_kodu?.split('.').pop() || '00';
-              const bilesenParts = ymGtRecipe.bilesen_kodu.split('.');
-              if (bilesenParts.length >= 5) {
-                bilesenParts[bilesenParts.length - 1] = mmSequence;
-                ymGtStokKodu = bilesenParts.join('.');
-              } else {
-                ymGtStokKodu = ymGtRecipe.bilesen_kodu;
-              }
+              // Extract YM TT stok_kodu from MM TT recipe
+              ymGtStokKodu = ymGtRecipe.bilesen_kodu;
+              console.log(`✅ Found YM TT bilesen in MM TT recipe: ${ymGtStokKodu}`);
             } else {
               // Fallback: Construct YM TT stok_kodu from MM TT stok_kodu
-              ymGtStokKodu = mm.stok_kodu.replace('GT.', 'YM.GT.'); // Note: Variable name kept for compatibility
+              // TT.BAG.0168.00 → YM.TT.0168.00
+              // TT.BALYA.0173.00 → YM.TT.0173.00
+              const parts = mm.stok_kodu.split('.');
+              if (parts.length >= 4) {
+                // Extract diameter from MM TT (e.g., TT.BAG.0168.00 → 0168)
+                const diameterPart = parts[parts.length - 2];
+                const sequencePart = parts[parts.length - 1];
+                ymGtStokKodu = `YM.TT.${diameterPart}.${sequencePart}`;
+                console.log(`⚠️ YM TT not found in recipe, constructed from MM TT: ${ymGtStokKodu}`);
+              }
             }
 
             // STEP 3: Fetch YM TT by stok_kodu
