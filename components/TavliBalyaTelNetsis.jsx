@@ -10372,8 +10372,18 @@ const TavliBalyaTelNetsis = () => {
               if (ymGt) {
                 ymGtMap.set(ymGt.stok_kodu, ymGt);
 
-                // ✅ FIX: Use upfront ymGtRecipeData and filter by mamul_kodu (stock code), not ym_gt_id
-                const ymGtRecipes = ymGtRecipeData.filter(r => r.mamul_kodu === ymGt.stok_kodu);
+                // ✅ FIX: Try upfront data first, fallback to individual fetch if empty (handles 504 timeout)
+                let ymGtRecipes = ymGtRecipeData.filter(r => r.mamul_kodu === ymGt.stok_kodu);
+
+                if (ymGtRecipes.length === 0) {
+                  console.log(`⚠️ No YM TT recipes in upfront data, fetching individually for ${ymGt.stok_kodu}...`);
+                  const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?mamul_kodu=${encodeURIComponent(ymGt.stok_kodu)}`);
+                  if (individualResponse && individualResponse.ok) {
+                    ymGtRecipes = await individualResponse.json();
+                    console.log(`✅ Fetched ${ymGtRecipes.length} YM TT recipes individually for ${ymGt.stok_kodu}`);
+                  }
+                }
+
                 console.log(`✅ Found ${ymGtRecipes.length} YM TT recipes for ${ymGt.stok_kodu}`);
 
                 // Store YM TT recipes
@@ -10413,8 +10423,18 @@ const TavliBalyaTelNetsis = () => {
                       console.log(`✅ Found main YM STP: ${ymStp.stok_kodu}`);
                       ymStpMap.set(ymStp.stok_kodu, ymStp);
 
-                      // ✅ FIX: Filter YM STP recipes by mamul_kodu (stock code), not ym_stp_id
-                      const ymStpRecipes = ymStpRecipeData.filter(r => r.mamul_kodu === ymStp.stok_kodu);
+                      // ✅ FIX: Try upfront data first, fallback to individual fetch if empty
+                      let ymStpRecipes = ymStpRecipeData.filter(r => r.mamul_kodu === ymStp.stok_kodu);
+
+                      if (ymStpRecipes.length === 0) {
+                        console.log(`⚠️ No YM STP recipes in upfront data, fetching individually for ${ymStp.stok_kodu}...`);
+                        const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(ymStp.stok_kodu)}`);
+                        if (individualResponse && individualResponse.ok) {
+                          ymStpRecipes = await individualResponse.json();
+                          console.log(`✅ Fetched ${ymStpRecipes.length} YM STP recipes individually for ${ymStp.stok_kodu}`);
+                        }
+                      }
+
                       console.log(`✅ Found ${ymStpRecipes.length} YM STP recipes for ${ymStp.stok_kodu}`);
 
                       ymStpRecipes.forEach(r => {
@@ -10433,8 +10453,18 @@ const TavliBalyaTelNetsis = () => {
                         console.log(`✅ Found base YM ST for pressing: ${baseYmSt.stok_kodu}`);
                         ymStMap.set(baseYmSt.stok_kodu, baseYmSt);
 
-                        // ✅ FIX: Filter YM ST recipes by mamul_kodu (stock code), not ym_st_id
-                        const baseYmStRecipes = ymStRecipeData.filter(r => r.mamul_kodu === baseYmSt.stok_kodu);
+                        // ✅ FIX: Try upfront data first, fallback to individual fetch if empty
+                        let baseYmStRecipes = ymStRecipeData.filter(r => r.mamul_kodu === baseYmSt.stok_kodu);
+
+                        if (baseYmStRecipes.length === 0) {
+                          console.log(`⚠️ No YM ST recipes in upfront data, fetching individually for ${baseYmSt.stok_kodu}...`);
+                          const individualResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(baseYmSt.stok_kodu)}`);
+                          if (individualResponse && individualResponse.ok) {
+                            baseYmStRecipes = await individualResponse.json();
+                            console.log(`✅ Fetched ${baseYmStRecipes.length} YM ST recipes individually for ${baseYmSt.stok_kodu}`);
+                          }
+                        }
+
                         console.log(`✅ Found ${baseYmStRecipes.length} YM ST recipes for ${baseYmSt.stok_kodu}`);
 
                         baseYmStRecipes.forEach(r => {
@@ -10454,8 +10484,18 @@ const TavliBalyaTelNetsis = () => {
                       console.log(`✅ Found main YM ST: ${ymSt.stok_kodu}`);
                       ymStMap.set(ymSt.stok_kodu, ymSt);
 
-                      // ✅ FIX: Filter YM ST recipes by mamul_kodu (stock code), not ym_st_id
-                      const ymStRecipes = ymStRecipeData.filter(r => r.mamul_kodu === ymSt.stok_kodu);
+                      // ✅ FIX: Try upfront data first, fallback to individual fetch if empty
+                      let ymStRecipes = ymStRecipeData.filter(r => r.mamul_kodu === ymSt.stok_kodu);
+
+                      if (ymStRecipes.length === 0) {
+                        console.log(`⚠️ No YM ST recipes in upfront data, fetching individually for ${ymSt.stok_kodu}...`);
+                        const individualResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
+                        if (individualResponse && individualResponse.ok) {
+                          ymStRecipes = await individualResponse.json();
+                          console.log(`✅ Fetched ${ymStRecipes.length} YM ST recipes individually for ${ymSt.stok_kodu}`);
+                        }
+                      }
+
                       console.log(`✅ Found ${ymStRecipes.length} YM ST recipes for ${ymSt.stok_kodu}`);
 
                       ymStRecipes.forEach(r => {
