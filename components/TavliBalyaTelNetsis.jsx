@@ -10375,32 +10375,29 @@ const TavliBalyaTelNetsis = () => {
                 if (ymGt) {
                   ymGtMap.set(ymGt.stok_kodu, ymGt);
 
-                  // Fetch YM TT recipes
-                  const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=2000`);
+                  // ✅ FIX: Use upfront ymGtRecipeData and filter by mamul_kodu (stock code), not ym_gt_id
+                  const ymGtRecipes = ymGtRecipeData.filter(r => r.mamul_kodu === ymGt.stok_kodu);
+                  console.log(`✅ Found ${ymGtRecipes.length} YM TT recipes for ${ymGt.stok_kodu}`);
 
-                  if (allYmGtRecipesResponse && allYmGtRecipesResponse.ok) {
-                    const allYmGtRecipes = await allYmGtRecipesResponse.json();
-                    const ymGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
-
-                    // Store YM TT recipes
-                    ymGtRecipes.forEach(r => {
-                      const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
-                      ymGtRecipeMap.set(key, {
-                        ...r,
-                        ym_gt_stok_kodu: ymGt.stok_kodu,
-                        mm_gt_stok_kodu: mm.stok_kodu,
-                        sequence: mm.stok_kodu?.split('.').pop() || '00',
-                      });
+                  // Store YM TT recipes
+                  ymGtRecipes.forEach(r => {
+                    const key = `${ymGt.stok_kodu}-${r.bilesen_kodu}`;
+                    ymGtRecipeMap.set(key, {
+                      ...r,
+                      ym_gt_stok_kodu: ymGt.stok_kodu,
+                      mm_gt_stok_kodu: mm.stok_kodu,
+                      sequence: mm.stok_kodu?.split('.').pop() || '00',
                     });
+                  });
 
-                    // STEP 4: Extract main YM ST or YM STP from YM TT recipes
-                    const mainYmStRecipe = ymGtRecipes.find(r =>
-                      (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
-                      r.bilesen_kodu &&
-                      r.bilesen_kodu.startsWith('YM.ST.')
-                    );
+                  // STEP 4: Extract main YM ST or YM STP from YM TT recipes
+                  const mainYmStRecipe = ymGtRecipes.find(r =>
+                    (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
+                    r.bilesen_kodu &&
+                    r.bilesen_kodu.startsWith('YM.ST.')
+                  );
 
-                    if (mainYmStRecipe) {
+                  if (mainYmStRecipe) {
                       const bilesenKodu = mainYmStRecipe.bilesen_kodu;
 
                       // Check if it's a YM STP (.P product) or YM ST (non-.P product)
@@ -10409,12 +10406,12 @@ const TavliBalyaTelNetsis = () => {
                         const ymStp = ymStpData.find(r => r.stok_kodu === bilesenKodu);
 
                         if (ymStp) {
-                          console.log(`✅ Found main YM STP: ${ymStp.stok_kodu} (ID: ${ymStp.id})`);
+                          console.log(`✅ Found main YM STP: ${ymStp.stok_kodu}`);
                           ymStpMap.set(ymStp.stok_kodu, ymStp);
 
-                          // Fetch YM STP recipes from upfront data
-                          const ymStpRecipes = ymStpRecipeData.filter(r => r.ym_stp_id == ymStp.id);
-                          console.log(`✅ Found ${ymStpRecipes.length} main YM STP recipes`);
+                          // ✅ FIX: Filter YM STP recipes by mamul_kodu (stock code), not ym_stp_id
+                          const ymStpRecipes = ymStpRecipeData.filter(r => r.mamul_kodu === ymStp.stok_kodu);
+                          console.log(`✅ Found ${ymStpRecipes.length} YM STP recipes for ${ymStp.stok_kodu}`);
 
                           ymStpRecipes.forEach(r => {
                             const key = `${ymStp.stok_kodu}-${r.bilesen_kodu}`;
@@ -10429,12 +10426,12 @@ const TavliBalyaTelNetsis = () => {
                           const baseYmSt = ymStData.find(r => r.stok_kodu === baseYmStKodu);
 
                           if (baseYmSt) {
-                            console.log(`✅ Found base YM ST for pressing: ${baseYmSt.stok_kodu} (ID: ${baseYmSt.id})`);
+                            console.log(`✅ Found base YM ST for pressing: ${baseYmSt.stok_kodu}`);
                             ymStMap.set(baseYmSt.stok_kodu, baseYmSt);
 
-                            // Fetch base YM ST recipes
-                            const baseYmStRecipes = ymStRecipeData.filter(r => r.ym_st_id == baseYmSt.id);
-                            console.log(`✅ Found ${baseYmStRecipes.length} base YM ST recipes`);
+                            // ✅ FIX: Filter YM ST recipes by mamul_kodu (stock code), not ym_st_id
+                            const baseYmStRecipes = ymStRecipeData.filter(r => r.mamul_kodu === baseYmSt.stok_kodu);
+                            console.log(`✅ Found ${baseYmStRecipes.length} YM ST recipes for ${baseYmSt.stok_kodu}`);
 
                             baseYmStRecipes.forEach(r => {
                               const key = `${baseYmSt.stok_kodu}-${r.bilesen_kodu}`;
@@ -10450,12 +10447,12 @@ const TavliBalyaTelNetsis = () => {
                         const ymSt = ymStData.find(r => r.stok_kodu === bilesenKodu);
 
                         if (ymSt) {
-                          console.log(`✅ Found main YM ST: ${ymSt.stok_kodu} (ID: ${ymSt.id})`);
+                          console.log(`✅ Found main YM ST: ${ymSt.stok_kodu}`);
                           ymStMap.set(ymSt.stok_kodu, ymSt);
 
-                          // Fetch main YM ST recipes from upfront data
-                          const ymStRecipes = ymStRecipeData.filter(r => r.ym_st_id == ymSt.id);
-                          console.log(`✅ Found ${ymStRecipes.length} main YM ST recipes`);
+                          // ✅ FIX: Filter YM ST recipes by mamul_kodu (stock code), not ym_st_id
+                          const ymStRecipes = ymStRecipeData.filter(r => r.mamul_kodu === ymSt.stok_kodu);
+                          console.log(`✅ Found ${ymStRecipes.length} YM ST recipes for ${ymSt.stok_kodu}`);
 
                           ymStRecipes.forEach(r => {
                             const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
@@ -10466,9 +10463,9 @@ const TavliBalyaTelNetsis = () => {
                           });
                         }
                       }
-                    }
                   }
                 } else {
+                  console.warn(`⚠️ [${request.id}] YM TT product not found: ${ymGtStokKodu}`);
                 }
               }
             }
