@@ -14073,8 +14073,6 @@ const TavliBalyaTelNetsis = () => {
       diamValue = 999; // Unknown format
     }
 
-    console.log(`🔍 generateYmTtReceteRowForBatch: ymTt=${ymTtStokKodu}, diamValue=${diamValue}, bilesen=${bilesenKodu}`);
-
     // For products < 1.5mm: Convert YM ST bilesen to .ST format
     // e.g., YM.ST.0116.0600.1006 -> YM.ST.0116.ST
     let finalBilesenKodu = bilesenKodu;
