@@ -10213,7 +10213,7 @@ const TavliBalyaTelNetsis = () => {
         
         totalApiCalls++;
         let mmResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}?stok_kodu=${request.stok_kodu}`);
-        
+
         // If exact match fails due to parameter error, fetch all and filter client-side
         if (!mmResponse || !mmResponse.ok) {
           console.log(`🔍 [${request.id}] Exact match failed, fetching all MM TT and filtering client-side...`);
@@ -10221,69 +10221,61 @@ const TavliBalyaTelNetsis = () => {
           if (allMmGtResponse && allMmGtResponse.ok) {
             const allMmGtProducts = await allMmGtResponse.json();
             const filteredProducts = allMmGtProducts.filter(p => p.stok_kodu === request.stok_kodu);
-            
+
             // Create a mock response with filtered data
             mmResponse = {
               ok: true,
               json: async () => filteredProducts
             };
-            
+
             console.log(`🔍 [${request.id}] Client-side filtering found ${filteredProducts.length} products with stok_kodu: "${request.stok_kodu}"`);
+          } else {
+            // Both API calls failed - increment failed counter
+            failedApiCalls++;
           }
         }
-        
+
         if (mmResponse && mmResponse.ok) {
           const mmProducts = await mmResponse.json();
           successfulApiCalls++;
-          
+
           console.log(`📋 [${request.id}] MM TT API response:`, mmProducts);
-          
+
           // The API returns an array even for single stok_kodu query
           const mmArray = Array.isArray(mmProducts) ? mmProducts : [mmProducts];
-          
+
           if (mmArray.length > 0) {
-            console.log(`📦 [${request.id}] Found ${mmArray.length} MM TT product(s):`, mmArray.map(p => ({ 
-              stok_kodu: p.stok_kodu, 
-              id: p.id, 
+            console.log(`📦 [${request.id}] Found ${mmArray.length} MM TT product(s):`, mmArray.map(p => ({
+              stok_kodu: p.stok_kodu,
+              id: p.id,
               cap: p.cap,
               kg: p.kg
             })));
           }
-          
+
           if (mmArray.length === 0) {
             console.warn(`⚠️ [${request.id}] No MM TT product found with stok_kodu: "${request.stok_kodu}"`);
             console.warn(`⚠️ [${request.id}] This could mean: 1) Product was deleted, 2) Wrong stok_kodu, 3) Sequence mismatch`);
             continue;
           }
-          
+
           // Process only the specific MM TT for this request
           for (const mm of mmArray) {
             // Add MM TT
             console.log(`➕ [${request.id}] Adding MM TT to map: ${mm.stok_kodu} (ID: ${mm.id})`);
             mmMap.set(mm.stok_kodu, mm);
 
-            // STEP 1: Fetch MM TT recipes first to extract YM TT stok_kodu
-            console.log(`📖 [${processedRequests}/${requestsList.length}] Fetching MM TT recipes for mm_gt_id=${mm.id} (stok_kodu: ${mm.stok_kodu})...`);
-            const allRecipesResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?limit=10000`);
+            // STEP 1: Fetch MM TT recipes by mamul_kodu (stock code)
+            console.log(`📖 [${processedRequests}/${requestsList.length}] Fetching MM TT recipes for ${mm.stok_kodu}...`);
+            const allRecipesResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mamul_kodu=${encodeURIComponent(mm.stok_kodu)}`);
             let mmRecipes = [];
 
             if (allRecipesResponse && allRecipesResponse.ok) {
-              const allRecipes = await allRecipesResponse.json();
-              console.log(`📊 Total MM TT recipes fetched from API: ${allRecipes.length}`);
-
-              // Try ID matching first, then stok_kodu matching as fallback
-              const recipesByIdFilter = allRecipes.filter(r => r.mm_gt_id == mm.id);
-              const recipesByStokKodu = allRecipes.filter(r => r.mamul_kodu === mm.stok_kodu);
-
-              if (recipesByIdFilter.length > 0) {
-                mmRecipes = recipesByIdFilter;
-                console.log(`✅ Found ${mmRecipes.length} MM TT recipes by ID`);
-              } else if (recipesByStokKodu.length > 0) {
-                mmRecipes = recipesByStokKodu;
-                console.log(`⚠️ Found ${mmRecipes.length} MM TT recipes by stok_kodu fallback`);
-              } else {
-                console.error(`❌ NO RECIPES found for MM TT ${mm.stok_kodu}`);
-              }
+              mmRecipes = await allRecipesResponse.json();
+              console.log(`✅ Found ${mmRecipes.length} MM TT recipes for ${mm.stok_kodu}`);
+            } else {
+              console.error(`❌ Failed to fetch recipes for MM TT ${mm.stok_kodu}`);
+            }
 
               // Store MM TT recipes in map
               mmRecipes.forEach(r => {
@@ -10802,9 +10794,16 @@ const TavliBalyaTelNetsis = () => {
       console.error('💥 CRITICAL ERROR: No MM TT products found in any approved requests!');
       console.error('💡 Possible causes:');
       console.error('   1. Approved requests exist but have no saved MM TT products');
-      console.error('   2. Database connection issue');
+      console.error('   2. Database connection issue or API timeout (504 errors)');
       console.error('   3. API filtering problem');
       console.error('   4. Products were deleted after approval');
+      console.error(`📊 API Call Stats: Total: ${totalApiCalls}, Successful: ${successfulApiCalls}, Failed: ${failedApiCalls}`);
+
+      // Check if all API calls failed (likely backend timeout issue)
+      if (failedApiCalls > 0 && successfulApiCalls === 0) {
+        throw new Error('Backend API yanıt vermiyor (504 Timeout). Lütfen birkaç saniye bekleyip tekrar deneyin. Backend soğuk başlatma yapıyor olabilir.');
+      }
+
       throw new Error('Seçilen onaylanmış taleplerde hiçbir ürün bulunamadı. Lütfen taleplerin doğru şekilde kaydedildiğinden emin olun.');
     }
     
