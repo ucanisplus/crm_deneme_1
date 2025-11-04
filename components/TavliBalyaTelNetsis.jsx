@@ -14058,9 +14058,20 @@ const TavliBalyaTelNetsis = () => {
   // ===================================================================
 
   const generateYmTtReceteRowForBatch = (bilesenKodu, miktar, siraNo, ymTtStokKodu, operasyonBilesen) => {
-    // Extract diameter from YM TT stok kodu (e.g., YM.TT.BAG.0120.00 -> 1.20mm)
+    // Extract diameter from YM TT stok kodu
+    // Format 1: YM.TT.CCCC.SS (standard) -> diameter at parts[2]
+    // Format 2: YM.TT.BAG.CCCC.SS (balya) -> diameter at parts[3]
     const parts = ymTtStokKodu.split('.');
-    const diamValue = parts.length >= 4 ? parseFloat(parts[3]) / 100.0 : 999;
+    let diamValue;
+    if (parts.length === 4) {
+      // Standard format: YM.TT.CCCC.SS
+      diamValue = parseFloat(parts[2]) / 100.0;
+    } else if (parts.length >= 5) {
+      // BAG/BALYA format: YM.TT.BAG.CCCC.SS
+      diamValue = parseFloat(parts[3]) / 100.0;
+    } else {
+      diamValue = 999; // Unknown format
+    }
 
     console.log(`🔍 generateYmTtReceteRowForBatch: ymTt=${ymTtStokKodu}, diamValue=${diamValue}, bilesen=${bilesenKodu}`);
 
