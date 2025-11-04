@@ -2142,6 +2142,42 @@ const TavliBalyaTelNetsis = () => {
         console.error('Error deleting recipes:', error);
       }
 
+      // Step 2.5: Delete YM TT products and recipes (CASCADE from MM deletion)
+      try {
+        // Find YM TT products that reference this MM
+        const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliBalyaYmTt}?source_mm_stok_kodu=${encodeURIComponent(mmStokKodu)}`);
+        if (ymTtResponse && ymTtResponse.ok) {
+          const ymTtProducts = await ymTtResponse.json();
+          console.log(`Found ${ymTtProducts.length} YM TT products referencing ${mmStokKodu}`);
+
+          for (const ymTt of ymTtProducts) {
+            // Delete YM TT recipes first
+            try {
+              const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaYmTtRecete}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
+              if (ymTtRecipeResponse && ymTtRecipeResponse.ok) {
+                const ymTtRecipes = await ymTtRecipeResponse.json();
+                for (const recipe of ymTtRecipes) {
+                  await fetchWithAuth(`${API_URLS.tavliBalyaYmTtRecete}/${recipe.id}`, { method: 'DELETE' });
+                }
+                console.log(`Deleted ${ymTtRecipes.length} YM TT recipes for ${ymTt.stok_kodu}`);
+              }
+            } catch (error) {
+              console.error(`Error deleting YM TT recipes for ${ymTt.stok_kodu}:`, error);
+            }
+
+            // Delete YM TT product
+            try {
+              await fetchWithAuth(`${API_URLS.tavliBalyaYmTt}/${ymTt.id}`, { method: 'DELETE' });
+              console.log(`Deleted YM TT product ${ymTt.stok_kodu}`);
+            } catch (error) {
+              console.error(`Error deleting YM TT ${ymTt.stok_kodu}:`, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error deleting YM TT products:', error);
+      }
+
       // Step 3: Delete MM product
       const deleteResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}/${mmId}`, { method: 'DELETE' });
 
@@ -6795,7 +6831,7 @@ const TavliBalyaTelNetsis = () => {
       product_type: mmData.product_type,
       grup_kodu: 'YM',
       kod_1: 'TT',
-      kod_2: ymSt.filmasin.toString().padStart(4, '0'),
+      kod_2: '', // FIXED: Empty for YM TT (was setting filmasin value incorrectly)
       turu: 'Y', // Yarı mamul (Semi-finished)
       mamul_grup: stokKodu,
       muh_detay: '28',
