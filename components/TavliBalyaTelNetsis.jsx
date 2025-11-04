@@ -10277,27 +10277,26 @@ const TavliBalyaTelNetsis = () => {
               console.error(`❌ Failed to fetch recipes for MM TT ${mm.stok_kodu}`);
             }
 
-              // Store MM TT recipes in map
-              mmRecipes.forEach(r => {
-                let updatedBilesenKodu = r.bilesen_kodu;
-                if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.GT.')) {
-                  const mmSequence = mm.stok_kodu?.split('.').pop() || '00';
-                  const bilesenParts = r.bilesen_kodu.split('.');
-                  if (bilesenParts.length >= 5) {
-                    bilesenParts[bilesenParts.length - 1] = mmSequence;
-                    updatedBilesenKodu = bilesenParts.join('.');
-                  }
+            // Store MM TT recipes in map
+            mmRecipes.forEach(r => {
+              let updatedBilesenKodu = r.bilesen_kodu;
+              if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.GT.')) {
+                const mmSequence = mm.stok_kodu?.split('.').pop() || '00';
+                const bilesenParts = r.bilesen_kodu.split('.');
+                if (bilesenParts.length >= 5) {
+                  bilesenParts[bilesenParts.length - 1] = mmSequence;
+                  updatedBilesenKodu = bilesenParts.join('.');
                 }
+              }
 
-                const key = `${mm.stok_kodu}-${updatedBilesenKodu}`;
-                mmRecipeMap.set(key, {
-                  ...r,
-                  bilesen_kodu: updatedBilesenKodu,
-                  mm_gt_stok_kodu: mm.stok_kodu,
-                  sequence: mm.stok_kodu?.split('.').pop() || '00'
-                });
+              const key = `${mm.stok_kodu}-${updatedBilesenKodu}`;
+              mmRecipeMap.set(key, {
+                ...r,
+                bilesen_kodu: updatedBilesenKodu,
+                mm_gt_stok_kodu: mm.stok_kodu,
+                sequence: mm.stok_kodu?.split('.').pop() || '00'
               });
-            }
+            });
 
             // STEP 2: Extract YM TT stok_kodu from MM TT recipes
             // ✅ FIX: For Tavlı/Balya, look for YM.TT (not YM.GT)
