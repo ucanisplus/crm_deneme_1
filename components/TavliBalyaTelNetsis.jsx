@@ -10604,9 +10604,7 @@ const TavliBalyaTelNetsis = () => {
                 } else {
                   console.warn(`⚠️ BATCH: Main YM ST not found: ${mainYmStCode}`);
                 }
-              } else {
               }
-            } else {
             }
           }
         } else {
