@@ -494,10 +494,10 @@ const getOperationDuration = (operation, kg, hasShrink = false, diameter = null)
 const AUXILIARY_COMPONENTS = {
   // Reused from Galvanizli (UPDATED: Removed SM.DESİ.PAK - not in tavlı/balya CSV)
   'AMB.APEX CEMBER 38X080': 'SM-AMB-000017', // Çelik Çember (for YM TT and YM STP)
-  'AMB.PLASTİK.ÇEMBER': 'SM-AMB-000024', // Plastik Çember (for MM TAVLI/BALYA - OILED ONLY)
+  'AMB.PLASTİK.ÇEMBER': 'SM-AMB-000046', // ✅ CORRECTED: Plastik Çember (for MM TAVLI/BALYA - OILED ONLY)
   'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018', // Çember Tokası
   'SM.7MMHALKA': 'SM-AMB-000023', // Kaldırma Kancası
-  'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000019', // Karton (OILED ONLY per gene2l.csv)
+  'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000084', // ✅ CORRECTED: Karton (OILED ONLY per gene2l.csv)
   'AMB.SHRİNK.200*140CM': 'SM-AMB-000027', // Shrink - from Galvanizli logic
   'AMB.SHRİNK.200*160CM': 'SM-AMB-000028',
   'AMB.SHRİNK.200*190CM': 'SM-AMB-000030',
@@ -915,25 +915,28 @@ const TavliBalyaTelNetsis = () => {
 
     // Database codes (Excel output format - UPDATED: Removed silkajel, not in tavlı/balya CSV)
     'SM-AMB-000017': 'Çelik çember (SM-AMB-000017)',
-    'SM-AMB-000024': 'Plastik çember (SM-AMB-000024)',
+    'SM-AMB-000046': 'Plastik Çember (SM-AMB-000046)', // ✅ CORRECTED
     'SM-AMB-000018': 'Çember tokası (SM-AMB-000018)',
     'SM-AMB-000023': 'Kaldırma kancası (SM-AMB-000023)',
     'SM-AMB-000027': 'Shrink Tüketimi (KG)',
     'SM-AMB-000028': 'Shrink Tüketimi (KG)',
     'SM-AMB-000030': 'Shrink Tüketimi (KG)',
-    'SM-AMB-000019': 'Karton (SM-AMB-000019)',
+    'SM-AMB-000084': 'Karton (SM-AMB-000084)', // ✅ CORRECTED
     'SM-AMB-000025': 'Streç (SM-AMB-000025)',
     'SM-AMB-000026': 'Palet (SM-AMB-000026)',
+    // ❌ OLD CODES (kept for reference during migration, but shouldn't be used for new products)
+    'SM-AMB-000024': 'Plastik çember (SM-AMB-000024) - OLD CODE',
+    'SM-AMB-000019': 'Karton (SM-AMB-000019) - OLD CODE',
 
     // Legacy display codes (kept for backward compatibility with internal calculations)
     'AMB.APEX CEMBER 38X080': 'Çelik çember (SM-AMB-000017)',
-    'AMB.PLASTİK.ÇEMBER': 'Plastik çember (SM-AMB-000024)',
+    'AMB.PLASTİK.ÇEMBER': 'Plastik Çember (SM-AMB-000046)', // ✅ CORRECTED
     'AMB.TOKA.SIGNODE.114P. DKP': 'Çember tokası (SM-AMB-000018)',
     'SM.7MMHALKA': 'Kaldırma kancası (SM-AMB-000023)',
     'AMB.SHRİNK.200*140CM': 'Shrink Tüketimi (KG)',
     'AMB.SHRİNK.200*160CM': 'Shrink Tüketimi (KG)',
     'AMB.SHRİNK.200*190CM': 'Shrink Tüketimi (KG)',
-    'AMB.ÇEM.KARTON.GAL': 'Karton (SM-AMB-000019)',
+    'AMB.ÇEM.KARTON.GAL': 'Karton (SM-AMB-000084)', // ✅ CORRECTED
     'AMB.STREÇ': 'Streç (SM-AMB-000025)',
     'AMB.PALET': 'Palet (SM-AMB-000026)'
   };
@@ -8755,11 +8758,11 @@ const TavliBalyaTelNetsis = () => {
     if (bilesen.includes('YM.TT.')) return 'Tavlı Tel Tüketim Miktarı';
     if (bilesen.includes('YM.STP.')) return 'Preslenmiş Siyah Tel Tüketim Miktarı';
     if (bilesen.includes('YM.ST.')) return 'Siyah Tel Tüketim Miktarı';
-    if (bilesen.includes('KARTON') || bilesen === 'SM-AMB-000019') return 'Karton Tüketim Miktarı';
+    if (bilesen.includes('KARTON') || bilesen === 'SM-AMB-000084') return 'Karton Tüketim Miktarı';
     if (bilesen.includes('SHRİNK') || bilesen === 'SM-AMB-000027' || bilesen === 'SM-AMB-000028' || bilesen === 'SM-AMB-000030') return 'Naylon Tüketim Miktarı';
     if (bilesen.includes('HALKA') || bilesen === 'SM-AMB-000023') return 'Kaldırma Kancası Tüketim Miktarı';
     // ✅ FIXED: Check Plastik Çember BEFORE general CEMBER check
-    if (bilesen.includes('PLASTİK') || bilesen === 'SM-AMB-000024') return 'Plastik çember Tüketim Miktarı';
+    if (bilesen.includes('PLASTİK') || bilesen === 'SM-AMB-000046') return 'Plastik Çember Tüketim Miktarı';
     if (bilesen.includes('STREÇ') || bilesen === 'SM-AMB-000025') return 'Streç Tüketim Miktarı';
     if (bilesen.includes('PALET') || bilesen === 'SM-AMB-000026') return 'Palet Tüketim Miktarı';
     if (bilesen.includes('CEMBER') || bilesen === 'SM-AMB-000017') return 'Çelik çember Tüketim Miktarı';
@@ -13990,12 +13993,12 @@ const TavliBalyaTelNetsis = () => {
     const bilesenMapping = {
       // MM TT bilesen mappings
       'AMB.APEX CEMBER 38X080': 'SM-AMB-000017',
-      'AMB.PLASTİK.ÇEMBER': 'SM-AMB-000024', // ✅ ADDED: Plastik Çember for MM products
+      'AMB.PLASTİK.ÇEMBER': 'SM-AMB-000046', // ✅ CORRECTED: Plastik Çember for MM products
       'AMB.STREÇ': 'SM-AMB-000025', // ✅ ADDED: Streç for MM products
       'AMB.PALET': 'SM-AMB-000026', // ✅ ADDED: Palet for MM products
       'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018',
       'SM.7MMHALKA': 'SM-AMB-000023',
-      'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000019',
+      'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000084', // ✅ CORRECTED: Karton for MM products
       'AMB.SHRİNK.200*140CM': 'SM-AMB-000027',
       'AMB.SHRİNK.200*160CM': 'SM-AMB-000028',
       'AMB.SHRİNK.200*190CM': 'SM-AMB-000030',
