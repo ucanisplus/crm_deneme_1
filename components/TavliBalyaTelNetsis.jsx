@@ -10388,11 +10388,18 @@ const TavliBalyaTelNetsis = () => {
                 });
 
                 // STEP 4: Extract main YM ST or YM STP from YM TT recipes
+                console.log(`🔍 [${request.id}] Analyzing ${ymGtRecipes.length} YM TT recipes for extraction:`);
+                ymGtRecipes.forEach((r, idx) => {
+                  console.log(`  Recipe ${idx + 1}: bilesen_kodu="${r.bilesen_kodu}", operasyon_bilesen="${r.operasyon_bilesen}"`);
+                });
+
                 const mainYmStRecipe = ymGtRecipes.find(r =>
                   (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
                   r.bilesen_kodu &&
                   r.bilesen_kodu.startsWith('YM.ST.')
                 );
+
+                console.log(`🔍 [${request.id}] mainYmStRecipe found: ${mainYmStRecipe ? mainYmStRecipe.bilesen_kodu : 'NONE'}`);
 
                 if (mainYmStRecipe) {
                   const bilesenKodu = mainYmStRecipe.bilesen_kodu;
