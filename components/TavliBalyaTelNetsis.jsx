@@ -10194,14 +10194,14 @@ const TavliBalyaTelNetsis = () => {
     const totalSteps = requestsList.length + 3; // requests + 3 Excel files (stok, recipe, alternatif)
     setExcelProgress({ current: 0, total: totalSteps, operation: 'Excel hazırlanıyor...', currentProduct: '' });
 
-    // ✅ FIXED: Fetch ALL data upfront for priority-based logic (same as bulk function)
+    // ✅ FIXED: Fetch ALL data upfront for priority-based logic (reduced limits to avoid 504 timeout)
     const [ymGtResponse, ymStpResponse, ymStResponse, ymGtRecetesResponse, ymStpRecetesResponse, ymStRecetesResponse] = await Promise.all([
-      fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=5000`),
-      fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?limit=5000`),
-      fetchWithAuth(`${API_URLS.galYmSt}?limit=5000`),
-      fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=10000`),
-      fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?limit=10000`),
-      fetchWithAuth(`${API_URLS.galYmStRecete}?limit=10000`)
+      fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=1000`),
+      fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?limit=1000`),
+      fetchWithAuth(`${API_URLS.galYmSt}?limit=2000`),
+      fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=2000`),
+      fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?limit=2000`),
+      fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`)
     ]);
 
     const ymGtData = (ymGtResponse && ymGtResponse.ok) ? await ymGtResponse.json() : [];
@@ -10883,40 +10883,40 @@ const TavliBalyaTelNetsis = () => {
 
     const workbook = new ExcelJS.Workbook();
 
+    // ✅ FIX: ALWAYS create all 4 sheets like full export (same format)
+
     // MM TT Sheet (Final Product - TT.BAG or TT.BALYA)
     const mmSheet = workbook.addWorksheet('MM TT');
-    const mmHeaders = getStokKartiHeaders();
+    const mmHeaders = getTavliBalyaHeaders(); // Use Tavli/Balya headers like full export
     mmSheet.addRow(mmHeaders);
 
     // Add multiple MM TT rows (one per product)
     for (const mm of mmData) {
-      mmSheet.addRow(generateMmTtStokKartiDataForBatch(mm));
+      mmSheet.addRow(generateTavliBalyaStokKartiDataForBatch(mm));
     }
 
-    // YM TT Sheet (Annealed Intermediate - shared by both TAVLI and BALYA)
+    // YM TT Sheet (Annealed Intermediate - ALWAYS create like full export)
+    const ymTtSheet = workbook.addWorksheet('YM TT');
+    ymTtSheet.addRow(mmHeaders); // Same headers as MM TT
     if (ymTtData && ymTtData.length > 0) {
-      const ymTtSheet = workbook.addWorksheet('YM TT');
-      ymTtSheet.addRow(mmHeaders); // Same headers as MM TT
       for (const ymTt of ymTtData) {
-        ymTtSheet.addRow(generateYmTtStokKartiData(ymTt));
+        ymTtSheet.addRow(generateTavliBalyaStokKartiDataForBatch(ymTt));
       }
     }
 
-    // YM STP Sheet (Pressed Intermediate - only if cap > 1.8mm)
+    // YM STP Sheet (Pressed Intermediate - ALWAYS create like full export)
+    const ymStpSheet = workbook.addWorksheet('YM STP');
+    const ymStpHeaders = getYmStHeaders(); // Use YM ST headers like full export
+    ymStpSheet.addRow(ymStpHeaders);
     if (ymStpData && ymStpData.length > 0) {
-      const ymStpSheet = workbook.addWorksheet('YM STP');
-      ymStpSheet.addRow(mmHeaders); // Same headers as MM TT
       for (const ymStp of ymStpData) {
         ymStpSheet.addRow(generateYmStpStokKartiData(ymStp));
       }
     }
 
-    // YM ST Sheet - ALL YM ST products in ONE sheet (main + alternatives)
-    // According to analysis: STOK KARTI should NOT have separate "YM ST ALT 1", "YM ST ALT 2" sheets
-    // But the single "YM ST" sheet should contain ALL products (priority 0, 1, 2)
+    // YM ST Sheet - ALWAYS create like full export
     const ymStSheet = workbook.addWorksheet('YM ST');
-    const ymStHeaders = getYmStHeaders();
-    ymStSheet.addRow(ymStHeaders);
+    ymStSheet.addRow(ymStpHeaders);
 
     // Add main YM ST products (priority 0)
     ymStData.forEach(ymSt => {
@@ -11022,11 +11022,11 @@ const TavliBalyaTelNetsis = () => {
 
       console.log(`📋 BATCH: Using YM TT alternatives FROM DATABASE - ALT 1: ${ymTtAlt1RecipesGenerated.length}, ALT 2: ${ymTtAlt2RecipesGenerated.length}, ALT 3: ${ymTtAlt3RecipesGenerated.length}`);
 
-      // YM TT REÇETE ALT 1 Sheet (COILER alternatives)
+      // ✅ FIX: ALWAYS create YM TT REÇETE ALT 1 Sheet like full export (even if empty)
       const ymTtAlt1Recipes = ymTtAlt1RecipesGenerated;
+      const ymTtAlt1Sheet = workbook.addWorksheet('YM TT REÇETE ALT 1');
+      ymTtAlt1Sheet.addRow(receteHeaders);
       if (ymTtAlt1Recipes.length > 0) {
-        const ymTtAlt1Sheet = workbook.addWorksheet('YM TT REÇETE ALT 1');
-        ymTtAlt1Sheet.addRow(receteHeaders);
 
         const ymTtAlt1ByProduct = {};
         ymTtAlt1Recipes.forEach(recipe => {
@@ -11053,11 +11053,11 @@ const TavliBalyaTelNetsis = () => {
         console.log(`✅ YM TT REÇETE ALT 1 sheet created with ${ymTtAlt1Recipes.length} recipes`);
       }
 
-      // YM TT REÇETE ALT 2 Sheet (priority 2)
+      // ✅ FIX: ALWAYS create YM TT REÇETE ALT 2 Sheet like full export (even if empty)
       const ymTtAlt2Recipes = ymTtRecipes.filter(r => (r.priority || 0) === 2);
+      const ymTtAlt2Sheet = workbook.addWorksheet('YM TT REÇETE ALT 2');
+      ymTtAlt2Sheet.addRow(receteHeaders);
       if (ymTtAlt2Recipes.length > 0) {
-        const ymTtAlt2Sheet = workbook.addWorksheet('YM TT REÇETE ALT 2');
-        ymTtAlt2Sheet.addRow(receteHeaders);
 
         const ymTtAlt2ByProduct = {};
         ymTtAlt2Recipes.forEach(recipe => {
@@ -11084,11 +11084,11 @@ const TavliBalyaTelNetsis = () => {
         console.log(`✅ YM TT REÇETE ALT 2 sheet created with ${ymTtAlt2Recipes.length} recipes`);
       }
 
-      // YM TT REÇETE ALT 3 Sheet (priority 3)
+      // ✅ FIX: ALWAYS create YM TT REÇETE ALT 3 Sheet like full export (even if empty)
       const ymTtAlt3Recipes = ymTtAlt3RecipesGenerated;
+      const ymTtAlt3Sheet = workbook.addWorksheet('YM TT REÇETE ALT 3');
+      ymTtAlt3Sheet.addRow(receteHeaders);
       if (ymTtAlt3Recipes.length > 0) {
-        const ymTtAlt3Sheet = workbook.addWorksheet('YM TT REÇETE ALT 3');
-        ymTtAlt3Sheet.addRow(receteHeaders);
 
         const ymTtAlt3ByProduct = {};
         ymTtAlt3Recipes.forEach(recipe => {
@@ -11116,10 +11116,10 @@ const TavliBalyaTelNetsis = () => {
       }
     }
 
-    // YM STP REÇETE Sheet (Pressed Intermediate - only if cap > 1.8mm)
+    // ✅ FIX: ALWAYS create YM STP REÇETE Sheet like full export (even if empty)
+    const ymStpReceteSheet = workbook.addWorksheet('YM STP REÇETE');
+    ymStpReceteSheet.addRow(receteHeaders);
     if (ymStpRecipes && ymStpRecipes.length > 0) {
-      const ymStpReceteSheet = workbook.addWorksheet('YM STP REÇETE');
-      ymStpReceteSheet.addRow(receteHeaders);
 
       const ymStpByProduct = {};
       ymStpRecipes.forEach(recipe => {
@@ -11188,37 +11188,36 @@ const TavliBalyaTelNetsis = () => {
       }
     });
 
-    // 🆕 Create YM ST REÇETE ALT 1-8 sheets dynamically from COILER alternatives
-    // These are ONLY for .ST products (< 1.5mm)
-    altPriorities.forEach(priority => {
-      const altRecipes = coilerAlternatives[priority];
-      if (!altRecipes || altRecipes.length === 0) return;
-
+    // ✅ FIX: ALWAYS create YM ST REÇETE ALT 1-8 sheets like full export (even if empty)
+    for (let priority = 1; priority <= 8; priority++) {
       const altSheet = workbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
       altSheet.addRow(receteHeaders);
 
-      // Group recipes by product
-      const ymStAltByProduct = {};
-      altRecipes.forEach(recipe => {
-        if (!ymStAltByProduct[recipe.mamul_kodu]) {
-          ymStAltByProduct[recipe.mamul_kodu] = [];
-        }
-        ymStAltByProduct[recipe.mamul_kodu].push(recipe);
-      });
+      const altRecipes = coilerAlternatives[priority] || [];
+      if (altRecipes.length > 0) {
+        // Group recipes by product
+        const ymStAltByProduct = {};
+        altRecipes.forEach(recipe => {
+          if (!ymStAltByProduct[recipe.mamul_kodu]) {
+            ymStAltByProduct[recipe.mamul_kodu] = [];
+          }
+          ymStAltByProduct[recipe.mamul_kodu].push(recipe);
+        });
 
-      // Add recipes sorted by product code
-      Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
-        if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
-          let productSiraNo = 1;
-          ymStAltByProduct[stokKodu].forEach(recipe => {
-            altSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, priority));
-            productSiraNo++;
-          });
-        }
-      });
+        // Add recipes sorted by product code
+        Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
+          if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
+            let productSiraNo = 1;
+            ymStAltByProduct[stokKodu].forEach(recipe => {
+              altSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, priority));
+              productSiraNo++;
+            });
+          }
+        });
 
-      console.log(`✅ BATCH RECETE: Created YM ST REÇETE ALT ${priority} sheet with ${altRecipes.length} recipes`);
-    });
+        console.log(`✅ BATCH RECETE: Created YM ST REÇETE ALT ${priority} sheet with ${altRecipes.length} recipes`);
+      }
+    }
 
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
