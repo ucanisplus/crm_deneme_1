@@ -7847,27 +7847,35 @@ const TavliBalyaTelNetsis = () => {
         ];
 
         // Save all recipes for this priority
+        console.log(`\n  📝 Saving recipes for Priority ${alternative.priority} - Source: ${alternative.stokKodu}`);
         for (const recipe of recipes) {
+          const recipeData = {
+            ym_tt_stok_kodu: ymTtStokKodu,
+            mamul_kodu: ymTtStokKodu,
+            bilesen_kodu: recipe.bilesen_kodu,
+            operasyon_bilesen: recipe.operasyon_bilesen,
+            miktar: recipe.miktar,
+            olcu_br: recipe.olcu_br,
+            aciklama: recipe.aciklama,
+            priority: recipe.priority,
+            sira_no: siraNo,
+            recete_toplama: '1',
+            fire_orani: 0,
+            olcu_br_bilesen: '1',
+            ua_dahil_edilsin: recipe.operasyon_bilesen === 'O' ? 'E' : '',
+            son_operasyon: recipe.operasyon_bilesen === 'O' ? 'E' : ''
+          };
+
+          console.log(`     💾 Recipe #${siraNo}: ${recipe.bilesen_kodu} (${recipe.operasyon_bilesen})`);
+          console.log(`        📊 Data:`, JSON.stringify(recipeData, null, 2));
+
           await fetchWithAuth(API_URLS.tavliNetsisYmTtRecete, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ym_tt_stok_kodu: ymTtStokKodu,
-              mamul_kodu: ymTtStokKodu,
-              bilesen_kodu: recipe.bilesen_kodu,
-              operasyon_bilesen: recipe.operasyon_bilesen,
-              miktar: recipe.miktar,
-              olcu_br: recipe.olcu_br,
-              aciklama: recipe.aciklama,
-              priority: recipe.priority,
-              sira_no: siraNo++,
-              recete_toplama: '1',
-              fire_orani: 0,
-              olcu_br_bilesen: '1',
-              ua_dahil_edilsin: recipe.operasyon_bilesen === 'O' ? 'E' : '',
-              son_operasyon: recipe.operasyon_bilesen === 'O' ? 'E' : ''
-            })
+            body: JSON.stringify(recipeData)
           });
+
+          siraNo++;
         }
 
         console.log(`  ✅ Priority ${alternative.priority} recipes saved (${siraNo - 1} items) - Source: ${alternative.stokKodu}`);
@@ -7959,32 +7967,40 @@ const TavliBalyaTelNetsis = () => {
           const operasyonBilesen = (key === 'TVPKT01' || key === 'BAL01') ? 'O' : 'B';
           let bilesenKodu = AUXILIARY_COMPONENTS[key] || key;
 
-          console.log(`   💾 Saving recipe component #${siraNo}: ${key} → ${bilesenKodu} (${value})`);
+          const recipeData = {
+            mm_id: mmTtId,
+            mamul_kodu: mmTtStokKodu,
+            bilesen_kodu: bilesenKodu,
+            miktar: value,
+            sira_no: siraNo,
+            operasyon_bilesen: operasyonBilesen,
+            olcu_br: getOlcuBr(key),
+            olcu_br_bilesen: '1',
+            aciklama: getReceteAciklama(key),
+            recete_top: 1,
+            fire_orani: 0.0004,
+            ua_dahil_edilsin: operasyonBilesen === 'O' ? 'E' : '',
+            son_operasyon: operasyonBilesen === 'O' ? 'E' : '',
+            uretim_suresi: operasyonBilesen === 'O' ? value : null,
+            priority: 0, // ✅ ADDED: MM TT has only main recipe (no alternatives)
+            sequence: sequence || '' // ✅ ADDED: Sequence from parameter
+          };
+
+          console.log(`   💾 Saving recipe #${siraNo}: ${key} → ${bilesenKodu}`);
+          console.log(`      📊 Data:`, JSON.stringify(recipeData, null, 2));
 
           await fetchWithAuth(API_URLS.tavliBalyaMmRecete, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              mm_id: mmTtId,
-              mamul_kodu: mmTtStokKodu,
-              bilesen_kodu: bilesenKodu,
-              miktar: value,
-              sira_no: siraNo++,
-              operasyon_bilesen: operasyonBilesen,
-              olcu_br: getOlcuBr(key),
-              olcu_br_bilesen: '1',
-              aciklama: getReceteAciklama(key),
-              recete_top: 1,
-              fire_orani: 0.0004,
-              ua_dahil_edilsin: operasyonBilesen === 'O' ? 'E' : '',
-              son_operasyon: operasyonBilesen === 'O' ? 'E' : '',
-              uretim_suresi: operasyonBilesen === 'O' ? value : null
-            })
+            body: JSON.stringify(recipeData)
           });
+
+          siraNo++;
         }
       }
 
-      console.log(`✅ MM TT recipes saved: ${siraNo - 1} items`);
+      console.log(`\n✅ MM TT recipes saved: ${siraNo - 1} items for product ${mmTtStokKodu}`);
+      console.log(`   📝 Sequence: ${sequence || 'empty'}, Priority: 0`);
     } catch (error) {
       console.error('MM TT recipe save error:', error);
       throw error;
