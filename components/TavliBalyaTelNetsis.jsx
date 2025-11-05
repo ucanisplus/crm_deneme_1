@@ -1730,7 +1730,7 @@ const TavliBalyaTelNetsis = () => {
       
       // MM TT recetelerini getir
       if (mmId) {
-        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mmId}`);
+        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mmId}`);
         if (mmRecipeResponse && mmRecipeResponse.ok) {
           const mmRecipeData = await mmRecipeResponse.json();
           // Recete verisini isle
@@ -1827,7 +1827,7 @@ const TavliBalyaTelNetsis = () => {
           const mm = mmData[0];
 
           // 🆕 YENI: YM TT ve YM ST bulmak icin gelistirilmis iliski tablosunu kullan
-          const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_id=${mm.id}`);
+          const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mm.id}`);
           if (relationResponse && relationResponse.ok) {
             const relations = await relationResponse.json();
             
@@ -1835,7 +1835,7 @@ const TavliBalyaTelNetsis = () => {
               const ymTtId = relations[0].ym_tt_id; // All relations should have same ym_tt_id
 
               // Load MM TT recipes
-              const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mm.id}`);
+              const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mm.id}`);
               if (mmRecipeResponse && mmRecipeResponse.ok) {
                 const mmRecipeData = await mmRecipeResponse.json();
                 if (mmRecipeData.length > 0) {
@@ -2096,7 +2096,7 @@ const TavliBalyaTelNetsis = () => {
 
       // Step 1: Delete relationships
       try {
-        const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_id=${mmId}`);
+        const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mmId}`);
         if (relationResponse && relationResponse.ok) {
           const relations = await relationResponse.json();
           console.log(`Found ${relations.length} relationships for MM ${mmId}`);
@@ -2131,7 +2131,7 @@ const TavliBalyaTelNetsis = () => {
       // Step 2.5: Delete YM TT products and recipes (CASCADE from MM deletion)
       try {
         // Find YM TT products that reference this MM
-        const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliBalyaYmTt}?source_mm_stok_kodu=${encodeURIComponent(mmStokKodu)}`);
+        const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?source_mm_stok_kodu=${encodeURIComponent(mmStokKodu)}`);
         if (ymTtResponse && ymTtResponse.ok) {
           const ymTtProducts = await ymTtResponse.json();
           console.log(`Found ${ymTtProducts.length} YM TT products referencing ${mmStokKodu}`);
@@ -2139,11 +2139,11 @@ const TavliBalyaTelNetsis = () => {
           for (const ymTt of ymTtProducts) {
             // Delete YM TT recipes first
             try {
-              const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaYmTtRecete}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
+              const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
               if (ymTtRecipeResponse && ymTtRecipeResponse.ok) {
                 const ymTtRecipes = await ymTtRecipeResponse.json();
                 for (const recipe of ymTtRecipes) {
-                  await fetchWithAuth(`${API_URLS.tavliBalyaYmTtRecete}/${recipe.id}`, { method: 'DELETE' });
+                  await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}/${recipe.id}`, { method: 'DELETE' });
                 }
                 console.log(`Deleted ${ymTtRecipes.length} YM TT recipes for ${ymTt.stok_kodu}`);
               }
@@ -2153,7 +2153,7 @@ const TavliBalyaTelNetsis = () => {
 
             // Delete YM TT product
             try {
-              await fetchWithAuth(`${API_URLS.tavliBalyaYmTt}/${ymTt.id}`, { method: 'DELETE' });
+              await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}/${ymTt.id}`, { method: 'DELETE' });
               console.log(`Deleted YM TT product ${ymTt.stok_kodu}`);
             } catch (error) {
               console.error(`Error deleting YM TT ${ymTt.stok_kodu}:`, error);
@@ -2252,7 +2252,7 @@ const TavliBalyaTelNetsis = () => {
             console.log('Processing MM TT: ' + mm.stok_kodu + ' (ID: ' + mm.id + ')');
             
             // Delete relationships only (no intermediate products for Tavli/Balya)
-            const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_id=${mm.id}`);
+            const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mm.id}`);
             if (relationResponse && relationResponse.ok) {
               const relations = await relationResponse.json();
               for (const relation of relations) {
@@ -2742,7 +2742,7 @@ const TavliBalyaTelNetsis = () => {
       setRecipeStatus({ mmRecipes: {}, ymTtRecipe: {}, ymStRecipes: {} });
 
       // 🔄 STEP 1: Find all related data through the enhanced relationship table
-      const mmYmStResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_id=${mm.id}`);
+      const mmYmStResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mm.id}`);
 
       let loadedYmSts = [];
       let relatedYmTtId = null;
@@ -2836,7 +2836,7 @@ const TavliBalyaTelNetsis = () => {
       // 2A. Load MM TT recipes
       try {
         console.log('🍳 Loading MM TT recipes...');
-        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mm.id}`);
+        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mm.id}`);
         if (mmRecipeResponse && mmRecipeResponse.ok) {
           const mmRecipes = await mmRecipeResponse.json();
           
@@ -4020,9 +4020,9 @@ const TavliBalyaTelNetsis = () => {
                   for (const relation of relations) {
                     const ymStIndex = prevSelectedLength + i;
                     
-                    // Load MM TT recipes if relation has mm_id
-                    if (relation.mm_id) {
-                      const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${relation.mm_id}`);
+                    // Load MM TT recipes if relation has mm_tt_id
+                    if (relation.mm_tt_id) {
+                      const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${relation.mm_tt_id}`);
                       if (mmRecipeResponse && mmRecipeResponse.ok) {
                         const mmRecipes = await mmRecipeResponse.json();
                         
@@ -5654,7 +5654,7 @@ const TavliBalyaTelNetsis = () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              mm_id: sessionSavedProducts.mmIds[0],
+              mm_tt_id: sessionSavedProducts.mmIds[0],
               ym_tt_id: sessionSavedProducts.ymTtId, // Include YM TT ID
               ym_st_id: sessionSavedProducts.ymStIds[mainYmStIndex]
               // is_main: Removed - not in database schema
@@ -5990,7 +5990,7 @@ const TavliBalyaTelNetsis = () => {
       for (let i = 0; i < ymStIds.length; i++) {
         try {
           const relationshipData = {
-            mm_id: mmIds[0], // TT MM ID
+            mm_tt_id: mmIds[0], // TT MM ID
             ym_st_id: ymStIds[i]
             // NOTE: is_main and sequence_index not in database schema - order determined by mainYmStIndex state
           };
@@ -6421,7 +6421,7 @@ const TavliBalyaTelNetsis = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            mm_id: mmIds[0],
+            mm_tt_id: mmIds[0],
             ym_st_id: ymStIds[mainYmStIndex]
             // is_main: Removed - not in database schema
           })
@@ -7897,7 +7897,7 @@ const TavliBalyaTelNetsis = () => {
       console.log(`📝 Saving MM TT recipes for: ${mmTtStokKodu}`);
 
       // Delete existing recipes first
-      const existingResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mmTtId}`);
+      const existingResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mmTtId}`);
       if (existingResponse && existingResponse.ok) {
         const existing = await existingResponse.json();
         for (const recipe of existing) {
@@ -7968,7 +7968,7 @@ const TavliBalyaTelNetsis = () => {
           let bilesenKodu = AUXILIARY_COMPONENTS[key] || key;
 
           const recipeData = {
-            mm_id: mmTtId,
+            mm_tt_id: mmTtId,
             mamul_kodu: mmTtStokKodu,
             bilesen_kodu: bilesenKodu,
             miktar: value,
@@ -8444,7 +8444,7 @@ const TavliBalyaTelNetsis = () => {
     
     if (productType === 'mm') {
       apiUrl = API_URLS.tavliBalyaMmRecete;
-      paramName = 'mm_id';
+      paramName = 'mm_tt_id';
     } else if (productType === 'ymtt') {
       apiUrl = API_URLS.tavliNetsisYmTtRecete;
       paramName = 'ym_tt_id';
@@ -8524,7 +8524,7 @@ const TavliBalyaTelNetsis = () => {
       
       if (type === 'mm') {
         apiUrl = API_URLS.tavliBalyaMmRecete;
-        paramName = 'mm_id';
+        paramName = 'mm_tt_id';
         typeLabel = 'MMTT';
       } else if (type === 'ymtt') {
         apiUrl = API_URLS.tavliNetsisYmTtRecete;
@@ -12745,7 +12745,7 @@ const TavliBalyaTelNetsis = () => {
       // 6. Fetch recipes from database for all products
 
       // MM TT recipes
-      const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mm.id}`);
+      const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mm.id}`);
       const mmRecipes = (mmRecipeResponse && mmRecipeResponse.ok) ? await mmRecipeResponse.json() : [];
       mmRecipes.forEach(recipe => {
         recipe.mm_tt_stok_kodu = mmStokKodu;
@@ -14506,7 +14506,7 @@ const TavliBalyaTelNetsis = () => {
           status: 'approved',
           processed_by: user.username,
           processed_at: new Date().toISOString(),
-          mm_id: databaseIds.mmIds[0] // İlk MM TT ID'yi kullan
+          mm_tt_id: databaseIds.mmIds[0] // İlk MM TT ID'yi kullan
         })
       });
       
