@@ -1826,209 +1826,178 @@ const TavliBalyaTelNetsis = () => {
         if (mmData.length > 0) {
           const mm = mmData[0];
 
-          // 🆕 YENI: YM TT ve YM ST bulmak icin gelistirilmis iliski tablosunu kullan
-          const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mm.id}`);
-          if (relationResponse && relationResponse.ok) {
-            const relations = await relationResponse.json();
-            
-            if (relations.length > 0) {
-              const ymTtId = relations[0].ym_tt_id; // All relations should have same ym_tt_id
+          // ✅ TAVLI/BALYA TEL: Find YM TT via source_mm_stok_kodu (no relationship table)
+          const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?source_mm_stok_kodu=${encodeURIComponent(mm.stok_kodu)}`);
+
+          if (ymTtResponse && ymTtResponse.ok) {
+            const ymTtData = await ymTtResponse.json();
+
+            if (ymTtData.length > 0) {
+              const ymTt = ymTtData[0]; // Use first YM TT found
+              console.log('✓ Found YM TT:', ymTt.stok_kodu);
 
               // Load MM TT recipes
-              const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mm.id}`);
+              const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mm.id}`);
               if (mmRecipeResponse && mmRecipeResponse.ok) {
                 const mmRecipeData = await mmRecipeResponse.json();
                 if (mmRecipeData.length > 0) {
-                  
-                  // MM TT recetelerini tum YM ST indekslerine uygula
+
+                  // Apply MM TT recipes to all YM ST indices
                   for (let i = 0; i < allYmSts.length; i++) {
-                    const parsedMmGtRecipe = {};
+                    const parsedMmRecipe = {};
                     mmRecipeData.forEach(item => {
-                      // Cinko icin ozel islem: veritabani '150' saklar ama biz '150 03' gosteririz
-                      let displayCode = item.bilesen_kodu;
-                      if (item.bilesen_kodu === '150' && item.aciklama === 'Çinko Tüketim Miktarı') {
-                        displayCode = '150 03';
-                      }
-                      
-                      parsedMmGtRecipe[displayCode] = parseFloat(item.miktar || 0); // Temiz sayi, gereksiz sifir yok
+                      parsedMmRecipe[item.bilesen_kodu] = parseFloat(item.miktar || 0);
                       if (!statusUpdates.mmRecipes[i]) statusUpdates.mmRecipes[i] = {};
-                      statusUpdates.mmRecipes[i][displayCode] = 'database';
+                      statusUpdates.mmRecipes[i][item.bilesen_kodu] = 'database';
                     });
                     setAllRecipes(prev => ({
                       ...prev,
-                      mmRecipes: { ...prev.mmRecipes, [i]: parsedMmGtRecipe }
+                      mmRecipes: { ...prev.mmRecipes, [i]: parsedMmRecipe }
                     }));
                   }
                   foundAny = true;
                 }
               }
-              
-              
-              // 🆕 YENI: Gelistirilmis iliski tablosunu kullanarak YM ST ve recetelerini yukle
-              
-              // Siralamayi korumak icin iliskileri sequence_index gore sirala
-              const sortedRelations = relations.sort((a, b) => (a.sequence_index || 0) - (b.sequence_index || 0));
-              
-              // Ilk once gercek YM ST urunlerini yukle
-              const loadedYmSts = [];
-              let mainIndex = 0;
-              
-              // YM ST urunleri ve recetelerini yukle
-              for (let i = 0; i < sortedRelations.length; i++) {
-                const relation = sortedRelations[i];
-                const ymStId = relation.ym_st_id;
-                
-                
-                // Ilk once YM ST urunun kendisini yukle
-                try {
-                  console.log(`📖 Fetching all YM ST products and filtering for id=${ymStId}...`);
-                  const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
-                  let ymStResponse = null;
-                  
-                  if (allYmStResponse && allYmStResponse.ok) {
-                    const allYmSt = await allYmStResponse.json();
-                    const filteredYmSt = allYmSt.filter(r => r.id == ymStId); // Use == for type coercion
-                    console.log(`📖 Found ${filteredYmSt.length} YM ST products for id=${ymStId}`);
-                    
-                    // Create mock response - return first match or empty array
-                    ymStResponse = {
-                      ok: true,
-                      json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
-                    };
-                  }
-                  
-                  if (ymStResponse && ymStResponse.ok) {
-                    const ymStData = await ymStResponse.json();
-                    const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
-                    if (ymSt) {
-                      loadedYmSts.push({ ...ymSt, source: 'database' });
 
-                      // Determine main index: use sequence_index if available, fallback to is_main
-                      if (relation.sequence_index === 0 || relation.is_main) {
-                        mainIndex = i;
+              // Load YM TT recipes (priorities 0-3)
+              const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
+              if (ymTtRecipeResponse && ymTtRecipeResponse.ok) {
+                const ymTtRecipeData = await ymTtRecipeResponse.json();
+                if (ymTtRecipeData.length > 0) {
+                  console.log(`✓ Found ${ymTtRecipeData.length} YM TT recipes`);
+
+                  // Load the YM ST/YM STP products based on source_ym_st_stok_kodu
+                  const sourceYmStStokKodu = ymTt.source_ym_st_stok_kodu;
+
+                  if (sourceYmStStokKodu) {
+                    // Try YM STP first (if cap >= 1.8mm, should be pressed)
+                    let ymStpResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(sourceYmStStokKodu)}`);
+                    let sourceProduct = null;
+                    let isYmStp = false;
+
+                    if (ymStpResponse && ymStpResponse.ok) {
+                      const ymStpData = await ymStpResponse.json();
+                      if (ymStpData.length > 0) {
+                        sourceProduct = ymStpData[0];
+                        isYmStp = true;
+                        console.log('✓ Found YM STP source:', sourceProduct.stok_kodu);
+                      }
+                    }
+
+                    // If not YM STP, try YM ST (wire drawing source)
+                    if (!sourceProduct) {
+                      const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(sourceYmStStokKodu)}`);
+                      if (ymStResponse && ymStResponse.ok) {
+                        const ymStData = await ymStResponse.json();
+                        if (ymStData.length > 0) {
+                          sourceProduct = ymStData[0];
+                          console.log('✓ Found YM ST source:', sourceProduct.stok_kodu);
+                        }
+                      }
+                    }
+
+                    if (sourceProduct) {
+                      // Load this source product into UI
+                      setSelectedYmSts([{ ...sourceProduct, source: 'database' }]);
+                      setMainYmStIndex(0);
+                      setAutoGeneratedYmSts([]);
+
+                      // Load recipes for this source product (index 0)
+                      const recipeApiUrl = isYmStp ? API_URLS.tavliNetsisYmStpRecete : API_URLS.galYmStRecete;
+                      const recipeQueryField = isYmStp ? 'ym_stp_stok_kodu' : 'ym_st_id';
+                      const recipeQueryValue = isYmStp ? sourceProduct.stok_kodu : sourceProduct.id;
+
+                      const sourceRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?${recipeQueryField}=${encodeURIComponent(recipeQueryValue)}`);
+                      if (sourceRecipeResponse && sourceRecipeResponse.ok) {
+                        const sourceRecipeData = await sourceRecipeResponse.json();
+                        if (sourceRecipeData.length > 0) {
+                          const parsedSourceRecipe = {};
+                          sourceRecipeData.forEach(item => {
+                            parsedSourceRecipe[item.bilesen_kodu] = parseFloat(item.miktar || 0);
+                            if (!statusUpdates.ymStRecipes[0]) statusUpdates.ymStRecipes[0] = {};
+                            statusUpdates.ymStRecipes[0][item.bilesen_kodu] = 'database';
+                          });
+                          setAllRecipes(prev => ({
+                            ...prev,
+                            ymStRecipes: { ...prev.ymStRecipes, [0]: parsedSourceRecipe }
+                          }));
+                          console.log(`✓ Loaded ${isYmStp ? 'YM STP' : 'YM ST'} recipes`);
+                        }
                       }
 
+                      foundAny = true;
                     }
                   }
-                } catch (error) {
-                  console.error('Error loading YM ST ' + ymStId + ':', error);
                 }
-                
-                // Sonra YM ST recetesini getir
-                console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymStId}...`);
-                const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
-                let ymStRecipeResponse = null;
-                
-                if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
-                  const allYmStRecipes = await allYmStRecipesResponse.json();
-                  const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymStId); // Use == for type coercion
-                  console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymStId}`);
-                  
-                  // Create mock response
-                  ymStRecipeResponse = {
-                    ok: true,
-                    json: async () => filteredYmStRecipes
-                  };
-                }
-                
-                if (ymStRecipeResponse && ymStRecipeResponse.ok) {
-                  const ymStRecipeData = await ymStRecipeResponse.json();
-                  if (ymStRecipeData.length > 0) {
-                    
-                    const parsedYmStRecipe = {};
-                    ymStRecipeData.forEach(item => {
-                      // Cinko icin ozel islem: veritabani '150' saklar ama biz '150 03' gosteririz
-                      let displayCode = item.bilesen_kodu;
-                      if (item.bilesen_kodu === '150' && item.aciklama === 'Çinko Tüketim Miktarı') {
-                        displayCode = '150 03';
-                      }
-                      
-                      parsedYmStRecipe[displayCode] = parseFloat(item.miktar || 0); // Temiz sayi, gereksiz sifir yok
-                      if (!statusUpdates.ymStRecipes[i]) statusUpdates.ymStRecipes[i] = {};
-                      statusUpdates.ymStRecipes[i][displayCode] = 'database';
-                    });
-                    setAllRecipes(prev => ({
-                      ...prev,
-                      ymStRecipes: { ...prev.ymStRecipes, [i]: parsedYmStRecipe }
-                    }));
-                    foundAny = true;
-                  }
-                }
-              }
-              
-              // Bulunanlari varsa yuklenen YM ST ayarla
-              if (loadedYmSts.length > 0) {
-                setSelectedYmSts(loadedYmSts);
-                setMainYmStIndex(mainIndex);
-                
-                // Veritabani olanlarini kullandigimizdan otomatik olusturulan YM ST temizle
-                setAutoGeneratedYmSts([]);
               }
             }
           }
         }
       }
       
-      // MM TT bulunamazsa, bireysel YM ST arama icin yedek yontemi dene (manuel recete yukleme icin)
+      // MM TT not found - fallback: load individual YM ST/YM STP recipes (for manual recipe loading)
       if (!foundAny) {
-        
-        // Yedek: YM ST recetelerini tek tek getir
+
+        // Fallback: Load YM ST/YM STP recipes individually
         for (let i = 0; i < allYmSts.length; i++) {
-          const ymSt = allYmSts[i];
-          
-          // YM ST bul
-          let ymStResponse;
-          if (ymSt.id) {
-            // Veritabanindan secilmis YM ST
-            ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymSt.id}`);
-          } else {
-            // Otomatik olusturulmus YM ST icin stok koduna gore ara
-            ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
-          }
-          
-          if (ymStResponse && ymStResponse.ok) {
-            let ymStData = await ymStResponse.json();
-            if (Array.isArray(ymStData)) ymStData = ymStData[0];
-            
-            if (ymStData && ymStData.id) {
-              // YM ST recetesini getir
-              console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymStData.id}...`);
-              const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
-              let ymStRecipeResponse = null;
-              
-              if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
-                const allYmStRecipes = await allYmStRecipesResponse.json();
-                const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymStData.id); // Use == for type coercion
-                console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymStData.id}`);
-                
-                // Create mock response
-                ymStRecipeResponse = {
-                  ok: true,
-                  json: async () => filteredYmStRecipes
-                };
+          const ymStOrStp = allYmSts[i];
+
+          // Try to find as YM STP first (pressed product)
+          let productData = null;
+          let isYmStp = false;
+
+          if (ymStOrStp.stok_kodu && ymStOrStp.stok_kodu.includes('.P')) {
+            // This is a pressed product - check YM STP
+            const ymStpResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(ymStOrStp.stok_kodu)}`);
+            if (ymStpResponse && ymStpResponse.ok) {
+              const ymStpData = await ymStpResponse.json();
+              if (ymStpData.length > 0) {
+                productData = ymStpData[0];
+                isYmStp = true;
               }
-              
-              if (ymStRecipeResponse && ymStRecipeResponse.ok) {
-                const ymStRecipeData = await ymStRecipeResponse.json();
-                if (ymStRecipeData.length > 0) {
-                  const parsedYmStRecipe = {};
-                  ymStRecipeData.forEach(item => {
-                    // Cinko icin ozel islem: veritabani '150' saklar ama biz '150 03' gosteririz
-                    let displayCode = item.bilesen_kodu;
-                    if (item.bilesen_kodu === '150' && item.aciklama === 'Çinko Tüketim Miktarı') {
-                      displayCode = '150 03';
-                    }
-                    
-                    parsedYmStRecipe[displayCode] = item.miktar;
-                    if (!statusUpdates.ymStRecipes[i]) statusUpdates.ymStRecipes[i] = {};
-                    statusUpdates.ymStRecipes[i][displayCode] = 'database';
-                  });
-                  setAllRecipes(prev => ({
-                    ...prev,
-                    ymStRecipes: { ...prev.ymStRecipes, [i]: parsedYmStRecipe }
-                  }));
-                  foundAny = true;
-                }
+            }
+          }
+
+          // If not YM STP, try YM ST (wire drawing source)
+          if (!productData) {
+            let ymStResponse;
+            if (ymStOrStp.id) {
+              ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${ymStOrStp.id}`);
+            } else {
+              ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymStOrStp.stok_kodu)}`);
+            }
+
+            if (ymStResponse && ymStResponse.ok) {
+              let ymStData = await ymStResponse.json();
+              if (Array.isArray(ymStData)) ymStData = ymStData[0];
+              productData = ymStData;
+            }
+          }
+
+          if (productData && productData.id) {
+            // Load recipes for this product
+            const recipeApiUrl = isYmStp ? API_URLS.tavliNetsisYmStpRecete : API_URLS.galYmStRecete;
+            const recipeQueryField = isYmStp ? 'ym_stp_stok_kodu' : 'ym_st_id';
+            const recipeQueryValue = isYmStp ? productData.stok_kodu : productData.id;
+
+            console.log(`📖 Loading ${isYmStp ? 'YM STP' : 'YM ST'} recipes for ${productData.stok_kodu}...`);
+            const recipeResponse = await fetchWithAuth(`${recipeApiUrl}?${recipeQueryField}=${encodeURIComponent(recipeQueryValue)}`);
+
+            if (recipeResponse && recipeResponse.ok) {
+              const recipeData = await recipeResponse.json();
+              if (recipeData.length > 0) {
+                const parsedRecipe = {};
+                recipeData.forEach(item => {
+                  parsedRecipe[item.bilesen_kodu] = parseFloat(item.miktar || 0);
+                  if (!statusUpdates.ymStRecipes[i]) statusUpdates.ymStRecipes[i] = {};
+                  statusUpdates.ymStRecipes[i][item.bilesen_kodu] = 'database';
+                });
+                setAllRecipes(prev => ({
+                  ...prev,
+                  ymStRecipes: { ...prev.ymStRecipes, [i]: parsedRecipe }
+                }));
+                console.log(`✓ Loaded ${recipeData.length} recipes for ${productData.stok_kodu}`);
+                foundAny = true;
               }
             }
           }
@@ -2094,25 +2063,9 @@ const TavliBalyaTelNetsis = () => {
       const mmStokKodu = mm.stok_kodu;
       console.log(`Deleting TT MM: ${mmStokKodu} (ID: ${mmId})`);
 
-      // Step 1: Delete relationships
-      try {
-        const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mmId}`);
-        if (relationResponse && relationResponse.ok) {
-          const relations = await relationResponse.json();
-          console.log(`Found ${relations.length} relationships for MM ${mmId}`);
-
-          for (const relation of relations) {
-            try {
-              await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}/${relation.id}`, { method: 'DELETE' });
-              console.log(`Deleted relationship ${relation.id}`);
-            } catch (error) {
-              console.error('Error deleting relationship:', error);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error deleting relationships:', error);
-      }
+      // NOTE: No separate relationship table for Tavli/Balya Tel
+      // Relationships are tracked via source_mm_stok_kodu in YM TT table
+      // YM TT products will be deleted below via source_mm_stok_kodu query
 
       // Step 2: Delete MM recipes
       try {
@@ -2250,20 +2203,9 @@ const TavliBalyaTelNetsis = () => {
         for (const mm of existingMms) {
           try {
             console.log('Processing MM TT: ' + mm.stok_kodu + ' (ID: ' + mm.id + ')');
-            
-            // Delete relationships only (no intermediate products for Tavli/Balya)
-            const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mm.id}`);
-            if (relationResponse && relationResponse.ok) {
-              const relations = await relationResponse.json();
-              for (const relation of relations) {
-                try {
-                  await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}/${relation.id}`, { method: 'DELETE' });
-                  console.log(`Bulk: Deleted relationship ${relation.id}`);
-                } catch (error) {
-                  console.error('Error deleting relationship:', error);
-                }
-              }
-            }
+
+            // NOTE: No separate relationship table for Tavli/Balya Tel
+            // Relationships tracked via source_mm_stok_kodu in YM TT
 
             // Delete TT MM product
             // Step 3: Delete the MM TT
@@ -2741,65 +2683,59 @@ const TavliBalyaTelNetsis = () => {
       setAllRecipes({ mmRecipes: {}, ymTtRecipe: {}, ymStRecipes: {} });
       setRecipeStatus({ mmRecipes: {}, ymTtRecipe: {}, ymStRecipes: {} });
 
-      // 🔄 STEP 1: Find all related data through the enhanced relationship table
-      const mmYmStResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mm.id}`);
+      // ✅ TAVLI/BALYA TEL: Find YM TT via source_mm_stok_kodu (no relationship table)
+      console.log('🔍 Step 1: Finding YM TT via source_mm_stok_kodu...');
+      const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?source_mm_stok_kodu=${encodeURIComponent(mm.stok_kodu)}`);
 
       let loadedYmSts = [];
-      let relatedYmTtId = null;
+      let relatedYmTt = null;
       let mainYmStIndex = 0;
-      
-      if (mmYmStResponse && mmYmStResponse.ok) {
-        const mmYmStRelations = await mmYmStResponse.json();
-        
-        if (mmYmStRelations.length > 0) {
-          // 🆕 NEW: Get YM TT ID from the relationship (all relations should have the same ym_tt_id)
-          relatedYmTtId = mmYmStRelations[0].ym_tt_id;
-          
-          // 🆕 NEW: Sort relations by sequence_index to maintain order
-          const sortedRelations = mmYmStRelations.sort((a, b) => (a.sequence_index || 0) - (b.sequence_index || 0));
-          
-          // Load each related YM ST in the correct order
-          for (let i = 0; i < sortedRelations.length; i++) {
-            const relation = sortedRelations[i];
-            try {
-              console.log(`📖 Fetching all YM ST products and filtering for id=${relation.ym_st_id}...`);
-              const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
-              let ymStResponse = null;
-              
-              if (allYmStResponse && allYmStResponse.ok) {
-                const allYmSt = await allYmStResponse.json();
-                const filteredYmSt = allYmSt.filter(r => r.id == relation.ym_st_id); // Use == for type coercion
-                console.log(`📖 Found ${filteredYmSt.length} YM ST products for id=${relation.ym_st_id}`);
-                
-                // Create mock response - return first match or empty array
-                ymStResponse = {
-                  ok: true,
-                  json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
-                };
+
+      if (ymTtResponse && ymTtResponse.ok) {
+        const ymTtData = await ymTtResponse.json();
+
+        if (ymTtData.length > 0) {
+          relatedYmTt = ymTtData[0]; // Use first YM TT found
+          console.log('✓ Found YM TT:', relatedYmTt.stok_kodu);
+
+          // Load the YM ST or YM STP product based on source_ym_st_stok_kodu
+          const sourceYmStStokKodu = relatedYmTt.source_ym_st_stok_kodu;
+
+          if (sourceYmStStokKodu) {
+            // Try YM STP first (if cap >= 1.8mm, should be pressed)
+            let ymStpResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(sourceYmStStokKodu)}`);
+            let sourceProduct = null;
+
+            if (ymStpResponse && ymStpResponse.ok) {
+              const ymStpData = await ymStpResponse.json();
+              if (ymStpData.length > 0) {
+                sourceProduct = ymStpData[0];
+                console.log('✓ Found YM STP source:', sourceProduct.stok_kodu);
               }
-              
+            }
+
+            // If not YM STP, try YM ST (wire drawing source)
+            if (!sourceProduct) {
+              const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(sourceYmStStokKodu)}`);
               if (ymStResponse && ymStResponse.ok) {
                 const ymStData = await ymStResponse.json();
-                const ymSt = Array.isArray(ymStData) ? ymStData[0] : ymStData;
-                if (ymSt) {
-                  loadedYmSts.push({ ...ymSt, source: 'database' });
-
-                  // 🆕 NEW: Track which YM ST is the main one (use sequence_index if available, fallback to is_main)
-                  if (relation.sequence_index === 0 || relation.is_main) {
-                    mainYmStIndex = i;
-                  }
-
-                        }
-              } else {
-                console.warn('Failed to load YM ST with ID: ' + relation.ym_st_id);
+                if (ymStData.length > 0) {
+                  sourceProduct = ymStData[0];
+                  console.log('✓ Found YM ST source:', sourceProduct.stok_kodu);
+                }
               }
-            } catch (ymStError) {
-              console.error('Error loading YM ST ' + relation.ym_st_id + ':', ymStError);
+            }
+
+            if (sourceProduct) {
+              loadedYmSts.push({ ...sourceProduct, source: 'database' });
+              mainYmStIndex = 0;
             }
           }
+        } else {
+          console.log('No YM TT found for MM TT:', mm.stok_kodu);
         }
       } else {
-        console.log('No YM ST relations found or error occurred');
+        console.log('Error querying YM TT table');
       }
       
       // If no YM STs were loaded from relationships, continue without them
@@ -4004,88 +3940,86 @@ const TavliBalyaTelNetsis = () => {
           }
         }
         
-        // Now check if these YM STs have relationships with MM TT and YM TT
-        // and load their recipes as well
+        // ✅ TAVLI/BALYA TEL: Check if YM ST is used by YM TT → MM TT chain (no relationship table)
         for (let i = 0; i < selectedExisting.length; i++) {
           const ymSt = selectedExisting[i];
-          if (ymSt.id) {
+          if (ymSt.stok_kodu) {
             try {
-              // Find relationships for this YM ST
-              const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?ym_st_id=${ymSt.id}`);
-              if (relationResponse && relationResponse.ok) {
-                const relations = await relationResponse.json();
-                
-                if (relations && relations.length > 0) {
-                  // Found relationships - load MM TT and YM TT recipes
-                  for (const relation of relations) {
-                    const ymStIndex = prevSelectedLength + i;
-                    
-                    // Load MM TT recipes if relation has mm_tt_id
-                    if (relation.mm_tt_id) {
-                      const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${relation.mm_tt_id}`);
-                      if (mmRecipeResponse && mmRecipeResponse.ok) {
-                        const mmRecipes = await mmRecipeResponse.json();
-                        
-                        if (!updatedAllRecipes.mmRecipes[ymStIndex]) {
-                          updatedAllRecipes.mmRecipes[ymStIndex] = {};
+              const ymStIndex = prevSelectedLength + i;
+
+              // Check if this YM ST is used by any YM TT (via source_ym_st_stok_kodu)
+              const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?source_ym_st_stok_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
+
+              if (ymTtResponse && ymTtResponse.ok) {
+                const ymTtData = await ymTtResponse.json();
+
+                if (ymTtData.length > 0) {
+                  const ymTt = ymTtData[0]; // Use first YM TT found
+                  console.log('✓ Found YM TT using this YM ST:', ymTt.stok_kodu);
+
+                  // Load YM TT recipes
+                  const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
+                  if (ymTtRecipeResponse && ymTtRecipeResponse.ok) {
+                    const ymTtRecipes = await ymTtRecipeResponse.json();
+
+                    if (ymTtRecipes.length > 0) {
+                      if (!updatedAllRecipes.ymTtRecipe) {
+                        updatedAllRecipes.ymTtRecipe = {};
+                      }
+                      if (!updatedRecipeStatus.ymTtRecipe) {
+                        updatedRecipeStatus.ymTtRecipe = {};
+                      }
+
+                      ymTtRecipes.forEach(recipe => {
+                        if (recipe.bilesen_kodu && recipe.miktar !== null) {
+                          updatedAllRecipes.ymTtRecipe[recipe.bilesen_kodu] = parseFloat(recipe.miktar);
+                          updatedRecipeStatus.ymTtRecipe[recipe.bilesen_kodu] = 'database';
                         }
-                        if (!updatedRecipeStatus.mmRecipes[ymStIndex]) {
-                          updatedRecipeStatus.mmRecipes[ymStIndex] = {};
-                        }
-                        
-                        mmRecipes.forEach(recipe => {
-                          if (recipe.bilesen_kodu && recipe.miktar !== null) {
-                            updatedAllRecipes.mmRecipes[ymStIndex][recipe.bilesen_kodu] = parseFloat(recipe.miktar);
-                            updatedRecipeStatus.mmRecipes[ymStIndex][recipe.bilesen_kodu] = 'database';
+                      });
+                      console.log('✓ Loaded YM TT recipes');
+                    }
+                  }
+
+                  // Check if this YM TT is used by any MM TT (via source_mm_stok_kodu)
+                  if (ymTt.source_mm_stok_kodu) {
+                    const mmResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}?stok_kodu=${encodeURIComponent(ymTt.source_mm_stok_kodu)}`);
+
+                    if (mmResponse && mmResponse.ok) {
+                      const mmData = await mmResponse.json();
+
+                      if (mmData.length > 0) {
+                        const mm = mmData[0];
+                        console.log('✓ Found MM TT using this YM TT:', mm.stok_kodu);
+
+                        // Load MM TT recipes
+                        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mm.id}`);
+                        if (mmRecipeResponse && mmRecipeResponse.ok) {
+                          const mmRecipes = await mmRecipeResponse.json();
+
+                          if (mmRecipes.length > 0) {
+                            if (!updatedAllRecipes.mmRecipes[ymStIndex]) {
+                              updatedAllRecipes.mmRecipes[ymStIndex] = {};
+                            }
+                            if (!updatedRecipeStatus.mmRecipes[ymStIndex]) {
+                              updatedRecipeStatus.mmRecipes[ymStIndex] = {};
+                            }
+
+                            mmRecipes.forEach(recipe => {
+                              if (recipe.bilesen_kodu && recipe.miktar !== null) {
+                                updatedAllRecipes.mmRecipes[ymStIndex][recipe.bilesen_kodu] = parseFloat(recipe.miktar);
+                                updatedRecipeStatus.mmRecipes[ymStIndex][recipe.bilesen_kodu] = 'database';
+                              }
+                            });
+                            console.log('✓ Loaded MM TT recipes');
                           }
-                        });
-                        
+                        }
                       }
                     }
-                    
-                    // Load YM TT recipes if relation has ym_tt_id
-                    if (relation.ym_tt_id) {
-                      const allYmTtRecipesResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=2000`);
-                      let ymTtRecipeResponse = null;
-
-                      if (allYmTtRecipesResponse && allYmTtRecipesResponse.ok) {
-                        const allYmTtRecipes = await allYmTtRecipesResponse.json();
-                        const filteredYmTtRecipes = allYmTtRecipes.filter(r => r.ym_tt_id == relation.ym_tt_id); // Use == for type coercion
-
-                        // Create mock response
-                        ymTtRecipeResponse = {
-                          ok: true,
-                          json: async () => filteredYmTtRecipes
-                        };
-                      }
-
-                      if (ymTtRecipeResponse && ymTtRecipeResponse.ok) {
-                        const ymTtRecipes = await ymTtRecipeResponse.json();
-
-                        if (!updatedAllRecipes.ymTtRecipe) {
-                          updatedAllRecipes.ymTtRecipe = {};
-                        }
-                        if (!updatedRecipeStatus.ymTtRecipe) {
-                          updatedRecipeStatus.ymTtRecipe = {};
-                        }
-
-                        ymTtRecipes.forEach(recipe => {
-                          if (recipe.bilesen_kodu && recipe.miktar !== null) {
-                            updatedAllRecipes.ymTtRecipe[recipe.bilesen_kodu] = parseFloat(recipe.miktar);
-                            updatedRecipeStatus.ymTtRecipe[recipe.bilesen_kodu] = 'database';
-                          }
-                        });
-                        
-                      }
-                    }
-                    
-                    // Only process the first relationship (main relationship)
-                    break;
                   }
                 }
               }
             } catch (error) {
-              console.error(`Error loading relationships for YM ST ${ymSt.stok_kodu}:`, error);
+              console.error(`Error loading chain for YM ST ${ymSt.stok_kodu}:`, error);
             }
           }
         }
@@ -5639,31 +5573,10 @@ const TavliBalyaTelNetsis = () => {
         }
       }
       
-      // MM TT - Ana YM ST ilişkisini güncelle - ilişkileri sil ve yeniden oluştur
-      try {
-        // Önce ilişkileri sil
-        if (sessionSavedProducts.mmIds[0]) {
-          await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}/mm_tt/${sessionSavedProducts.mmIds[0]}`, {
-            method: 'DELETE'
-          });
-        }
-        
-        // Yeni ilişkiyi oluştur
-        if (sessionSavedProducts.mmIds[0] && sessionSavedProducts.ymStIds[mainYmStIndex]) {
-          await fetchWithAuth(API_URLS.tavliBalyaMmYmSt, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              mm_tt_id: sessionSavedProducts.mmIds[0],
-              ym_tt_id: sessionSavedProducts.ymTtId, // Include YM TT ID
-              ym_st_id: sessionSavedProducts.ymStIds[mainYmStIndex]
-              // is_main: Removed - not in database schema
-            })
-          });
-        }
-      } catch (error) {
-        console.error('İlişki güncelleme hatası:', error);
-      }
+      // ✅ NOTE: No separate relationship table for Tavli/Balya Tel
+      // Relationships are tracked via source_mm_stok_kodu in YM TT table
+      // and source_ym_st_stok_kodu in YM TT/YM STP tables
+      console.log('✓ Relationships tracked via stok_kodu fields in YM TT/YM STP tables');
       
       return {
         mmIds: [sessionSavedProducts.mmIds[0]], // Artık sadece 1 MM TT var
@@ -5985,29 +5898,9 @@ const TavliBalyaTelNetsis = () => {
         }
       }
       
-      // Create relationships between ALL YM STs and MM (TT MM)
-
-      for (let i = 0; i < ymStIds.length; i++) {
-        try {
-          const relationshipData = {
-            mm_tt_id: mmIds[0], // TT MM ID
-            ym_st_id: ymStIds[i]
-            // NOTE: is_main and sequence_index not in database schema - order determined by mainYmStIndex state
-          };
-
-          console.log(`🔗 Creating relationship ${i + 1}/${ymStIds.length}:`, relationshipData);
-          
-          await fetchWithAuth(API_URLS.tavliBalyaMmYmSt, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(relationshipData)
-          });
-          
-        } catch (relationError) {
-          console.error('Error creating relationship for YM ST ' + (i + 1) + ':', relationError);
-          // Continue with other relationships even if one fails
-        }
-      }
+      // NOTE: No separate relationship table for Tavli/Balya Tel
+      // Relationships are tracked via source_mm_stok_kodu in YM TT table
+      console.log(`✓ ${ymStIds.length} YM ST products ready for YM TT generation`);
 
       // ===============================================================================
       // CREATE INTERMEDIATE PRODUCTS (YM STP, YM TT) based on 4 production flows
@@ -6413,22 +6306,8 @@ const TavliBalyaTelNetsis = () => {
       // Relationships are tracked via stok_kodu fields in intermediate tables:
       // - YM TT has: source_mm_stok_kodu, source_ym_st_stok_kodu
       // - YM STP has: source_ym_st_stok_kodu
-      // No separate relationship table needed!
-
-      // OLD RELATIONSHIP CODE - Keep for backward compatibility (may be removed later)
-      try {
-        await fetchWithAuth(API_URLS.tavliBalyaMmYmSt, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mm_tt_id: mmIds[0],
-            ym_st_id: ymStIds[mainYmStIndex]
-            // is_main: Removed - not in database schema
-          })
-        });
-      } catch (relationError) {
-        console.log('İlişki zaten mevcut veya hata oluştu:', relationError);
-      }
+      // No separate relationship table exists for Tavli/Balya Tel
+      console.log('✓ Relationships tracked via stok_kodu fields in YM TT/YM STP tables');
 
       // Reçeteleri kaydet - TT MM ve tüm YM ST'ler için (plus intermediate products)
       await saveRecipesToDatabase(mmIds, null, ymStIds, ymStpStokKodu, ymTtStokKodu, sequence);
