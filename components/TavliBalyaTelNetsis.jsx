@@ -1730,7 +1730,7 @@ const TavliBalyaTelNetsis = () => {
       
       // MM TT recetelerini getir
       if (mmId) {
-        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mmId}`);
+        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mmId}`);
         if (mmRecipeResponse && mmRecipeResponse.ok) {
           const mmRecipeData = await mmRecipeResponse.json();
           // Recete verisini isle
@@ -1827,7 +1827,7 @@ const TavliBalyaTelNetsis = () => {
           const mm = mmData[0];
 
           // 🆕 YENI: YM TT ve YM ST bulmak icin gelistirilmis iliski tablosunu kullan
-          const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mm.id}`);
+          const relationResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_id=${mm.id}`);
           if (relationResponse && relationResponse.ok) {
             const relations = await relationResponse.json();
             
@@ -1835,7 +1835,7 @@ const TavliBalyaTelNetsis = () => {
               const ymTtId = relations[0].ym_tt_id; // All relations should have same ym_tt_id
 
               // Load MM TT recipes
-              const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mm.id}`);
+              const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mm.id}`);
               if (mmRecipeResponse && mmRecipeResponse.ok) {
                 const mmRecipeData = await mmRecipeResponse.json();
                 if (mmRecipeData.length > 0) {
@@ -2742,7 +2742,7 @@ const TavliBalyaTelNetsis = () => {
       setRecipeStatus({ mmRecipes: {}, ymTtRecipe: {}, ymStRecipes: {} });
 
       // 🔄 STEP 1: Find all related data through the enhanced relationship table
-      const mmYmStResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_tt_id=${mm.id}`);
+      const mmYmStResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmYmSt}?mm_id=${mm.id}`);
 
       let loadedYmSts = [];
       let relatedYmTtId = null;
@@ -2836,7 +2836,7 @@ const TavliBalyaTelNetsis = () => {
       // 2A. Load MM TT recipes
       try {
         console.log('🍳 Loading MM TT recipes...');
-        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mm.id}`);
+        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mm.id}`);
         if (mmRecipeResponse && mmRecipeResponse.ok) {
           const mmRecipes = await mmRecipeResponse.json();
           
@@ -4020,9 +4020,9 @@ const TavliBalyaTelNetsis = () => {
                   for (const relation of relations) {
                     const ymStIndex = prevSelectedLength + i;
                     
-                    // Load MM TT recipes if relation has mm_tt_id
-                    if (relation.mm_tt_id) {
-                      const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${relation.mm_tt_id}`);
+                    // Load MM TT recipes if relation has mm_id
+                    if (relation.mm_id) {
+                      const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${relation.mm_id}`);
                       if (mmRecipeResponse && mmRecipeResponse.ok) {
                         const mmRecipes = await mmRecipeResponse.json();
                         
@@ -5654,7 +5654,7 @@ const TavliBalyaTelNetsis = () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              mm_tt_id: sessionSavedProducts.mmIds[0],
+              mm_id: sessionSavedProducts.mmIds[0],
               ym_tt_id: sessionSavedProducts.ymTtId, // Include YM TT ID
               ym_st_id: sessionSavedProducts.ymStIds[mainYmStIndex]
               // is_main: Removed - not in database schema
@@ -5990,7 +5990,7 @@ const TavliBalyaTelNetsis = () => {
       for (let i = 0; i < ymStIds.length; i++) {
         try {
           const relationshipData = {
-            mm_tt_id: mmIds[0], // TT MM ID
+            mm_id: mmIds[0], // TT MM ID
             ym_st_id: ymStIds[i]
             // NOTE: is_main and sequence_index not in database schema - order determined by mainYmStIndex state
           };
@@ -6126,7 +6126,7 @@ const TavliBalyaTelNetsis = () => {
         ymStIds: ymStIds
       };
 
-      await saveRecipesToDatabase(mmIds, null, ymStIds, ymStpStokKodu, ymTtStokKodu);
+      await saveRecipesToDatabase(mmIds, null, ymStIds, ymStpStokKodu, ymTtStokKodu, sequence);
       
       setDatabaseIds(newDatabaseIds);
       setSavedToDatabase(true);
@@ -6421,7 +6421,7 @@ const TavliBalyaTelNetsis = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            mm_tt_id: mmIds[0],
+            mm_id: mmIds[0],
             ym_st_id: ymStIds[mainYmStIndex]
             // is_main: Removed - not in database schema
           })
@@ -6431,7 +6431,7 @@ const TavliBalyaTelNetsis = () => {
       }
 
       // Reçeteleri kaydet - TT MM ve tüm YM ST'ler için (plus intermediate products)
-      await saveRecipesToDatabase(mmIds, null, ymStIds, ymStpStokKodu, ymTtStokKodu);
+      await saveRecipesToDatabase(mmIds, null, ymStIds, ymStpStokKodu, ymTtStokKodu, sequence);
 
       setDatabaseIds({
         mmIds: mmIds,
@@ -8010,9 +8010,10 @@ const TavliBalyaTelNetsis = () => {
   // The actual database save logic is defined below after saveRecipesToDatabase
 
   // This is the main function that gets called from UI
-  const saveRecipesToDatabase = async (mmIds, ymTtId, ymStIds, ymStpStokKodu = null, ymTtStokKodu = null) => {
+  const saveRecipesToDatabase = async (mmIds, ymTtId, ymStIds, ymStpStokKodu = null, ymTtStokKodu = null, sequenceParam = null) => {
     console.log('saveRecipesToDatabase called - isEditingRequest:', isEditingRequest);
     console.log('Intermediate products:', { ymStpStokKodu, ymTtStokKodu });
+    console.log('Sequence parameter received:', sequenceParam);
 
     // Save the parameters to database IDs state for later use
     setDatabaseIds({
@@ -8024,27 +8025,29 @@ const TavliBalyaTelNetsis = () => {
     // Always proceed with normal save
     // Request approval will be handled by the calling context (either approveRequestAndContinue or Sadece Kaydet button)
     console.log('Proceeding with database save only...');
-    await continueSaveToDatabase(mmIds, ymTtId, ymStIds, ymStpStokKodu, ymTtStokKodu);
+    await continueSaveToDatabase(mmIds, ymTtId, ymStIds, ymStpStokKodu, ymTtStokKodu, sequenceParam);
   };
 
   // The actual database save logic that was in the original saveRecipesToDatabase function
-  const continueSaveToDatabase = async (mmIds, ymTtId, ymStIds, ymStpStokKodu = null, ymTtStokKodu = null) => {
+  const continueSaveToDatabase = async (mmIds, ymTtId, ymStIds, ymStpStokKodu = null, ymTtStokKodu = null, sequenceParam = null) => {
     try {
       // If we're coming from the approval process, reset the editing state
       if (isEditingRequest) {
         setIsEditingRequest(false);
       }
-      
+
       const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
-      
-      // Sequence değeri MMGT ID'sinden değil, stok_kodu'ndan alınacak
-      let sequence = processSequence || '00'; // Use processSequence state instead of hardcoded '00'
+
+      // ✅ FIXED: Use passed sequence parameter first, then fall back to processSequence or '00'
+      let sequence = sequenceParam || processSequence || '00';
+      console.log(`📝 continueSaveToDatabase using sequence: ${sequence} (param: ${sequenceParam}, state: ${processSequence})`);
       
       let mmSequence = sequence; // Öncelikle sequence parametresini kullan
       let mmStokKodu = '';
       let ymTtSequence = sequence; // YMTT için de aynı sequence kullan
-      let ymTtStokKodu = '';
+      // ✅ FIXED: Don't redeclare ymTtStokKodu - use the parameter passed from proceedWithSave
+      // let ymTtStokKodu = ''; // REMOVED: This was shadowing the parameter!
       
       // 1. MMGT stok_kodu'nu direkt olarak veritabanından al
       if (mmIds.length > 0) {
@@ -8441,7 +8444,7 @@ const TavliBalyaTelNetsis = () => {
     
     if (productType === 'mm') {
       apiUrl = API_URLS.tavliBalyaMmRecete;
-      paramName = 'mm_tt_id';
+      paramName = 'mm_id';
     } else if (productType === 'ymtt') {
       apiUrl = API_URLS.tavliNetsisYmTtRecete;
       paramName = 'ym_tt_id';
@@ -8521,7 +8524,7 @@ const TavliBalyaTelNetsis = () => {
       
       if (type === 'mm') {
         apiUrl = API_URLS.tavliBalyaMmRecete;
-        paramName = 'mm_tt_id';
+        paramName = 'mm_id';
         typeLabel = 'MMTT';
       } else if (type === 'ymtt') {
         apiUrl = API_URLS.tavliNetsisYmTtRecete;
@@ -14503,7 +14506,7 @@ const TavliBalyaTelNetsis = () => {
           status: 'approved',
           processed_by: user.username,
           processed_at: new Date().toISOString(),
-          mm_tt_id: databaseIds.mmIds[0] // İlk MM TT ID'yi kullan
+          mm_id: databaseIds.mmIds[0] // İlk MM TT ID'yi kullan
         })
       });
       
