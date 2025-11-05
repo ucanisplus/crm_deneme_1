@@ -646,24 +646,7 @@ const TavliBalyaTelNetsis = () => {
   const toggleSourceYmStSelection = () => {};
   const generateCoilerExcel = () => {};
 
-  // ========== STUB FUNCTIONS - TODO: Implement properly for Tavlı Tel ==========
-  // These functions need proper Tavlı/Balya Tel implementation
-
-  const generateYmTtData = () => {
-    // TODO: For Tavlı/Balya, this should generate YM.TT (Tavlı Tel) data from MM data
-    // For now, this is a stub to prevent crashes
-    console.log('generateYmTtData called - STUB - needs Tavlı/Balya implementation');
-    return [];
-  };
-
-  const generateYmTtDatabaseData = (sequence) => {
-    // TODO: For Tavlı/Balya, format YM.TT data for database
-    // For now, return empty object
-    console.log('generateYmTtDatabaseData called - STUB - needs Tavlı/Balya implementation');
-    return {};
-  };
-
-  // ========== END STUB FUNCTIONS ==========
+  // Note: generateYmTtDatabaseData is implemented later in the file (around line 6807)
 
   // YMST listesi için stateler
   const [existingYmSts, setExistingYmSts] = useState([]);
