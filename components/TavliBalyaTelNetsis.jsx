@@ -10558,8 +10558,8 @@ const TavliBalyaTelNetsis = () => {
 
                     console.log(`📋 BATCH: Found ${alternatives.length} alternatives using priority column`);
 
-                    // Group alternatives by priority
-                    alternatives.forEach(ymSt => {
+                    // Group alternatives by priority - use for...of to support await
+                    for (const ymSt of alternatives) {
                       const priority = ymSt.priority || 1;
 
                       // Initialize maps for this priority if needed
@@ -10631,7 +10631,7 @@ const TavliBalyaTelNetsis = () => {
                           });
                         }
                       }
-                    });
+                    }
                   } else {
                     console.warn(`⚠️ BATCH: Could not extract diameter from ${mainYmStCode}`);
                   }
