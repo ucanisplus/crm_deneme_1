@@ -10243,14 +10243,16 @@ const TavliBalyaTelNetsis = () => {
               console.log(`✅ Found YM TT bilesen in MM TT recipe: ${ymTtStokKodu}`);
             } else {
               // Fallback: Construct YM TT stok_kodu from MM TT stok_kodu
-              // TT.BAG.0168.00 → YM.TT.0168.00
-              // TT.BALYA.0173.00 → YM.TT.0173.00
+              // TT.BAG.0168.00 → YM.TT.BAG.0168.00
+              // TT.BALYA.0173.00 → YM.TT.BALYA.0173.00
               const parts = mm.stok_kodu.split('.');
               if (parts.length >= 4) {
-                // Extract diameter from MM TT (e.g., TT.BAG.0168.00 → 0168)
-                const diameterPart = parts[parts.length - 2];
-                const sequencePart = parts[parts.length - 1];
-                ymTtStokKodu = `YM.TT.${diameterPart}.${sequencePart}`;
+                // ✅ FIXED: Include product_type (BAG/BALYA) in YM TT format
+                // Extract: TT.BAG.0168.00 → productType='BAG', diameter='0168', sequence='00'
+                const productType = parts[1]; // 'BAG' or 'BALYA'
+                const diameterPart = parts[2]; // '0168'
+                const sequencePart = parts[3]; // '00'
+                ymTtStokKodu = `YM.TT.${productType}.${diameterPart}.${sequencePart}`;
                 console.log(`⚠️ YM TT not found in recipe, constructed from MM TT: ${ymTtStokKodu}`);
               }
             }
