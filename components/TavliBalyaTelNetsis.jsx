@@ -10099,7 +10099,7 @@ const TavliBalyaTelNetsis = () => {
     const ymStpData = (ymStpResponse && ymStpResponse.ok) ? await ymStpResponse.json() : [];
     const ymStData = (ymStResponse && ymStResponse.ok) ? await ymStResponse.json() : [];
     const ymTtRecipeData = (ymTtRecetesResponse && ymTtRecetesResponse.ok) ? await ymTtRecetesResponse.json() : [];
-    const ymStpRecipeData = (ymStpRecetesResponse && ymStpRecetesResponse.ok) ? await ymStpRecipesResponse.json() : [];
+    const ymStpRecipeData = (ymStpRecetesResponse && ymStpRecetesResponse.ok) ? await ymStpRecetesResponse.json() : [];
     const ymStRecipeData = (ymStRecetesResponse && ymStRecetesResponse.ok) ? await ymStRecetesResponse.json() : [];
 
 
