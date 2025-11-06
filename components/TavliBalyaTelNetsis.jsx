@@ -10421,7 +10421,19 @@ const TavliBalyaTelNetsis = () => {
               }
 
               // Get YM TT recipes (might already be in map from above)
-              const ymTtRecipesForPriority = ymTtRecipeData.filter(r => r.ym_tt_id == ymTtIdForPriority);
+              let ymTtRecipesForPriority = ymTtRecipeData.filter(r => r.ym_tt_id == ymTtIdForPriority);
+
+              // ✅ FIX: Add fallback to fetch recipes individually if upfront data is empty
+              if (ymTtRecipesForPriority.length === 0) {
+                console.log(`⚠️ No YM TT recipes in upfront data for ID ${ymTtIdForPriority}, fetching individually for ${ymTtForPriority.stok_kodu}...`);
+                const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?mamul_kodu=${encodeURIComponent(ymTtForPriority.stok_kodu)}`);
+                if (individualResponse && individualResponse.ok) {
+                  ymTtRecipesForPriority = await individualResponse.json();
+                  console.log(`✅ Fetched ${ymTtRecipesForPriority.length} YM TT recipes individually for ${ymTtForPriority.stok_kodu}`);
+                }
+              }
+
+              console.log(`✅ Found ${ymTtRecipesForPriority.length} YM TT recipes for ${ymTtForPriority.stok_kodu} in priority-based method`);
 
               // Store recipes if not already stored
               ymTtRecipesForPriority.forEach(r => {
@@ -10456,7 +10468,20 @@ const TavliBalyaTelNetsis = () => {
                     ymStpMap.set(mainYmStp.stok_kodu, mainYmStp);
 
                     // Add YM STP recipes
-                    const mainYmStpRecipes = ymStpRecipeData.filter(r => r.ym_stp_id == mainYmStp.id);
+                    let mainYmStpRecipes = ymStpRecipeData.filter(r => r.ym_stp_id == mainYmStp.id);
+
+                    // ✅ FIX: Add fallback to fetch YM STP recipes individually if upfront data is empty
+                    if (mainYmStpRecipes.length === 0) {
+                      console.log(`⚠️ No YM STP recipes in upfront data for ID ${mainYmStp.id}, fetching individually for ${mainYmStp.stok_kodu}...`);
+                      const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(mainYmStp.stok_kodu)}`);
+                      if (individualResponse && individualResponse.ok) {
+                        mainYmStpRecipes = await individualResponse.json();
+                        console.log(`✅ Fetched ${mainYmStpRecipes.length} YM STP recipes individually for ${mainYmStp.stok_kodu}`);
+                      }
+                    }
+
+                    console.log(`✅ Found ${mainYmStpRecipes.length} YM STP recipes for ${mainYmStp.stok_kodu}`);
+
                     mainYmStpRecipes.forEach(r => {
                       const key = `${mainYmStp.stok_kodu}-${r.bilesen_kodu}`;
                       if (!ymStpRecipeMap.has(key)) {
@@ -10486,7 +10511,20 @@ const TavliBalyaTelNetsis = () => {
 
                 if (mainYmSt) {
                   // Add main YM ST recipes (if not already added)
-                  const mainYmStRecipes = ymStRecipeData.filter(r => r.ym_st_id == mainYmSt.id);
+                  let mainYmStRecipes = ymStRecipeData.filter(r => r.ym_st_id == mainYmSt.id);
+
+                  // ✅ FIX: Add fallback to fetch YM ST recipes individually if upfront data is empty
+                  if (mainYmStRecipes.length === 0) {
+                    console.log(`⚠️ No YM ST recipes in upfront data for ID ${mainYmSt.id}, fetching individually for ${mainYmSt.stok_kodu}...`);
+                    const individualResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(mainYmSt.stok_kodu)}`);
+                    if (individualResponse && individualResponse.ok) {
+                      mainYmStRecipes = await individualResponse.json();
+                      console.log(`✅ Fetched ${mainYmStRecipes.length} YM ST recipes individually for ${mainYmSt.stok_kodu}`);
+                    }
+                  }
+
+                  console.log(`✅ Found ${mainYmStRecipes.length} YM ST recipes for ${mainYmSt.stok_kodu}`);
+
                   mainYmStRecipes.forEach(r => {
                     const key = `${mainYmSt.stok_kodu}-${r.bilesen_kodu}`;
                     if (!ymStRecipeMap.has(key)) {
@@ -10536,7 +10574,20 @@ const TavliBalyaTelNetsis = () => {
                       ymStAltMaps[priority].set(ymSt.stok_kodu, ymSt);
 
                       // Add alternative YM ST recipes
-                      const altRecipes = ymStRecipeData.filter(r => r.ym_st_id == ymSt.id);
+                      let altRecipes = ymStRecipeData.filter(r => r.ym_st_id == ymSt.id);
+
+                      // ✅ FIX: Add fallback to fetch alternative YM ST recipes individually if upfront data is empty
+                      if (altRecipes.length === 0) {
+                        console.log(`⚠️ No YM ST recipes in upfront data for ALT ${priority} ID ${ymSt.id}, fetching individually for ${ymSt.stok_kodu}...`);
+                        const individualResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
+                        if (individualResponse && individualResponse.ok) {
+                          altRecipes = await individualResponse.json();
+                          console.log(`✅ Fetched ${altRecipes.length} YM ST recipes individually for ALT ${priority}: ${ymSt.stok_kodu}`);
+                        }
+                      }
+
+                      console.log(`✅ Found ${altRecipes.length} YM ST recipes for ALT ${priority}: ${ymSt.stok_kodu}`);
+
                       altRecipes.forEach(r => {
                         const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
                         ymStAltRecipeMaps[priority].set(key, {
@@ -10555,7 +10606,20 @@ const TavliBalyaTelNetsis = () => {
                           ymStpMap.set(ymStp.stok_kodu, ymStp);
 
                           // Add YM STP alternative recipes
-                          const ymStpRecipes = ymStpRecipeData.filter(r => r.ym_stp_id == ymStp.id);
+                          let ymStpRecipes = ymStpRecipeData.filter(r => r.ym_stp_id == ymStp.id);
+
+                          // ✅ FIX: Add fallback to fetch alternative YM STP recipes individually if upfront data is empty
+                          if (ymStpRecipes.length === 0) {
+                            console.log(`⚠️ No YM STP recipes in upfront data for ALT ID ${ymStp.id}, fetching individually for ${ymStp.stok_kodu}...`);
+                            const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(ymStp.stok_kodu)}`);
+                            if (individualResponse && individualResponse.ok) {
+                              ymStpRecipes = await individualResponse.json();
+                              console.log(`✅ Fetched ${ymStpRecipes.length} YM STP recipes individually for ALT: ${ymStp.stok_kodu}`);
+                            }
+                          }
+
+                          console.log(`✅ Found ${ymStpRecipes.length} YM STP recipes for ALT: ${ymStp.stok_kodu}`);
+
                           ymStpRecipes.forEach(r => {
                             const key = `${ymStp.stok_kodu}-${r.bilesen_kodu}`;
                             if (!ymStpRecipeMap.has(key)) {
