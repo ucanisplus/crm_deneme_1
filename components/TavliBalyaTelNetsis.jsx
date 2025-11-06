@@ -8510,6 +8510,14 @@ const TavliBalyaTelNetsis = () => {
     // For process codes with 01 suffix, typically times (in minutes - DK)
     if (bilesen === 'TLC01' || bilesen === 'COTLC01' || bilesen === 'TAV01' || bilesen === 'STPRS01' || bilesen === 'TVPKT01' || bilesen === 'BAL01') return 'DK';
 
+    // Specific SM codes that use AD (pieces)
+    if (bilesen === 'SM-AMB-000017') return 'AD'; // Çelik Çember
+    if (bilesen === 'SM-AMB-000018') return 'AD'; // Çember Tokası
+    if (bilesen === 'SM-AMB-000019') return 'AD'; // Karton
+    if (bilesen === 'SM-AMB-000023') return 'AD'; // Kaldırma Kancası
+    if (bilesen === 'SM-AMB-000046') return 'AD'; // Plastik Çember
+    if (bilesen === 'SM-AMB-000026') return 'AD'; // Palet (actually KG in some places, but usually counted as pieces)
+
     // All other cases return KG for material weight
     if (bilesen.includes('03') || bilesen.includes('ASİT')) return 'KG';
     if (bilesen.includes('KARTON') || bilesen.includes('HALKA') || bilesen.includes('TOKA') || bilesen.includes('CEMBER') || bilesen.includes('DESİ')) return 'AD';
@@ -13124,28 +13132,10 @@ const TavliBalyaTelNetsis = () => {
   };
 
   // ✅ FIXED: Excel header fonksiyonları (Tavlı/Balya Tel - removed Kaplama, updated Kod labels)
-  const getStokKartiHeaders = () => [
-    'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Ürün Tipi', 'Cari/Satıcı Kodu',
-    'Türü', 'Mamul Grup', 'İngilizce İsim', 'Satıcı İsmi', 'Muh. Detay', 'Depo Kodu', 'Br-1', 'Br-2',
-    'Pay-1', 'Payda-1', 'Çevrim Değeri-1', 'Ölçü Br-3', 'Çevrim Pay-2', 'Çevrim Payda-2',
-    'Çevrim Değeri-2', 'Çap', 'Yağlama Tipi', 'Min Mukavemet', 'Max Mukavemet', 'KG',
-    'İç Çap/Boy Çubuk AD', 'Dış Çap/En Çubuk AD', 'Çap2', 'Shrink', 'Tolerans(+)',
-    'Tolerans(-)', 'Ebat(En)', 'Göz Aralığı', 'Ebat(Boy)', 'Hasır Tipi',
-    'Özel Saha 8 (Alf.)', 'Alış Fiyatı', 'Fiyat Birimi', 'Satış Fiyatı-1',
-    'Satış Fiyatı-2', 'Satış Fiyatı-3', 'Satış Fiyatı-4', 'Satış Tipi',
-    'Döviz Alış', 'Döviz Maliyeti', 'Döviz Satış Fiyatı', 'Azami Stok',
-    'Asgari Stok', 'Döv.Tutar', 'Döv.Tipi', 'Bekleme Süresi', 'Temin Süresi',
-    'Birim Ağırlık', 'Nakliye Tutar', 'Satış KDV Oranı', 'Alış KDV Oranı',
-    'Stok Türü', 'Mali Grup Kodu', 'Barkod 1', 'Barkod 2', 'Barkod 3',
-    'Kod-3', 'Kod-4', 'Kod-5', 'Esnek Yapılandır', 'Süper Reçete Kullanılsın',
-    'Bağlı Stok Kodu', 'Yapılandırma Kodu', 'Yap. Açıklama', 'Alış Döviz Tipi',
-    'Gümrük Tarife Kodu', 'Dağıtıcı Kodu', 'Menşei', 'METARIAL', 'DIA (MM)',
-    'DIA TOL (MM) +', 'DIA TOL (MM) -', 'ZING COATING (GR/M2)', 'TENSILE ST. (MPA) MIN',
-    'TENSILE ST. (MPA) MAX', 'WAX', 'LIFTING LUGS', 'UNWINDING', 'CAST KONT. (CM)',
-    'HELIX KONT. (CM)', 'ELONGATION (%) MIN', 'COIL DIMENSIONS (CM) ID',
-    'COIL DIMENSIONS (CM) OD', 'COIL WEIGHT (KG)', 'COIL WEIGHT (KG) MIN',
-    'COIL WEIGHT (KG) MAX', 'Tolerans Açıklama'
-  ];
+  // ✅ FIXED: Removed this function - use getTavliBalyaHeaders() instead
+  // This function had ZING COATING column which is WRONG for Tavli/Balya
+  // All single Excel functions should use getTavliBalyaHeaders()
+  const getStokKartiHeaders = () => getTavliBalyaHeaders();
 
   const getYmStHeaders = () => [
     'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Kod-1', 'Kod-2', 'Kod-3',
@@ -13499,7 +13489,6 @@ const TavliBalyaTelNetsis = () => {
       generateStokAdiForExcel(), // Stok Adı
       'MM', // Grup Kodu
       mmData.product_type === 'TAVLI' ? 'TT.BAG' : 'TT.BALYA', // ✅ FIXED: Kod-1 (TT.BAG or TT.BALYA)
-      mmData.product_type, // ✅ FIXED: Kod-2 now shows product type (TAVLI/BALYA)
       '', // Cari/Satıcı Kodu
       'M', // Türü
       stokKodu, // Mamul Grup
@@ -13517,7 +13506,6 @@ const TavliBalyaTelNetsis = () => {
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
       cap.toFixed(2).replace('.', ','), // Çap (VIRGÜL for Excel)
-      mmData.kaplama, // Kaplama
       mmData.min_mukavemet, // Min Mukavemet
       mmData.max_mukavemet, // Max Mukavemet
       mmData.kg, // KG
@@ -13568,16 +13556,15 @@ const TavliBalyaTelNetsis = () => {
       '2', // Alış Döviz Tipi
       getGumrukTarifeKodu(), // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
-      '052', // Menşei
+      '52', // Menşei (✅ FIXED: Changed from '052' to '52' to match bulk format)
       mmData.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli', // METARIAL
       cap.toFixed(2).replace('.', ','), // DIA (MM) - COMMA for Excel
       formatDecimalForExcel(adjustedPlus), // DIA TOL (MM) + (adjusted value matching Turkish tolerans)
       formatDecimalForExcel(adjustedMinus), // DIA TOL (MM) - (adjusted value matching Turkish tolerans)
-      mmData.kaplama, // ZING COATING (GR/M2)
       mmData.min_mukavemet, // TENSILE ST. (MPA) MIN
       mmData.max_mukavemet, // TENSILE ST. (MPA) MAX
-      '+', // WAX
-      '+', // LIFTING LUGS
+      mmData.product_type === 'BALYA' ? '+' : '', // ✅ FIXED: WAX ('+' for BALYA, empty for TAVLI)
+      mmData.shrink === 'evet' ? '+' : '', // ✅ FIXED: LIFTING LUGS ('+' if shrink, empty otherwise)
       mmData.unwinding === 'Clockwise' ? 'Clockwise' : '', // UNWINDING
       mmData.cast_kont || '', // CAST KONT. (CM)
       mmData.helix_kont || '', // HELIX KONT. (CM)
@@ -13587,7 +13574,9 @@ const TavliBalyaTelNetsis = () => {
       mmData.kg, // COIL WEIGHT (KG)
       '', // COIL WEIGHT (KG) MIN
       mmData.kg, // COIL WEIGHT (KG) MAX - Copy the same value from COIL WEIGHT
-      getToleransAciklama() // Tolerans Açıklama
+      getToleransAciklama(), // Tolerans Açıklama
+      mmData.product_type, // ✅ ADDED: Ürün Tipi (TAVLI or BALYA)
+      mmData.yaglama_tipi || '' // ✅ ADDED: Yağlama Tipi
     ];
   };
 
@@ -13603,7 +13592,6 @@ const TavliBalyaTelNetsis = () => {
       ymTt.stok_adi || `Tavlı Tel ${parseFloat(cap.toFixed(2)).toString().replace('.', ',')} mm`, // Stok Adı
       'YM', // Grup Kodu
       'TT', // Kod-1
-      ymTt.kod_2 || '', // Kod-2
       '', // Cari/Satıcı Kodu
       'M', // Türü
       ymTt.stok_kodu, // Mamul Grup
@@ -13621,7 +13609,6 @@ const TavliBalyaTelNetsis = () => {
       '1', // Çevrim Payda-2
       '1', // Çevrim Değeri-2
       cap.toFixed(2).replace('.', ','), // Çap
-      '', // Kaplama
       '', // Min Mukavemet
       '', // Max Mukavemet
       '', // KG
@@ -13672,18 +13659,27 @@ const TavliBalyaTelNetsis = () => {
       '2', // Alış Döviz Tipi
       '', // Gümrük Tarife Kodu
       '', // Dağıtıcı Kodu
-      '052', // Menşei
-      'Tavlı Tel', // METARIAL
+      '52', // Menşei (✅ FIXED: Changed from '052' to '52')
+      ymTt.product_type === 'TAVLI' ? 'Tavlı Tel' : 'Balya Teli', // ✅ FIXED: METARIAL (detect product_type)
       cap.toFixed(2).replace('.', ','), // DIA (MM)
       '', // DIA TOL (MM) +
       '', // DIA TOL (MM) -
-      '', // ZING COATING (GR/M2)
-      '', // TENSILE ST. (MPA) MIN
+      '', // TENSILE ST. (MPA) MIN (✅ REMOVED: ZING COATING)
       '', // TENSILE ST. (MPA) MAX
       '', // WAX
       '', // LIFTING LUGS
       '', // UNWINDING
+      '', // CAST KONT. (CM)
+      '', // HELIX KONT. (CM)
+      '', // ELONGATION (%) MIN
+      '', // COIL DIMENSIONS (CM) ID
+      '', // COIL DIMENSIONS (CM) OD
+      '', // COIL WEIGHT (KG)
+      '', // COIL WEIGHT (KG) MIN
+      '', // COIL WEIGHT (KG) MAX
       '', // Tolerans Açıklama
+      ymTt.product_type || '', // ✅ ADDED: Ürün Tipi
+      '' // ✅ ADDED: Yağlama Tipi
     ];
   };
 
