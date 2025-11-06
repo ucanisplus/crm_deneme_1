@@ -1730,7 +1730,7 @@ const TavliBalyaTelNetsis = () => {
       
       // MM TT recetelerini getir
       if (mmId) {
-        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mmId}`);
+        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mmId}`);
         if (mmRecipeResponse && mmRecipeResponse.ok) {
           const mmRecipeData = await mmRecipeResponse.json();
           // Recete verisini isle
@@ -2772,7 +2772,7 @@ const TavliBalyaTelNetsis = () => {
       // 2A. Load MM TT recipes
       try {
         console.log('🍳 Loading MM TT recipes...');
-        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mm.id}`);
+        const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mm.id}`);
         if (mmRecipeResponse && mmRecipeResponse.ok) {
           const mmRecipes = await mmRecipeResponse.json();
           
@@ -6671,15 +6671,17 @@ const TavliBalyaTelNetsis = () => {
     // NOT YM ST cap! This matches the GalvanizliTelNetsis logic.
     const capValue = parseFloat(mmData.cap);
     const capFormatted = Math.round(capValue * 100).toString().padStart(4, '0');
-    // ✅ FIXED: YM TT is SHARED by both TAVLI and BALYA - NO BAG/BALYA prefix
-    // Format: YM.TT.XXXX.XX (e.g., YM.TT.0190.00)
-    const stokKodu = `YM.TT.${capFormatted}.${sequence}`;
+    // ✅ FIXED: YM TT includes product_type (BAG for TAVLI, BALYA for BALYA)
+    // Format: YM.TT.BAG.XXXX.XX or YM.TT.BALYA.XXXX.XX (per genel.csv)
+    const productPrefix = mmData.product_type === 'TAVLI' ? 'BAG' : 'BALYA';
+    const stokKodu = `YM.TT.${productPrefix}.${capFormatted}.${sequence}`;
 
     console.log(`\n🔍 === YM TT GENERATION DEBUG ===`);
     console.log(`📏 YM ST cap (input): ${ymSt.cap}mm`);
     console.log(`📏 MM cap (USED): ${capValue}mm`);
+    console.log(`📦 Product type: ${mmData.product_type} → prefix: ${productPrefix}`);
     console.log(`📦 Generated YM TT: ${stokKodu}`);
-    console.log(`✅ Correct: Uses MM cap, NOT YM ST cap\n`);
+    console.log(`✅ Correct: Uses MM cap + product_type prefix\n`);
 
     // ✅ FIXED: Generate stock name like genel4.csv - NO yaglama, full specs
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
@@ -7776,7 +7778,7 @@ const TavliBalyaTelNetsis = () => {
       console.log(`📝 Saving MM TT recipes for: ${mmTtStokKodu}`);
 
       // Delete existing recipes first
-      const existingResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mmTtId}`);
+      const existingResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mmTtId}`);
       if (existingResponse && existingResponse.ok) {
         const existing = await existingResponse.json();
         for (const recipe of existing) {
@@ -7847,7 +7849,7 @@ const TavliBalyaTelNetsis = () => {
           let bilesenKodu = AUXILIARY_COMPONENTS[key] || key;
 
           const recipeData = {
-            mm_tt_id: mmTtId,
+            mm_id: mmTtId, // ✅ FIXED: Database column is mm_id, not mm_tt_id
             mamul_kodu: mmTtStokKodu,
             bilesen_kodu: bilesenKodu,
             miktar: value,
@@ -8323,7 +8325,7 @@ const TavliBalyaTelNetsis = () => {
     
     if (productType === 'mm') {
       apiUrl = API_URLS.tavliBalyaMmRecete;
-      paramName = 'mm_tt_id';
+      paramName = 'mm_id'; // ✅ FIXED: Database column is mm_id
     } else if (productType === 'ymtt') {
       apiUrl = API_URLS.tavliNetsisYmTtRecete;
       paramName = 'ym_tt_id';
@@ -8403,7 +8405,7 @@ const TavliBalyaTelNetsis = () => {
       
       if (type === 'mm') {
         apiUrl = API_URLS.tavliBalyaMmRecete;
-        paramName = 'mm_tt_id';
+        paramName = 'mm_id'; // ✅ FIXED: Database column is mm_id
         typeLabel = 'MMTT';
       } else if (type === 'ymtt') {
         apiUrl = API_URLS.tavliNetsisYmTtRecete;
@@ -8510,8 +8512,8 @@ const TavliBalyaTelNetsis = () => {
 
     // All other cases return KG for material weight
     if (bilesen.includes('03') || bilesen.includes('ASİT')) return 'KG';
-    if (bilesen.includes('KARTON') || bilesen.includes('HALKA') || bilesen.includes('TOKA') || bilesen.includes('DESİ')) return 'AD';
-    if (bilesen.includes('CEMBER') || bilesen.includes('SHRİNK')) return 'KG';
+    if (bilesen.includes('KARTON') || bilesen.includes('HALKA') || bilesen.includes('TOKA') || bilesen.includes('CEMBER') || bilesen.includes('DESİ')) return 'AD';
+    if (bilesen.includes('SHRİNK')) return 'KG';
     if (bilesen.includes('YM.GT.')) return 'KG'; // Note: YM.GT codes exist for special products (armored wire)
     if (bilesen.includes('FLM.')) return 'KG';
     return 'KG';
@@ -12624,7 +12626,7 @@ const TavliBalyaTelNetsis = () => {
       // 6. Fetch recipes from database for all products
 
       // MM TT recipes
-      const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_tt_id=${mm.id}`);
+      const mmRecipeResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mm.id}`);
       const mmRecipes = (mmRecipeResponse && mmRecipeResponse.ok) ? await mmRecipeResponse.json() : [];
       mmRecipes.forEach(recipe => {
         recipe.mm_tt_stok_kodu = mmStokKodu;
