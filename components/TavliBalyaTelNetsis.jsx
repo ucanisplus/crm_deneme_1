@@ -502,7 +502,7 @@ const AUXILIARY_COMPONENTS = {
   'AMB.SHRİNK.200*160CM': 'SM-AMB-000028',
   'AMB.SHRİNK.200*190CM': 'SM-AMB-000030',
   // ❌ REMOVED: 'AMB.STREÇ' - not in gene2l.csv constraints
-  'AMB.PALET': 'SM-AMB-000026', // Palet (SM-AMB-000164 per gene2l.csv)
+  'AMB.PALET': 'SM-AMB-000164', // ✅ FIXED: Palet (SM-AMB-000164 per gene2l.csv)
   // YM STP and YM TT helper components (same codes as above, just for clarity)
   'AMB.ÇELIK.ÇEMBER': 'SM-AMB-000017', // Çelik Çember (same as APEX CEMBER)
   'AMB.ÇEMBER.TOKASI': 'SM-AMB-000018', // Çember Tokası (same as TOKA)
@@ -906,7 +906,7 @@ const TavliBalyaTelNetsis = () => {
     'SM-AMB-000030': 'Shrink Tüketimi (KG)',
     'SM-AMB-000084': 'Karton (SM-AMB-000084)', // ✅ CORRECTED
     'SM-AMB-000025': 'Streç (SM-AMB-000025)',
-    'SM-AMB-000026': 'Palet (SM-AMB-000026)',
+    'SM-AMB-000164': 'Palet (SM-AMB-000164)', // ✅ FIXED: Correct palet code
     // ❌ OLD CODES (kept for reference during migration, but shouldn't be used for new products)
     'SM-AMB-000024': 'Plastik çember (SM-AMB-000024) - OLD CODE',
     'SM-AMB-000019': 'Karton (SM-AMB-000019) - OLD CODE',
@@ -921,7 +921,7 @@ const TavliBalyaTelNetsis = () => {
     'AMB.SHRİNK.200*190CM': 'Shrink Tüketimi (KG)',
     'AMB.ÇEM.KARTON.GAL': 'Karton (SM-AMB-000084)', // ✅ CORRECTED
     'AMB.STREÇ': 'Streç (SM-AMB-000025)',
-    'AMB.PALET': 'Palet (SM-AMB-000026)'
+    'AMB.PALET': 'Palet (SM-AMB-000164)' // ✅ FIXED: Correct palet code
   };
 
   // Tum useEffect hooklar - Hook Kurallarina uymak icin izin kontrolunden once tasindi
@@ -8493,7 +8493,7 @@ const TavliBalyaTelNetsis = () => {
     if (bilesen === 'SM-AMB-000019') return 'AD'; // Karton
     if (bilesen === 'SM-AMB-000023') return 'AD'; // Kaldırma Kancası
     if (bilesen === 'SM-AMB-000046') return 'AD'; // Plastik Çember
-    if (bilesen === 'SM-AMB-000026') return 'AD'; // Palet (actually KG in some places, but usually counted as pieces)
+    if (bilesen === 'SM-AMB-000164') return 'AD'; // ✅ FIXED: Palet (correct code)
 
     // All other cases return KG for material weight
     if (bilesen.includes('03') || bilesen.includes('ASİT')) return 'KG';
@@ -8632,7 +8632,7 @@ const TavliBalyaTelNetsis = () => {
     // ✅ FIXED: Check Plastik Çember BEFORE general CEMBER check
     if (bilesen.includes('PLASTİK') || bilesen === 'SM-AMB-000046') return 'Plastik Çember Tüketim Miktarı';
     if (bilesen.includes('STREÇ') || bilesen === 'SM-AMB-000025') return 'Streç Tüketim Miktarı';
-    if (bilesen.includes('PALET') || bilesen === 'SM-AMB-000026') return 'Palet Tüketim Miktarı';
+    if (bilesen.includes('PALET') || bilesen === 'SM-AMB-000164') return 'Palet Tüketim Miktarı'; // ✅ FIXED: Correct palet code
     if (bilesen.includes('CEMBER') || bilesen === 'SM-AMB-000017') return 'Çelik çember Tüketim Miktarı';
     if (bilesen.includes('TOKA') || bilesen === 'SM-AMB-000018') return 'Çember Tokası Tüketim Miktarı';
     // ✅ REMOVED: Silkajel (SM.DESİ.PAK / SM-KMY-000102) - not in tavlı/balya specification
@@ -13955,7 +13955,7 @@ const TavliBalyaTelNetsis = () => {
       'AMB.APEX CEMBER 38X080': 'SM-AMB-000017',
       'AMB.PLASTİK.ÇEMBER': 'SM-AMB-000046', // ✅ CORRECTED: Plastik Çember for MM products
       'AMB.STREÇ': 'SM-AMB-000025', // ✅ ADDED: Streç for MM products
-      'AMB.PALET': 'SM-AMB-000026', // ✅ ADDED: Palet for MM products
+      'AMB.PALET': 'SM-AMB-000164', // ✅ FIXED: Correct palet code for MM products
       'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018',
       'SM.7MMHALKA': 'SM-AMB-000023',
       'AMB.ÇEM.KARTON.GAL': 'SM-AMB-000084', // ✅ CORRECTED: Karton for MM products
