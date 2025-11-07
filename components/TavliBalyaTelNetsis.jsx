@@ -7679,6 +7679,8 @@ const TavliBalyaTelNetsis = () => {
       // Generate recipes for each priority (Main + Alternatives)
       for (const alternative of ymStAlternatives) {
         let siraNo = 1;
+        // ✅ FIXED: YM TT should ONLY have Source + TAV01 (per genel4.csv column 4)
+        // Çember/Tokası/Kancası belong to YM STP (column 6), NOT YM TT!
         const recipes = [
           // 1. Source (YM.ST with .P suffix if pressed)
           {
@@ -7697,34 +7699,9 @@ const TavliBalyaTelNetsis = () => {
             olcu_br: 'DK',
             aciklama: 'Tavlama Operasyonu',
             priority: alternative.priority
-          },
-          // 3. Çelik Çember (Auxiliary) - Use Galvanizli code
-          {
-            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.APEX CEMBER 38X080'],
-            operasyon_bilesen: 'B',
-            miktar: parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5)), // Galvanizli formula
-            olcu_br: 'AD',
-            aciklama: 'Çelik Çember',
-            priority: alternative.priority
-          },
-          // 4. Çember Tokası (Auxiliary) - Use Galvanizli code: AMB.TOKA.SIGNODE.114P. DKP
-          {
-            bilesen_kodu: AUXILIARY_COMPONENTS['AMB.TOKA.SIGNODE.114P. DKP'],
-            operasyon_bilesen: 'B',
-            miktar: parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5)), // Galvanizli formula
-            olcu_br: 'AD',
-            aciklama: 'Çember Tokası',
-            priority: alternative.priority
-          },
-          // 5. Kaldırma Kancası (Auxiliary) - Use Galvanizli code: SM.7MMHALKA
-          {
-            bilesen_kodu: AUXILIARY_COMPONENTS['SM.7MMHALKA'],
-            operasyon_bilesen: 'B',
-            miktar: parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5)), // Galvanizli formula
-            olcu_br: 'AD',
-            aciklama: 'Kaldırma Kancası',
-            priority: alternative.priority
           }
+          // ✅ REMOVED: Çelik Çember, Çember Tokası, Kaldırma Kancası
+          // These belong to YM STP (pressing level), NOT YM TT (annealing level)
         ];
 
         // Save all recipes for this priority
