@@ -14074,16 +14074,10 @@ const TavliBalyaTelNetsis = () => {
       diamValue = 999; // Unknown format
     }
 
-    // For products < 1.5mm: Convert YM ST bilesen to .ST format
-    // e.g., YM.ST.0116.0600.1006 -> YM.ST.0116.ST
-    let finalBilesenKodu = bilesenKodu;
-    if (diamValue < 1.5 && bilesenKodu.startsWith('YM.ST.')) {
-      const bilesenParts = bilesenKodu.split('.');
-      if (bilesenParts.length >= 3) {
-        finalBilesenKodu = `${bilesenParts[0]}.${bilesenParts[1]}.${bilesenParts[2]}.ST`;
-        console.log(`   ✏️ CONVERTED ${bilesenKodu} → ${finalBilesenKodu} (mamul < 1.5mm)`);
-      }
-    }
+    // ✅ FIXED: DO NOT truncate YM ST codes - use full code from database
+    // The database stores the complete code (e.g., YM.ST.0125.0600.1006) including hammadde and kalite
+    // Excel export must match the database exactly to preserve quality information
+    const finalBilesenKodu = bilesenKodu;
 
     const mappedBilesenKodu = mapBilesenKoduForExcel(finalBilesenKodu);
     const isOperation = operasyonBilesen === 'O' || bilesenKodu === 'TAV01';
