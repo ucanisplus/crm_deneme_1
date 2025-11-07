@@ -10258,7 +10258,8 @@ const TavliBalyaTelNetsis = () => {
 
                 // Store YM TT recipes
                 ymTtRecipes.forEach(r => {
-                  const key = `${ymTt.stok_kodu}-${r.bilesen_kodu}`;
+                  // ✅ FIXED: Include priority in key to prevent overwriting when same bilesen_kodu exists in multiple priorities
+                  const key = `${ymTt.stok_kodu}-${r.bilesen_kodu}-${r.priority || 0}`;
                   ymTtRecipeMap.set(key, {
                     ...r,
                     ym_tt_stok_kodu: ymTt.stok_kodu,
@@ -10414,7 +10415,8 @@ const TavliBalyaTelNetsis = () => {
 
               // Store recipes if not already stored
               ymTtRecipesForPriority.forEach(r => {
-                const key = `${ymTtForPriority.stok_kodu}-${r.bilesen_kodu}`;
+                // ✅ FIXED: Include priority in key to prevent overwriting when same bilesen_kodu exists in multiple priorities
+                const key = `${ymTtForPriority.stok_kodu}-${r.bilesen_kodu}-${r.priority || 0}`;
                 if (!ymTtRecipeMap.has(key)) {
                   ymTtRecipeMap.set(key, {
                     ...r,
