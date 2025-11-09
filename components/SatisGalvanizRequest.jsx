@@ -333,10 +333,19 @@ const SatisGalvanizRequest = () => {
   const checkForDuplicateProduct = async () => {
     try {
       // Generate stok_adi for the current request to compare (including bag amount and packaging options)
-      const bagAmount = requestData.cast_kont && requestData.cast_kont.trim() !== '' 
-        ? `/${requestData.cast_kont}` 
+      const bagAmount = requestData.cast_kont && requestData.cast_kont.trim() !== ''
+        ? `/${requestData.cast_kont}`
         : '';
-      
+
+      // ✅ FIXED: Generate tolerance text with actual signs (same logic as generateStokKoduAndAdi)
+      const plusValue = parseFloat(requestData.tolerans_plus) || 0;
+      const minusValue = parseFloat(requestData.tolerans_minus) || 0;
+      const actualPlusValue = toleransMaxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
+      const actualMinusValue = toleransMinSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
+      const higherValue = Math.max(actualPlusValue, actualMinusValue);
+      const lowerValue = Math.min(actualPlusValue, actualMinusValue);
+      const toleranceText = `${lowerValue}/${higherValue >= 0 ? '+' : ''}${higherValue}`;
+
       // Paketleme eklerini oluştur
       let paketlemeEkleri = '';
       if (paketlemeSecenekleri.shrink) {
@@ -347,8 +356,8 @@ const SatisGalvanizRequest = () => {
       } else if (paketlemeSecenekleri.sepetli) {
         paketlemeEkleri += '-Spt';
       }
-      
-      const currentStokAdi = `Galvanizli Tel ${parseFloat(requestData.cap).toFixed(2)} mm -${requestData.tolerans_minus}/+${requestData.tolerans_plus} ${requestData.kaplama} gr/m² ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg${paketlemeEkleri}`;
+
+      const currentStokAdi = `Galvanizli Tel ${parseFloat(requestData.cap).toFixed(2)} mm ${toleranceText} ${requestData.kaplama} gr/m² ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg${paketlemeEkleri}`;
       
       // Check 1: Find matching products in existing MM GT database by stok_adi
       console.log('🔍 Duplicate check - Current stok_adi:', currentStokAdi);

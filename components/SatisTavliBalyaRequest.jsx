@@ -366,12 +366,12 @@ const SatisTavliBalyaRequest = () => {
       const toleranceText = `${lowerValue}/${higherValue >= 0 ? '+' : ''}${higherValue}`;
 
       // Build stok adi based on product type with oil information
-      // Oil type goes BEFORE Shrink in the format: Yagli(PSK), Yagli(DLD), or Yagsiz
+      // ✅ FIXED: Oil type format matches production component (PSK, DLD, or Yagsiz)
       let yaglamaText = '';
       if (requestData.yaglama_tipi === 'Püskürtme') {
-        yaglamaText = '-Yagli(PSK)';
+        yaglamaText = '-PSK';
       } else if (requestData.yaglama_tipi === 'Daldırma') {
-        yaglamaText = '-Yagli(DLD)';
+        yaglamaText = '-DLD';
       } else {
         yaglamaText = '-Yagsiz';
       }
@@ -1034,12 +1034,12 @@ const SatisTavliBalyaRequest = () => {
 
       // Generate stok adi based on product type
       // Build stok adi with oil information
-      // Oil type goes BEFORE Shrink in the format: Yagli(PSK), Yagli(DLD), or Yagsiz
+      // ✅ FIXED: Oil type format matches production component (PSK, DLD, or Yagsiz)
       let yaglamaText = '';
       if (data.yaglama_tipi === 'Püskürtme') {
-        yaglamaText = '-Yagli(PSK)';
+        yaglamaText = '-PSK';
       } else if (data.yaglama_tipi === 'Daldırma') {
-        yaglamaText = '-Yagli(DLD)';
+        yaglamaText = '-DLD';
       } else {
         yaglamaText = '-Yagsiz';
       }

@@ -10187,7 +10187,8 @@ const TavliBalyaTelNetsis = () => {
             // Store MM TT recipes in map
             mmRecipes.forEach(r => {
               let updatedBilesenKodu = r.bilesen_kodu;
-              if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.GT.')) {
+              // ✅ FIXED: Handle YM.TT sequence matching (not YM.GT which is for Galvanized)
+              if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.TT.')) {
                 const mmSequence = mm.stok_kodu?.split('.').pop() || '00';
                 const bilesenParts = r.bilesen_kodu.split('.');
                 if (bilesenParts.length >= 5) {
@@ -13880,7 +13881,8 @@ const TavliBalyaTelNetsis = () => {
     const mappedBilesenKodu = mapBilesenKoduForExcel(bilesenKodu);
 
     // Determine if this is an Operation row
-    const isOperation = bilesenKodu === 'GTPKT01';
+    // ✅ FIXED: TVPKT01 for Tavli, BAL01 for Balya (not GTPKT01 which is for Galvanized)
+    const isOperation = bilesenKodu === 'TVPKT01' || bilesenKodu === 'BAL01';
 
     return [
       generateMmStokKodu(mmData.product_type, mmData.cap, sequence), // Mamul Kodu - TT.BAG or TT.BALYA based on product type
@@ -13889,7 +13891,7 @@ const TavliBalyaTelNetsis = () => {
       '', // Oto.Reç.
       getOlcuBr(bilesenKodu), // Ölçü Br. - use original code for logic
       siraNo, // Sıra No - incremental as requested
-      isOperation ? 'O' : 'B', // GTPKT01 should be marked as O (Operasyon) per Excel format
+      isOperation ? 'O' : 'B', // TVPKT01/BAL01 should be marked as O (Operasyon) per Excel format
       mappedBilesenKodu, // Bileşen Kodu - use mapped code for Excel
       '1', // Ölçü Br. - Bileşen
       formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
@@ -13975,17 +13977,18 @@ const TavliBalyaTelNetsis = () => {
 
   // Batch Excel için MM TT recipe row generator
   const generateMmTtReceteRowForBatch = (bilesenKodu, miktar, siraNo, sequence, mmStokKodu) => {
-    // FIXED: MM TT recipe should use MM TT stok kodu, not YM GT format
-    // The mmStokKodu is already in correct format (GT.PAD.0087.00)
+    // ✅ FIXED: MM TT recipe should use MM TT stok kodu (TT.BAG.XXXX.XX or TT.BALYA.XXXX.XX)
+    // The mmStokKodu is already in correct format from the database
 
     // Map bilesen code to new standardized code
     const mappedBilesenKodu = mapBilesenKoduForExcel(bilesenKodu);
 
     // Determine if this is an Operation row
-    const isOperation = bilesenKodu === 'GTPKT01';
+    // ✅ FIXED: TVPKT01 for Tavli, BAL01 for Balya (not GTPKT01 which is for Galvanized)
+    const isOperation = bilesenKodu === 'TVPKT01' || bilesenKodu === 'BAL01';
 
     return [
-      mmStokKodu, // Mamul Kodu - Use MM TT kodu directly (GT.PAD.0087.00)
+      mmStokKodu, // Mamul Kodu - Use MM TT kodu directly (TT.BAG.XXXX.XX or TT.BALYA.XXXX.XX)
       '1', // Reçete Top.
       '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM TT
       '', // Oto.Reç.
@@ -14737,62 +14740,130 @@ const TavliBalyaTelNetsis = () => {
               <select
                 value={`${mmData.ic_cap}-${mmData.dis_cap}`}
                 onChange={(e) => {
-                  const [ic, dis] = e.target.value.split('-').map(v => parseInt(v));
-                  handleInputChange('ic_cap', ic);
-                  handleInputChange('dis_cap', dis);
+                  if (e.target.value === 'custom') {
+                    // Custom entry selected - show input fields
+                    const customIc = prompt('İç Çap (cm) girin:');
+                    const customDis = prompt('Dış Çap (cm) girin:');
+                    if (customIc && customDis) {
+                      handleInputChange('ic_cap', parseInt(customIc));
+                      handleInputChange('dis_cap', parseInt(customDis));
+                    }
+                  } else {
+                    const [ic, dis] = e.target.value.split('-').map(v => parseInt(v));
+                    handleInputChange('ic_cap', ic);
+                    handleInputChange('dis_cap', dis);
+                  }
                 }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
               >
-                {/* Daldırma / Yagsiz Balya: 15-30, 21-34 */}
-                <option
-                  value="15-30"
-                  disabled={mmData.yaglama_tipi === 'Püskürtme'}
-                >
-                  ID: 15 cm - OD: 30 cm {mmData.yaglama_tipi === 'Püskürtme' && '(Sadece Daldırma/Yağsız)'}
-                </option>
-                <option
-                  value="21-34"
-                  disabled={mmData.yaglama_tipi === 'Püskürtme'}
-                >
-                  ID: 21 cm - OD: 34 cm {mmData.yaglama_tipi === 'Püskürtme' && '(Sadece Daldırma/Yağsız)'}
-                </option>
+                {(() => {
+                  // ✅ CORRECTED: ID-OD constraints based on yaglama_tipi FIRST, then diameter
+                  const cap = parseFloat(mmData.cap) || 0;
+                  const isPuskurtme = mmData.yaglama_tipi === 'Püskürtme';
+                  const isDaldirma = mmData.yaglama_tipi === 'Daldırma';
+                  const isYagsiz = !mmData.yaglama_tipi || mmData.yaglama_tipi === '';
 
-                {/* Püskürtme only: 23-35, 45-75, 50-90 */}
-                <option
-                  value="23-35"
-                  disabled={mmData.yaglama_tipi === 'Daldırma'}
-                >
-                  ID: 23 cm - OD: 35 cm {mmData.yaglama_tipi === 'Daldırma' && '(Sadece Püskürtme)'}
-                </option>
-                <option
-                  value="25-35"
-                >
-                  ID: 25 cm - OD: 35 cm
-                </option>
-                <option
-                  value="21-35"
-                >
-                  ID: 21 cm - OD: 35 cm
-                </option>
-                <option
-                  value="40-75"
-                >
-                  ID: 40 cm - OD: 75 cm
-                </option>
-                <option
-                  value="45-75"
-                  disabled={mmData.yaglama_tipi === 'Daldırma'}
-                >
-                  ID: 45 cm - OD: 75 cm (Varsayılan) {mmData.yaglama_tipi === 'Daldırma' && '(Sadece Püskürtme)'}
-                </option>
-                <option
-                  value="50-90"
-                  disabled={mmData.yaglama_tipi === 'Daldırma'}
-                >
-                  ID: 50 cm - OD: 90 cm {mmData.yaglama_tipi === 'Daldırma' && '(Sadece Püskürtme)'}
-                </option>
+                  // Helper to check if option should be shown
+                  const shouldShow = (option) => {
+                    // ✅ PRIMARY CONSTRAINT: Yaglama type determines size category
+                    if (isPuskurtme) {
+                      // Püskürtme → TAVLI sizes (23-35, 25-35, 45-75, 50-90)
+                      // Then filter by diameter
+                      if (cap > 0 && cap < 1.80) {
+                        // Small diameter: Only 25-35
+                        return option === '25-35';
+                      } else if (cap >= 1.80) {
+                        // Large diameter: 23-35, 25-35, 45-75, 50-90
+                        return ['23-35', '25-35', '45-75', '50-90'].includes(option);
+                      } else {
+                        // No diameter yet: show all Püskürtme options
+                        return ['23-35', '25-35', '45-75', '50-90'].includes(option);
+                      }
+                    } else if (isDaldirma || isYagsiz) {
+                      // Daldırma or Yağsız → BALYA sizes only (15-30, 21-34)
+                      return ['15-30', '21-34'].includes(option);
+                    } else {
+                      // No yaglama type selected: show all options
+                      return true;
+                    }
+                  };
+
+                  const getHint = (option) => {
+                    // Recommended option hints
+                    if (isPuskurtme) {
+                      if (cap > 0 && cap < 1.80 && option === '25-35') return '✓ Önerilen';
+                      if (cap >= 1.80 && option === '45-75') return '✓ Önerilen';
+                    } else if (isDaldirma || isYagsiz) {
+                      if (option === '21-34') return '✓ Önerilen';
+                    }
+                    return '';
+                  };
+
+                  const options = [
+                    { value: '15-30', label: 'ID: 15 cm - OD: 30 cm' },
+                    { value: '21-34', label: 'ID: 21 cm - OD: 34 cm' },
+                    { value: '23-35', label: 'ID: 23 cm - OD: 35 cm' },
+                    { value: '25-35', label: 'ID: 25 cm - OD: 35 cm' },
+                    { value: '40-75', label: 'ID: 40 cm - OD: 75 cm' },
+                    { value: '45-75', label: 'ID: 45 cm - OD: 75 cm' },
+                    { value: '50-90', label: 'ID: 50 cm - OD: 90 cm' },
+                  ];
+
+                  return (
+                    <>
+                      {options
+                        .filter(opt => shouldShow(opt.value))
+                        .map(opt => (
+                          <option
+                            key={opt.value}
+                            value={opt.value}
+                            disabled={shouldDisable(opt.value)}
+                          >
+                            {opt.label} {getHint(opt.value)}
+                          </option>
+                        ))}
+                      <option value="custom" style={{ borderTop: '2px solid #ddd', marginTop: '8px' }}>
+                        ⚠️ Özel Boyut Gir (Önerilmez)
+                      </option>
+                    </>
+                  );
+                })()}
               </select>
-              <p className="text-xs text-gray-500 mt-1">Sabit bobin boyutu kombinasyonları</p>
+              {(() => {
+                const cap = parseFloat(mmData.cap) || 0;
+                const standardOptions = ['15-30', '21-34', '23-35', '25-35', '40-75', '45-75', '50-90'];
+                const currentValue = `${mmData.ic_cap}-${mmData.dis_cap}`;
+                const isCustom = !standardOptions.includes(currentValue);
+                const isPuskurtme = mmData.yaglama_tipi === 'Püskürtme';
+                const isDaldirma = mmData.yaglama_tipi === 'Daldırma';
+                const isYagsiz = !mmData.yaglama_tipi || mmData.yaglama_tipi === '';
+
+                if (isCustom && mmData.ic_cap && mmData.dis_cap) {
+                  return (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Özel boyut kullanılıyor. Standart boyutlar önerilir.
+                    </p>
+                  );
+                }
+
+                if (!mmData.yaglama_tipi) {
+                  return <p className="text-xs text-gray-500 mt-1">Önce yağlama tipini seçin - uygun ID-OD boyutları gösterilecek</p>;
+                }
+
+                if (isPuskurtme && cap === 0) {
+                  return <p className="text-xs text-gray-500 mt-1">Çap seçin - Püskürtme için uygun boyutlar gösterilecek</p>;
+                }
+
+                if (isPuskurtme) {
+                  return <p className="text-xs text-gray-500 mt-1">Püskürtme: TAVLI boyutları (23-35, 25-35, 45-75, 50-90) çapa göre filtreleniyor</p>;
+                }
+
+                if (isDaldirma || isYagsiz) {
+                  return <p className="text-xs text-gray-500 mt-1">{isDaldirma ? 'Daldırma' : 'Yağsız'}: BALYA boyutları (15-30, 21-34) gösteriliyor</p>;
+                }
+
+                return <p className="text-xs text-gray-500 mt-1">Yağlama tipine göre uygun boyutlar gösteriliyor</p>;
+              })()}
             </div>
 
             <div className="space-y-2">
