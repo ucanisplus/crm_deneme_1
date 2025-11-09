@@ -10152,7 +10152,9 @@ const GalvanizliTelNetsis = () => {
             }
           }
 
-          mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(updatedBilesenKodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          // Update bilesen_kodu in recipe object for this call
+          const updatedRecipe = { ...recipe, bilesen_kodu: updatedBilesenKodu };
+          mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(updatedRecipe, productSiraNo, recipe.mamul_kodu, '0'));
           productSiraNo++;
         });
       }
@@ -10185,7 +10187,7 @@ const GalvanizliTelNetsis = () => {
         let productSiraNo = 1;
         ymGtByProduct[stokKodu].forEach(recipe => {
           // Use the actual miktar value from database - component code fix happens inside generateYmGtReceteRowForBatch
-          ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, '0'));
           productSiraNo++;
         });
       }
@@ -10386,7 +10388,7 @@ const GalvanizliTelNetsis = () => {
 
         let productSiraNo = 1;
         recipes.forEach(recipe => {
-          const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mamul_kodu));
+          const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority));
 
           // Color COILER products with light cream
           if (isCoiler) {
@@ -10436,7 +10438,7 @@ const GalvanizliTelNetsis = () => {
       if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         ymStByProduct[stokKodu].forEach(recipe => {
-          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, 0));
+          ymStReceteSheet.addRow(generateYmStReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, 0));
           productSiraNo++;
         });
       }
@@ -10484,7 +10486,7 @@ const GalvanizliTelNetsis = () => {
         if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
           let productSiraNo = 1;
           ymStAltByProduct[stokKodu].forEach(recipe => {
-            altSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, priority));
+            altSheet.addRow(generateYmStReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority));
             productSiraNo++;
           });
         }
@@ -11212,7 +11214,7 @@ const GalvanizliTelNetsis = () => {
         console.log(`✅ Adding ${mmGtByProduct[stokKodu].length} recipes for MM GT: ${stokKodu}`);
         let productSiraNo = 1; // Restart sequence for each product
         mmGtByProduct[stokKodu].forEach(recipe => {
-          mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.sequence, recipe.mm_gt_stok_kodu));
+          mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(recipe, productSiraNo, recipe.mm_gt_stok_kodu, '0'));
           productSiraNo++;
         });
       } else {
@@ -11257,8 +11259,10 @@ const GalvanizliTelNetsis = () => {
           if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('YM.ST.') && zincRecipe) {
             finalMiktar = 1 - parseFloat(zincRecipe.miktar);
           }
-          
-          ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
+
+          // Update recipe miktar for this call
+          const updatedRecipe = { ...recipe, miktar: finalMiktar };
+          ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(updatedRecipe, productSiraNo, recipe.ym_gt_stok_kodu, '0'));
           productSiraNo++;
         });
       }
@@ -11452,7 +11456,9 @@ const GalvanizliTelNetsis = () => {
             finalMiktar = 1 - parseFloat(zincRecipe.miktar);
           }
 
-          const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe.bilesen_kodu, finalMiktar, productSiraNo, recipe.sequence, recipe.ym_gt_stok_kodu));
+          // Update recipe miktar for this call
+          const updatedRecipe = { ...recipe, miktar: finalMiktar };
+          const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(updatedRecipe, productSiraNo, recipe.ym_gt_stok_kodu, priority));
 
           // Color COILER products with light cream
           if (isCoiler) {
@@ -11564,7 +11570,7 @@ const GalvanizliTelNetsis = () => {
         if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
           let productSiraNo = 1;
           ymStAltByProduct[stokKodu].forEach(recipe => {
-            altSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, priority));
+            altSheet.addRow(generateYmStReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority));
             productSiraNo++;
           });
         }
@@ -11894,7 +11900,7 @@ const GalvanizliTelNetsis = () => {
         if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
           finalValue = 1 - parseFloat(zincEntry[1]);
         }
-        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, finalValue, siraNo2, sequence));
+        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, finalValue, siraNo2, sequence, '0'));
         siraNo2++;
       }
     });
@@ -11944,7 +11950,7 @@ const GalvanizliTelNetsis = () => {
             finalValue = 1 - parseFloat(zincEntry[1]);
           }
 
-          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence));
+          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence, '1'));
           altSiraNo++;
         }
       });
@@ -12395,7 +12401,15 @@ const GalvanizliTelNetsis = () => {
         let siraNo = 1;
         orderedEntries.forEach(([key, value]) => {
           if (value > 0) {
-            mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(key, value, siraNo, sequence, excelData.mmGtData.stok_kodu));
+            // Create recipe object for new rows (POST-SAVE)
+            const mockRecipe = {
+              bilesen_kodu: key,
+              miktar: value,
+              fire_orani: 0.0004,
+              recete_top: 1,
+              mamul_kodu: excelData.mmGtData.stok_kodu
+            };
+            mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(mockRecipe, siraNo, excelData.mmGtData.stok_kodu, '0'));
             siraNo++;
           }
         });
@@ -12451,7 +12465,16 @@ const GalvanizliTelNetsis = () => {
               finalValue = 1 - parseFloat(zincEntry[1]);
             }
             const ymGtStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
-            ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(key, finalValue, siraNo2, sequence, ymGtStokKodu));
+
+            // Create mock recipe object for POST-SAVE
+            const mockRecipe = {
+              bilesen_kodu: key,
+              miktar: finalValue,
+              fire_orani: 0.0004,
+              recete_top: 1,
+              mamul_kodu: ymGtStokKodu
+            };
+            ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(mockRecipe, siraNo2, ymGtStokKodu, '0'));
             siraNo2++;
           }
         });
@@ -12708,7 +12731,15 @@ const GalvanizliTelNetsis = () => {
           if (value > 0) {
             const mainYmSt = allYmSts[mainYmStIndex];
             console.log(`✅ POST-SAVE MAIN: Adding recipe entry - key: ${key}, value: ${value}, stok_kodu: ${mainYmSt.stok_kodu}`);
-            ymStReceteSheet.addRow(generateYmStReceteRowForBatch(key, value, siraNoMain, mainYmSt.stok_kodu));
+            // Create recipe object for new rows (POST-SAVE)
+            const mockRecipe = {
+              bilesen_kodu: key,
+              miktar: value,
+              fire_orani: 0.0004,
+              recete_top: 1,
+              mamul_kodu: mainYmSt.stok_kodu
+            };
+            ymStReceteSheet.addRow(generateYmStReceteRowForBatch(mockRecipe, siraNoMain, mainYmSt.stok_kodu));
             siraNoMain++;
             totalMainRecipesAdded++;
           } else {
@@ -12731,7 +12762,15 @@ const GalvanizliTelNetsis = () => {
 
             otherOrderedEntries.forEach(([key, value]) => {
               if (value > 0) {
-                ymStReceteSheet.addRow(generateYmStReceteRowForBatch(key, value, siraNoOther, ymSt.stok_kodu));
+                // Create recipe object for new rows (POST-SAVE)
+                const mockRecipe = {
+                  bilesen_kodu: key,
+                  miktar: value,
+                  fire_orani: 0.0004,
+                  recete_top: 1,
+                  mamul_kodu: ymSt.stok_kodu
+                };
+                ymStReceteSheet.addRow(generateYmStReceteRowForBatch(mockRecipe, siraNoOther, ymSt.stok_kodu));
                 siraNoOther++;
                 totalMainRecipesAdded++;
               }
@@ -12804,7 +12843,7 @@ const GalvanizliTelNetsis = () => {
           if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
             let productSiraNo = 1;
             ymStAltByProduct[stokKodu].forEach(recipe => {
-              altSheet.addRow(generateYmStReceteRowForBatch(recipe.bilesen_kodu, recipe.miktar, productSiraNo, recipe.mamul_kodu, priority));
+              altSheet.addRow(generateYmStReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority));
               productSiraNo++;
             });
           }
@@ -12911,7 +12950,7 @@ const GalvanizliTelNetsis = () => {
         });
       
       sortedEntries.forEach(([key, value], index) => {
-        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, value, index + 1, sequence));
+        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, value, index + 1, sequence, '0'));
       });
       
       // Add YM ST recipes - Main YM ST first
@@ -13570,7 +13609,7 @@ const GalvanizliTelNetsis = () => {
         if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
           finalValue = 1 - parseFloat(zincEntry[1]);
         }
-        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, finalValue, siraNo2, sequence));
+        ymGtReceteSheet.addRow(generateYmGtReceteRow(key, finalValue, siraNo2, sequence, '0'));
         siraNo2++;
       }
     });
@@ -13620,7 +13659,7 @@ const GalvanizliTelNetsis = () => {
             finalValue = 1 - parseFloat(zincEntry[1]);
           }
 
-          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence));
+          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence, '1'));
           altSiraNo++;
         }
       });
@@ -14469,7 +14508,7 @@ const GalvanizliTelNetsis = () => {
     ];
   };
 
-  const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
+  const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00', priority = '') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
 
     // Fix: Convert "150" to "150 03"
@@ -14481,10 +14520,13 @@ const GalvanizliTelNetsis = () => {
     // Determine if this is an Operation row
     const isOperation = fixedBilesenKodu === 'GLV01';
 
+    // FIXED: Use correct fire_orani value (0.00040 not 0.00000)
+    const fireOraniFormatted = formatDecimalForReceteExcel(0.0004);
+
     return [
       `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`, // Mamul Kodu - güncel sequence ile!
       '1', // Reçete Top.
-      '0,00000', // Fire Oranı (%) - 5 decimals with comma for YM GT
+      fireOraniFormatted, // Fire Oranı (%) - FIXED: 0.00040 not 0.00000
       '', // Oto.Reç.
       getOlcuBr(fixedBilesenKodu), // Ölçü Br. - use original code for logic
       siraNo, // Sıra No - incremental as requested
@@ -14502,7 +14544,7 @@ const GalvanizliTelNetsis = () => {
       isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
       isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
       isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
-      '', // Öncelik
+      priority, // Matris/Öncelik - FIXED: accept priority parameter
       '', // Planlama Oranı
       '', // Alternatif Politika - D.A.Transfer Fişi
       '', // Alternatif Politika - Ambar Ç. Fişi
@@ -14569,9 +14611,12 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Batch Excel için MM GT recipe row generator
-  const generateMmGtReceteRowForBatch = (bilesenKodu, miktar, siraNo, sequence, mmGtStokKodu) => {
+  const generateMmGtReceteRowForBatch = (recipe, siraNo, mmGtStokKodu, priority = '') => {
     // FIXED: MM GT recipe should use MM GT stok kodu, not YM GT format
     // The mmGtStokKodu is already in correct format (GT.PAD.0087.00)
+
+    const bilesenKodu = recipe.bilesen_kodu;
+    const miktar = recipe.miktar;
 
     // Map bilesen code to new standardized code
     const mappedBilesenKodu = mapBilesenKoduForExcel(bilesenKodu);
@@ -14579,39 +14624,46 @@ const GalvanizliTelNetsis = () => {
     // Determine if this is an Operation row
     const isOperation = bilesenKodu === 'GTPKT01';
 
+    // Format fire_orani from database (convert to 5 decimals with comma)
+    const fireOraniValue = recipe.fire_orani || 0.0004;
+    const fireOraniFormatted = formatDecimalForReceteExcel(fireOraniValue);
+
     return [
       mmGtStokKodu, // Mamul Kodu - Use MM GT kodu directly (GT.PAD.0087.00)
-      '1', // Reçete Top.
-      '0,00040', // Fire Oranı (%) - 5 decimals with comma for MM GT
-      '', // Oto.Reç.
-      getOlcuBr(bilesenKodu), // Ölçü Br. - use original code for logic
+      recipe.recete_top || '1', // Reçete Top. - from database
+      fireOraniFormatted, // Fire Oranı (%) - FROM DATABASE, 5 decimals with comma
+      recipe.oto_rec || '', // Oto.Reç. - from database
+      recipe.olcu_br || getOlcuBr(bilesenKodu), // Ölçü Br. - from database, fallback to function
       siraNo, // Sıra No - incremental
       bilesenKodu.includes('FLM.') ? 'B' : (isOperation ? 'O' : 'B'), // Bileşen/Operasyon
       mappedBilesenKodu, // Bileşen Kodu - use mapped code for Excel
-      '1', // Ölçü Br. - Bileşen
+      recipe.olcu_br_bilesen || '1', // Ölçü Br. - Bileşen - from database
       formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
-      getReceteAciklama(bilesenKodu), // Açıklama
-      '', // Miktar Sabitle
-      '', // Stok/Maliyet
-      '', // Fire Mik.
-      '', // Sabit Fire Mik.
-      '', // İstasyon Kodu
-      '', // Hazırlık Süresi
+      recipe.aciklama || getReceteAciklama(bilesenKodu), // Açıklama - from database, fallback to function
+      recipe.miktar_sabitle || '', // Miktar Sabitle - from database
+      recipe.stok_maliyet || '', // Stok/Maliyet - from database
+      recipe.fire_mik || '', // Fire Mik. - from database
+      recipe.sabit_fire_mik || '', // Sabit Fire Mik. - from database
+      recipe.istasyon_kodu || '', // İstasyon Kodu - from database
+      recipe.hazirlik_suresi || '', // Hazırlık Süresi - from database
       isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
       isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
       isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
-      '', // Öncelik
-      '', // Planlama Oranı
-      '', // Alternatif Politika - D.A.Transfer Fişi
-      '', // Alternatif Politika - Ambar Ç. Fişi
-      '', // Alternatif Politika - Üretim S.Kaydı
-      '', // Alternatif Politika - MRP
-      '' // İÇ/DIŞ
+      priority, // Matris/Öncelik - 0=Ana, 1=ALT_1, 2=ALT_2, etc.
+      recipe.planlama_orani || '', // Planlama Oranı - from database
+      recipe.alt_pol_da_transfer || '', // Alternatif Politika - D.A.Transfer Fişi
+      recipe.alt_pol_ambar_cikis || '', // Alternatif Politika - Ambar Ç. Fişi
+      recipe.alt_pol_uretim_kaydi || '', // Alternatif Politika - Üretim S.Kaydı
+      recipe.alt_pol_mrp || '', // Alternatif Politika - MRP
+      recipe.ic_dis || '' // İÇ/DIŞ - from database
     ];
   };
 
   // Batch Excel için YM GT recipe row generator
-  const generateYmGtReceteRowForBatch = (bilesenKodu, miktar, siraNo, sequence, ymGtStokKodu) => {
+  const generateYmGtReceteRowForBatch = (recipe, siraNo, ymGtStokKodu, priority = '') => {
+    const bilesenKodu = recipe.bilesen_kodu;
+    const miktar = recipe.miktar;
+
     // Fix: Convert "150" to "150 03"
     const fixedBilesenKodu = bilesenKodu === '150' ? '150 03' : bilesenKodu;
 
@@ -14621,70 +14673,81 @@ const GalvanizliTelNetsis = () => {
     // Determine if this is an Operation row
     const isOperation = fixedBilesenKodu === 'GLV01';
 
+    // Format fire_orani from database (convert to 5 decimals with comma)
+    const fireOraniValue = recipe.fire_orani || 0.0004;
+    const fireOraniFormatted = formatDecimalForReceteExcel(fireOraniValue);
+
     return [
       ymGtStokKodu, // Mamul Kodu - YM GT stok kodu from parameter
-      '1', // Reçete Top.
-      '0,00000', // Fire Oranı (%) - 5 decimals with comma for YM GT
-      '', // Oto.Reç.
-      getOlcuBr(fixedBilesenKodu), // Ölçü Br. - use original code for logic
+      recipe.recete_top || '1', // Reçete Top. - from database
+      fireOraniFormatted, // Fire Oranı (%) - FROM DATABASE, 5 decimals with comma
+      recipe.oto_rec || '', // Oto.Reç. - from database
+      recipe.olcu_br || getOlcuBr(fixedBilesenKodu), // Ölçü Br. - from database, fallback to function
       siraNo, // Sıra No - incremental
       isOperation ? 'O' : 'B', // GLV01 is O (Operasyon), others are B (Bileşen)
       mappedBilesenKodu, // Bileşen Kodu - use mapped code for Excel
-      '1', // Ölçü Br. - Bileşen
+      recipe.olcu_br_bilesen || '1', // Ölçü Br. - Bileşen - from database
       formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
-      getReceteAciklama(fixedBilesenKodu), // Açıklama
-      '', // Miktar Sabitle
-      '', // Stok/Maliyet
-      '', // Fire Mik.
-      '', // Sabit Fire Mik.
-      '', // İstasyon Kodu
-      '', // Hazırlık Süresi
+      recipe.aciklama || getReceteAciklama(fixedBilesenKodu), // Açıklama - from database, fallback to function
+      recipe.miktar_sabitle || '', // Miktar Sabitle - from database
+      recipe.stok_maliyet || '', // Stok/Maliyet - from database
+      recipe.fire_mik || '', // Fire Mik. - from database
+      recipe.sabit_fire_mik || '', // Sabit Fire Mik. - from database
+      recipe.istasyon_kodu || '', // İstasyon Kodu - from database
+      recipe.hazirlik_suresi || '', // Hazırlık Süresi - from database
       isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
       isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
       isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
-      '', // Öncelik
-      '', // Planlama Oranı
-      '', // Alternatif Politika - D.A.Transfer Fişi
-      '', // Alternatif Politika - Ambar Ç. Fişi
-      '', // Alternatif Politika - Üretim S.Kaydı
-      '', // Alternatif Politika - MRP
-      '' // İÇ/DIŞ
+      priority, // Matris/Öncelik - 0=Ana, 1=ALT_1, 2=ALT_2, etc.
+      recipe.planlama_orani || '', // Planlama Oranı - from database
+      recipe.alt_pol_da_transfer || '', // Alternatif Politika - D.A.Transfer Fişi
+      recipe.alt_pol_ambar_cikis || '', // Alternatif Politika - Ambar Ç. Fişi
+      recipe.alt_pol_uretim_kaydi || '', // Alternatif Politika - Üretim S.Kaydı
+      recipe.alt_pol_mrp || '', // Alternatif Politika - MRP
+      recipe.ic_dis || '' // İÇ/DIŞ - from database
     ];
   };
 
   // Batch Excel için YM ST recipe row generator (stok_kodu ve priority parametreli)
-  const generateYmStReceteRowForBatch = (bilesenKodu, miktar, siraNo, stokKodu, priority = '') => {
+  const generateYmStReceteRowForBatch = (recipe, siraNo, stokKodu, priority = '') => {
+    const bilesenKodu = recipe.bilesen_kodu;
+    const miktar = recipe.miktar;
+
     // Determine if this is an Operation row
     const isOperation = ['TLC01', 'COTLC01'].includes(bilesenKodu);
 
+    // Format fire_orani from database (convert to 5 decimals with comma)
+    const fireOraniValue = recipe.fire_orani || 0.0004;
+    const fireOraniFormatted = formatDecimalForReceteExcel(fireOraniValue);
+
     return [
       stokKodu, // Mamul Kodu - batch'de parametre olarak verilen stok kodu
-      '1', // Reçete Top.
-      '', // Fire Oranı (%)
-      '', // Oto.Reç.
-      getOlcuBr(bilesenKodu), // Ölçü Br.
+      recipe.recete_top || '1', // Reçete Top. - from database
+      fireOraniFormatted, // Fire Oranı (%) - FROM DATABASE, 5 decimals with comma
+      recipe.oto_rec || '', // Oto.Reç. - from database
+      recipe.olcu_br || getOlcuBr(bilesenKodu), // Ölçü Br. - from database, fallback to function
       siraNo, // Sıra No - incremental as requested
       bilesenKodu.includes('FLM.') ? 'B' : (isOperation ? 'O' : 'B'), // FLM kodu her zaman B (Bileşen) olmalı, sadece TLC01 O (Operasyon) olmalı
       bilesenKodu, // Bileşen Kodu
-      '1', // Ölçü Br. - Bileşen
+      recipe.olcu_br_bilesen || '1', // Ölçü Br. - Bileşen - from database
       formatDecimalForReceteExcel(miktar), // Miktar - Always apply 5 decimals for all rows
-      getReceteAciklama(bilesenKodu), // Açıklama
-      '', // Miktar Sabitle
-      '', // Stok/Maliyet
-      '', // Fire Mik.
-      '', // Sabit Fire Mik.
-      '', // İstasyon Kodu
-      '', // Hazırlık Süresi
+      recipe.aciklama || getReceteAciklama(bilesenKodu), // Açıklama - from database, fallback to function
+      recipe.miktar_sabitle || '', // Miktar Sabitle - from database
+      recipe.stok_maliyet || '', // Stok/Maliyet - from database
+      recipe.fire_mik || '', // Fire Mik. - from database
+      recipe.sabit_fire_mik || '', // Sabit Fire Mik. - from database
+      recipe.istasyon_kodu || '', // İstasyon Kodu - from database
+      recipe.hazirlik_suresi || '', // Hazırlık Süresi - from database
       isOperation ? formatDecimalForReceteExcel(miktar) : '', // Üretim Süresi - 5 decimals ONLY for O rows
       isOperation ? 'E' : '', // Ü.A.Dahil Edilsin - only 'E' for Operasyon
       isOperation ? 'E' : '', // Son Operasyon - only 'E' for Operasyon
       priority, // Matris - 0=Ana, 1=ALT_1, 2=ALT_2
-      '', // Planlama Oranı
-      '', // Alternatif Politika - D.A.Transfer Fişi
-      '', // Alternatif Politika - Ambar Ç. Fişi
-      '', // Alternatif Politika - Üretim S.Kaydı
-      '', // Alternatif Politika - MRP
-      '' // İÇ/DIŞ
+      recipe.planlama_orani || '', // Planlama Oranı - from database
+      recipe.alt_pol_da_transfer || '', // Alternatif Politika - D.A.Transfer Fişi
+      recipe.alt_pol_ambar_cikis || '', // Alternatif Politika - Ambar Ç. Fişi
+      recipe.alt_pol_uretim_kaydi || '', // Alternatif Politika - Üretim S.Kaydı
+      recipe.alt_pol_mrp || '', // Alternatif Politika - MRP
+      recipe.ic_dis || '' // İÇ/DIŞ - from database
     ];
   };
 
