@@ -10238,7 +10238,20 @@ const TavliBalyaTelNetsis = () => {
             // STEP 3: Find YM TT by stok_kodu from upfront data (avoid 504 timeout)
             if (ymTtStokKodu) {
               // ✅ FIX: Use upfront ymTtData instead of re-fetching (prevents 504 timeout)
-              const ymTt = ymTtData.find(r => r.stok_kodu === ymTtStokKodu);
+              let ymTt = ymTtData.find(r => r.stok_kodu === ymTtStokKodu);
+
+              // ✅ FIX: If not found in bulk data (504 timeout), fetch individually
+              if (!ymTt) {
+                console.log(`⚠️ [${request.id}] YM TT not found in upfront data (likely 504 timeout), fetching individually: ${ymTtStokKodu}`);
+                const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?stok_kodu=${encodeURIComponent(ymTtStokKodu)}`);
+                if (individualResponse && individualResponse.ok) {
+                  const ymTtArray = await individualResponse.json();
+                  if (ymTtArray.length > 0) {
+                    ymTt = ymTtArray[0];
+                    console.log(`✅ Fetched YM TT individually: ${ymTt.stok_kodu}`);
+                  }
+                }
+              }
 
               if (ymTt) {
                 ymTtMap.set(ymTt.stok_kodu, ymTt);
@@ -10289,7 +10302,20 @@ const TavliBalyaTelNetsis = () => {
                   // Check if it's a YM STP (.P product) or YM ST (non-.P product)
                   if (bilesenKodu.endsWith('.P')) {
                     // YM STP product - fetch from ymStpData
-                    const ymStp = ymStpData.find(r => r.stok_kodu === bilesenKodu);
+                    let ymStp = ymStpData.find(r => r.stok_kodu === bilesenKodu);
+
+                    // ✅ FIX: If not found in bulk data (504 timeout), fetch individually
+                    if (!ymStp) {
+                      console.log(`⚠️ YM STP not found in upfront data (likely 504 timeout), fetching individually: ${bilesenKodu}`);
+                      const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(bilesenKodu)}`);
+                      if (individualResponse && individualResponse.ok) {
+                        const ymStpArray = await individualResponse.json();
+                        if (ymStpArray.length > 0) {
+                          ymStp = ymStpArray[0];
+                          console.log(`✅ Fetched YM STP individually: ${ymStp.stok_kodu}`);
+                        }
+                      }
+                    }
 
                     if (ymStp) {
                       console.log(`✅ Found main YM STP: ${ymStp.stok_kodu}`);
@@ -10319,7 +10345,20 @@ const TavliBalyaTelNetsis = () => {
 
                       // Also fetch the underlying YM ST (without .P) that was pressed
                       const baseYmStKodu = bilesenKodu.replace('.P', '');
-                      const baseYmSt = ymStData.find(r => r.stok_kodu === baseYmStKodu);
+                      let baseYmSt = ymStData.find(r => r.stok_kodu === baseYmStKodu);
+
+                      // ✅ FIX: If not found in bulk data (504 timeout), fetch individually
+                      if (!baseYmSt) {
+                        console.log(`⚠️ Base YM ST not found in upfront data (likely 504 timeout), fetching individually: ${baseYmStKodu}`);
+                        const individualResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(baseYmStKodu)}`);
+                        if (individualResponse && individualResponse.ok) {
+                          const ymStArray = await individualResponse.json();
+                          if (ymStArray.length > 0) {
+                            baseYmSt = ymStArray[0];
+                            console.log(`✅ Fetched base YM ST individually: ${baseYmSt.stok_kodu}`);
+                          }
+                        }
+                      }
 
                       if (baseYmSt) {
                         console.log(`✅ Found base YM ST for pressing: ${baseYmSt.stok_kodu}`);
@@ -10350,7 +10389,20 @@ const TavliBalyaTelNetsis = () => {
                     }
                   } else {
                     // YM ST product (non-.P) - fetch from ymStData
-                    const ymSt = ymStData.find(r => r.stok_kodu === bilesenKodu);
+                    let ymSt = ymStData.find(r => r.stok_kodu === bilesenKodu);
+
+                    // ✅ FIX: If not found in bulk data (504 timeout), fetch individually
+                    if (!ymSt) {
+                      console.log(`⚠️ YM ST not found in upfront data (likely 504 timeout), fetching individually: ${bilesenKodu}`);
+                      const individualResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(bilesenKodu)}`);
+                      if (individualResponse && individualResponse.ok) {
+                        const ymStArray = await individualResponse.json();
+                        if (ymStArray.length > 0) {
+                          ymSt = ymStArray[0];
+                          console.log(`✅ Fetched YM ST individually: ${ymSt.stok_kodu}`);
+                        }
+                      }
+                    }
 
                     if (ymSt) {
                       console.log(`✅ Found main YM ST: ${ymSt.stok_kodu}`);
@@ -10443,6 +10495,20 @@ const TavliBalyaTelNetsis = () => {
                 if (isStpProduct) {
                   // YM STP product - find it in ymStpData
                   mainYmStp = ymStpMap.get(mainYmStCode) || ymStpData.find(ym => ym.stok_kodu === mainYmStCode);
+
+                  // ✅ FIX: If not found in bulk data (504 timeout), fetch individually
+                  if (!mainYmStp) {
+                    console.log(`⚠️ Main YM STP not found in upfront data (likely 504 timeout), fetching individually: ${mainYmStCode}`);
+                    const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(mainYmStCode)}`);
+                    if (individualResponse && individualResponse.ok) {
+                      const ymStpArray = await individualResponse.json();
+                      if (ymStpArray.length > 0) {
+                        mainYmStp = ymStpArray[0];
+                        console.log(`✅ Fetched main YM STP individually: ${mainYmStp.stok_kodu}`);
+                      }
+                    }
+                  }
+
                   if (mainYmStp) {
                     console.log(`✅ BATCH: Adding main YM STP: ${mainYmStp.stok_kodu}`);
                     ymStpMap.set(mainYmStp.stok_kodu, mainYmStp);
@@ -10481,6 +10547,20 @@ const TavliBalyaTelNetsis = () => {
                 mainYmSt = ymStMap.get(baseYmStCode);
                 if (!mainYmSt) {
                   mainYmSt = ymStData.find(ym => ym.stok_kodu === baseYmStCode);
+
+                  // ✅ FIX: If not found in bulk data (504 timeout), fetch individually
+                  if (!mainYmSt) {
+                    console.log(`⚠️ Main YM ST not found in upfront data (likely 504 timeout), fetching individually: ${baseYmStCode}`);
+                    const individualResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(baseYmStCode)}`);
+                    if (individualResponse && individualResponse.ok) {
+                      const ymStArray = await individualResponse.json();
+                      if (ymStArray.length > 0) {
+                        mainYmSt = ymStArray[0];
+                        console.log(`✅ Fetched main YM ST individually: ${mainYmSt.stok_kodu}`);
+                      }
+                    }
+                  }
+
                   if (mainYmSt) {
                     console.log(`✅ BATCH: Adding main YM ST from ymStData: ${mainYmSt.stok_kodu} (priority: ${mainYmSt.priority || 0})`);
                     ymStMap.set(mainYmSt.stok_kodu, mainYmSt);
@@ -10579,7 +10659,20 @@ const TavliBalyaTelNetsis = () => {
                       // If main product was .P (YM STP), also collect the .P version of this alternative
                       if (isStpProduct) {
                         const ymStpKodu = ymSt.stok_kodu + '.P';
-                        const ymStp = ymStpData.find(ym => ym.stok_kodu === ymStpKodu);
+                        let ymStp = ymStpData.find(ym => ym.stok_kodu === ymStpKodu);
+
+                        // ✅ FIX: If not found in bulk data (504 timeout), fetch individually
+                        if (!ymStp) {
+                          console.log(`⚠️ ALT YM STP not found in upfront data (likely 504 timeout), fetching individually: ${ymStpKodu}`);
+                          const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(ymStpKodu)}`);
+                          if (individualResponse && individualResponse.ok) {
+                            const ymStpArray = await individualResponse.json();
+                            if (ymStpArray.length > 0) {
+                              ymStp = ymStpArray[0];
+                              console.log(`✅ Fetched ALT YM STP individually: ${ymStp.stok_kodu}`);
+                            }
+                          }
+                        }
 
                         if (ymStp) {
                           console.log(`📦 BATCH: Adding YM STP alternative: ${ymStp.stok_kodu}`);
