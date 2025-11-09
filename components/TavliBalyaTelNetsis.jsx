@@ -14817,7 +14817,6 @@ const TavliBalyaTelNetsis = () => {
                           <option
                             key={opt.value}
                             value={opt.value}
-                            disabled={shouldDisable(opt.value)}
                           >
                             {opt.label} {getHint(opt.value)}
                           </option>
