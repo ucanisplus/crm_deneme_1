@@ -10386,9 +10386,13 @@ const GalvanizliTelNetsis = () => {
           matrixCount++;
         }
 
+        // Extract the main bilesen (YM.ST) code for this alternative
+        const ymStBilesen = recipes.find(r => r.bilesen_kodu && r.bilesen_kodu.includes('YM.ST.'));
+        const alternativeDescription = ymStBilesen ? ymStBilesen.bilesen_kodu : '';
+
         let productSiraNo = 1;
         recipes.forEach(recipe => {
-          const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority));
+          const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority, alternativeDescription));
 
           // Color COILER products with light cream
           if (isCoiler) {
@@ -10484,9 +10488,15 @@ const GalvanizliTelNetsis = () => {
       // Add recipes sorted by product code
       Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
         if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
+          const recipes = ymStAltByProduct[stokKodu];
+
+          // Extract the main bilesen (FLM or YM.ST) code for this alternative
+          const mainBilesen = recipes.find(r => r.bilesen_kodu && (r.bilesen_kodu.includes('FLM.') || r.bilesen_kodu.includes('YM.ST.')));
+          const alternativeDescription = mainBilesen ? mainBilesen.bilesen_kodu : '';
+
           let productSiraNo = 1;
-          ymStAltByProduct[stokKodu].forEach(recipe => {
-            altSheet.addRow(generateYmStReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority));
+          recipes.forEach(recipe => {
+            altSheet.addRow(generateYmStReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority, alternativeDescription));
             productSiraNo++;
           });
         }
@@ -11448,6 +11458,10 @@ const GalvanizliTelNetsis = () => {
         // Find the Çinko (150 03) recipe for this product to calculate YM.ST miktar
         const zincRecipe = recipes.find(r => r.bilesen_kodu === '150' || r.bilesen_kodu === '150 03');
 
+        // Extract the main bilesen (YM.ST) code for this alternative
+        const ymStBilesen = recipes.find(r => r.bilesen_kodu && r.bilesen_kodu.includes('YM.ST.'));
+        const alternativeDescription = ymStBilesen ? ymStBilesen.bilesen_kodu : '';
+
         recipes.forEach(recipe => {
           let finalMiktar = recipe.miktar;
 
@@ -11458,7 +11472,7 @@ const GalvanizliTelNetsis = () => {
 
           // Update recipe miktar for this call
           const updatedRecipe = { ...recipe, miktar: finalMiktar };
-          const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(updatedRecipe, productSiraNo, recipe.ym_gt_stok_kodu, priority));
+          const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(updatedRecipe, productSiraNo, recipe.ym_gt_stok_kodu, priority, alternativeDescription));
 
           // Color COILER products with light cream
           if (isCoiler) {
@@ -11568,9 +11582,15 @@ const GalvanizliTelNetsis = () => {
       // Add recipes sorted by product code
       Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
         if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
+          const recipes = ymStAltByProduct[stokKodu];
+
+          // Extract the main bilesen (FLM or YM.ST) code for this alternative
+          const mainBilesen = recipes.find(r => r.bilesen_kodu && (r.bilesen_kodu.includes('FLM.') || r.bilesen_kodu.includes('YM.ST.')));
+          const alternativeDescription = mainBilesen ? mainBilesen.bilesen_kodu : '';
+
           let productSiraNo = 1;
-          ymStAltByProduct[stokKodu].forEach(recipe => {
-            altSheet.addRow(generateYmStReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority));
+          recipes.forEach(recipe => {
+            altSheet.addRow(generateYmStReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority, alternativeDescription));
             productSiraNo++;
           });
         }
@@ -11935,6 +11955,9 @@ const GalvanizliTelNetsis = () => {
       // Create ALTERNATIVE YM GT recipe structure with .ST bilesen (4 rows: YM.ST.*.ST, GLV01, Çinko, Asit)
       let altSiraNo = 1;
 
+      // Extract alternativeDescription (the YM.ST code used in this alternative)
+      const altDescription = alternativeBilesenKodu; // The .ST bilesen code
+
       orderedYmGtEntries.forEach(([key, value]) => {
         if (value > 0) {
           let finalKey = key;
@@ -11950,7 +11973,7 @@ const GalvanizliTelNetsis = () => {
             finalValue = 1 - parseFloat(zincEntry[1]);
           }
 
-          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence, '1'));
+          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence, '1', altDescription));
           altSiraNo++;
         }
       });
@@ -13644,6 +13667,9 @@ const GalvanizliTelNetsis = () => {
       // Create ALTERNATIVE YM GT recipe structure with .ST bilesen (4 rows: YM.ST.*.ST, GLV01, Çinko, Asit)
       let altSiraNo = 1;
 
+      // Extract alternativeDescription (the YM.ST code used in this alternative)
+      const altDescription = alternativeBilesenKodu; // The .ST bilesen code
+
       orderedYmGtEntries.forEach(([key, value]) => {
         if (value > 0) {
           let finalKey = key;
@@ -13659,7 +13685,7 @@ const GalvanizliTelNetsis = () => {
             finalValue = 1 - parseFloat(zincEntry[1]);
           }
 
-          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence, '1'));
+          ymGtAltSheet.addRow(generateYmGtReceteRow(finalKey, finalValue, altSiraNo, sequence, '1', altDescription));
           altSiraNo++;
         }
       });
@@ -13870,7 +13896,8 @@ const GalvanizliTelNetsis = () => {
     'Sabit Fire Mik.', 'İstasyon Kodu', 'Hazırlık Süresi', 'Üretim Süresi',
     'Ü.A.Dahil Edilsin', 'Son Operasyon', 'Matris', 'Planlama Oranı',
     'Alternatif Politika - D.A.Transfer Fişi', 'Alternatif Politika - Ambar Ç. Fişi',
-    'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ'
+    'Alternatif Politika - Üretim S.Kaydı', 'Alternatif Politika - MRP', 'İÇ/DIŞ',
+    'Alternatif Açıklama'
   ];
 
   // Helper function to extract packaging options from stok_adi
@@ -14508,7 +14535,7 @@ const GalvanizliTelNetsis = () => {
     ];
   };
 
-  const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00', priority = '') => {
+  const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00', priority = '', alternativeDescription = '') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
 
     // Fix: Convert "150" to "150 03"
@@ -14550,7 +14577,8 @@ const GalvanizliTelNetsis = () => {
       '', // Alternatif Politika - Ambar Ç. Fişi
       '', // Alternatif Politika - Üretim S.Kaydı
       '', // Alternatif Politika - MRP
-      '' // İÇ/DIŞ
+      '', // İÇ/DIŞ
+      alternativeDescription // Alternatif Açıklama - main bilesen for this alternative
     ];
   };
 
@@ -14660,7 +14688,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Batch Excel için YM GT recipe row generator
-  const generateYmGtReceteRowForBatch = (recipe, siraNo, ymGtStokKodu, priority = '') => {
+  const generateYmGtReceteRowForBatch = (recipe, siraNo, ymGtStokKodu, priority = '', alternativeDescription = '') => {
     const bilesenKodu = recipe.bilesen_kodu;
     const miktar = recipe.miktar;
 
@@ -14704,12 +14732,13 @@ const GalvanizliTelNetsis = () => {
       recipe.alt_pol_ambar_cikis || '', // Alternatif Politika - Ambar Ç. Fişi
       recipe.alt_pol_uretim_kaydi || '', // Alternatif Politika - Üretim S.Kaydı
       recipe.alt_pol_mrp || '', // Alternatif Politika - MRP
-      recipe.ic_dis || '' // İÇ/DIŞ - from database
+      recipe.ic_dis || '', // İÇ/DIŞ - from database
+      alternativeDescription // Alternatif Açıklama - main bilesen for this alternative
     ];
   };
 
   // Batch Excel için YM ST recipe row generator (stok_kodu ve priority parametreli)
-  const generateYmStReceteRowForBatch = (recipe, siraNo, stokKodu, priority = '') => {
+  const generateYmStReceteRowForBatch = (recipe, siraNo, stokKodu, priority = '', alternativeDescription = '') => {
     const bilesenKodu = recipe.bilesen_kodu;
     const miktar = recipe.miktar;
 
@@ -14747,7 +14776,8 @@ const GalvanizliTelNetsis = () => {
       recipe.alt_pol_ambar_cikis || '', // Alternatif Politika - Ambar Ç. Fişi
       recipe.alt_pol_uretim_kaydi || '', // Alternatif Politika - Üretim S.Kaydı
       recipe.alt_pol_mrp || '', // Alternatif Politika - MRP
-      recipe.ic_dis || '' // İÇ/DIŞ - from database
+      recipe.ic_dis || '', // İÇ/DIŞ - from database
+      alternativeDescription // Alternatif Açıklama - main bilesen for this alternative
     ];
   };
 
