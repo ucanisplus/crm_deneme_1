@@ -10062,22 +10062,17 @@ const TavliBalyaTelNetsis = () => {
     const totalSteps = requestsList.length + 3; // requests + 3 Excel files (stok, recipe, alternatif)
     setExcelProgress({ current: 0, total: totalSteps, operation: 'Excel hazırlanıyor...', currentProduct: '' });
 
-    // ✅ FIXED: Fetch ALL data upfront for priority-based logic (reduced limits to avoid 504 timeout)
-    const [ymTtResponse, ymStpResponse, ymStResponse, ymTtRecetesResponse, ymStpRecetesResponse, ymStRecetesResponse] = await Promise.all([
-      fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=1000`),
-      fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?limit=1000`),
-      fetchWithAuth(`${API_URLS.galYmSt}?limit=2000`),
-      fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?limit=2000`),
-      fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?limit=2000`),
-      fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`)
-    ]);
-
-    const ymTtData = (ymTtResponse && ymTtResponse.ok) ? await ymTtResponse.json() : [];
-    const ymStpData = (ymStpResponse && ymStpResponse.ok) ? await ymStpResponse.json() : [];
-    const ymStData = (ymStResponse && ymStResponse.ok) ? await ymStResponse.json() : [];
-    const ymTtRecipeData = (ymTtRecetesResponse && ymTtRecetesResponse.ok) ? await ymTtRecetesResponse.json() : [];
-    const ymStpRecipeData = (ymStpRecetesResponse && ymStpRecetesResponse.ok) ? await ymStpRecetesResponse.json() : [];
-    const ymStRecipeData = (ymStRecetesResponse && ymStRecetesResponse.ok) ? await ymStRecetesResponse.json() : [];
+    // ✅ PERFORMANCE FIX: Don't fetch ALL data upfront (causes 504 timeouts that choke database)
+    // Instead, use empty arrays and fetch individually on-demand when products are accessed
+    // The fallback logic in the code below will handle fetching each product individually
+    console.log('⚡ PERFORMANCE MODE: Skipping upfront bulk fetches to avoid 504 timeouts');
+    console.log('⚡ Products will be fetched individually on-demand (faster & more reliable)');
+    const ymTtData = [];
+    const ymStpData = [];
+    const ymStData = [];
+    const ymTtRecipeData = [];
+    const ymStpRecipeData = [];
+    const ymStRecipeData = [];
 
 
     // Collect all products from all requests (using Maps to avoid duplicates)
