@@ -10620,14 +10620,29 @@ const TavliBalyaTelNetsis = () => {
                       alternatives = localAlternatives;
                       console.log(`📋 BATCH: Found ${alternatives.length} alternatives from local data`);
                     } else {
-                      // Fetch alternatives from API by diameter (cap field)
+                      // ✅ FIX: Fetch ALL YM ST products and filter by diameter (cap filtering in query might not work)
                       const capValue = targetDiameter / 100;
-                      console.log(`📋 BATCH: Fetching alternatives from API for cap=${capValue}mm`);
-                      const apiResponse = await fetchWithAuth(`${API_URLS.galYmSt}?cap=${capValue}`);
+                      console.log(`📋 BATCH: Fetching all YM ST products from API and filtering for diameter ${capValue}mm...`);
+                      const apiResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=2000`);
                       if (apiResponse && apiResponse.ok) {
-                        const allForDiameter = await apiResponse.json();
-                        alternatives = allForDiameter.filter(ym => (ym.priority || 0) > 0);
-                        console.log(`📋 BATCH: Fetched ${alternatives.length} alternatives from API (from ${allForDiameter.length} total with cap=${capValue})`);
+                        const allYmSt = await apiResponse.json();
+                        console.log(`📋 BATCH: Fetched ${allYmSt.length} total YM ST products from API`);
+
+                        // Filter for same diameter
+                        const sameDiameter = allYmSt.filter(ym => {
+                          const ymMatch = ym.stok_kodu.match(/YM\.ST\.(\d{4})/);
+                          if (!ymMatch) return false;
+                          const ymDiameter = parseInt(ymMatch[1], 10);
+                          return ymDiameter === targetDiameter;
+                        });
+
+                        console.log(`📋 BATCH: Found ${sameDiameter.length} products with diameter ${capValue}mm`);
+
+                        // Filter for priority > 0 (alternatives only)
+                        alternatives = sameDiameter.filter(ym => (ym.priority || 0) > 0);
+                        console.log(`📋 BATCH: Found ${alternatives.length} alternatives (priority > 0) for diameter ${capValue}mm`);
+                      } else {
+                        console.error(`📋 BATCH: Failed to fetch YM ST products from API`, apiResponse?.status);
                       }
                     }
 
