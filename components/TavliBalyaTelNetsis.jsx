@@ -10629,6 +10629,8 @@ const TavliBalyaTelNetsis = () => {
 
                       console.log(`📦 BATCH: Adding YM ST to ALT ${priority}: ${ymSt.stok_kodu}`);
                       ymStAltMaps[priority].set(ymSt.stok_kodu, ymSt);
+                      // ✅ FIX: Also add to main map so it appears in stock cards
+                      ymStMap.set(ymSt.stok_kodu, ymSt);
 
                       // Add alternative YM ST recipes
                       let altRecipes = ymStRecipeData.filter(r => r.ym_st_id == ymSt.id);
@@ -10647,10 +10649,15 @@ const TavliBalyaTelNetsis = () => {
 
                       altRecipes.forEach(r => {
                         const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
-                        ymStAltRecipeMaps[priority].set(key, {
+                        const recipeData = {
                           ...r,
                           ym_st_stok_kodu: ymSt.stok_kodu
-                        });
+                        };
+                        ymStAltRecipeMaps[priority].set(key, recipeData);
+                        // ✅ FIX: Also add to main recipe map so it appears in YM ST REÇETE sheet
+                        if (!ymStRecipeMap.has(key)) {
+                          ymStRecipeMap.set(key, recipeData);
+                        }
                       });
 
                       // If main product was .P (YM STP), also collect the .P version of this alternative
