@@ -9960,11 +9960,13 @@ const TavliBalyaTelNetsis = () => {
     // ✅ NOTE: allUsedYmStCodes already collected at top of function (includes main + ALT 1 + ALT 2 + ALT 3 + YM STP)
     // Group YM ST recipes by mamul_kodu for proper sequencing (FILTERED)
     const ymStByProduct = {};
+    // ✅ FIX: Include ALL priorities (not just 0) for products that are actually used
+    // This fixes missing recipes like YM.ST.0161.0550.1006 (Priority 2) and YM.ST.0161.0600.1008 (Priority 1)
     const mainYmStRecetes = allYMSTRecetes.filter(r =>
-      (r.priority || 0) === 0 && allUsedYmStCodes.has(r.mamul_kodu)
+      allUsedYmStCodes.has(r.mamul_kodu)
     );
 
-    console.log(`📋 TÜM ÜRÜNLER: Filtering YM ST recipes - ${mainYmStRecetes.length} recipes (down from ${allYMSTRecetes.filter(r => (r.priority || 0) === 0).length})`);
+    console.log(`📋 TÜM ÜRÜNLER: Filtering YM ST recipes - ${mainYmStRecetes.length} recipes (down from ${allYMSTRecetes.length}, including all priorities for used products)`);
 
     mainYmStRecetes.forEach(recipe => {
       if (!ymStByProduct[recipe.mamul_kodu]) {
