@@ -10602,8 +10602,11 @@ const TavliBalyaTelNetsis = () => {
                   if (targetDiameter) {
                     console.log(`📋 BATCH: Searching for alternatives for diameter ${targetDiameter/100}mm`);
 
-                    // Find all YM ST with same diameter and priority > 0
-                    const alternatives = ymStData.filter(ym => {
+                    // ✅ FIX: Fetch alternatives from API since ymStData is empty in performance mode
+                    let alternatives = [];
+
+                    // Try to filter from ymStData first (might have data from previous fetches)
+                    const localAlternatives = ymStData.filter(ym => {
                       const ymMatch = ym.stok_kodu.match(/YM\.ST\.(\d{4})/);
                       if (!ymMatch) return false;
                       const ymDiameter = parseInt(ymMatch[1], 10);
@@ -10613,7 +10616,20 @@ const TavliBalyaTelNetsis = () => {
                       return priority > 0;
                     });
 
-                    console.log(`📋 BATCH: Found ${alternatives.length} alternatives using priority column`);
+                    if (localAlternatives.length > 0) {
+                      alternatives = localAlternatives;
+                      console.log(`📋 BATCH: Found ${alternatives.length} alternatives from local data`);
+                    } else {
+                      // Fetch alternatives from API by diameter (cap field)
+                      const capValue = targetDiameter / 100;
+                      console.log(`📋 BATCH: Fetching alternatives from API for cap=${capValue}mm`);
+                      const apiResponse = await fetchWithAuth(`${API_URLS.galYmSt}?cap=${capValue}`);
+                      if (apiResponse && apiResponse.ok) {
+                        const allForDiameter = await apiResponse.json();
+                        alternatives = allForDiameter.filter(ym => (ym.priority || 0) > 0);
+                        console.log(`📋 BATCH: Fetched ${alternatives.length} alternatives from API (from ${allForDiameter.length} total with cap=${capValue})`);
+                      }
+                    }
 
                     // Group alternatives by priority - use for...of to support await
                     for (const ymSt of alternatives) {
