@@ -10763,6 +10763,51 @@ const TavliBalyaTelNetsis = () => {
       }
     } // End of outer for loop
 
+    // ✅ FIX: Extract YM STP from alternative YM TT recipes (priority > 0)
+    console.log('🔧 Processing YM STP from YM TT alternative recipes...');
+    const allYmTtRecipes = Array.from(ymTtRecipeMap.values());
+    const ymTtAltRecipes = allYmTtRecipes.filter(r => (r.priority || 0) > 0);
+    console.log(`Found ${ymTtAltRecipes.length} YM TT alternative recipes to check for YM STP bilesen`);
+
+    for (const recipe of ymTtAltRecipes) {
+      if (recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.P') && recipe.operasyon_bilesen === 'B') {
+        const ymStpKodu = recipe.bilesen_kodu;
+
+        // Check if already in map
+        if (!ymStpMap.has(ymStpKodu)) {
+          console.log(`📋 Found YM STP in ALT recipe (priority ${recipe.priority}): ${ymStpKodu}, fetching...`);
+
+          const ymStpResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(ymStpKodu)}`);
+          if (ymStpResponse && ymStpResponse.ok) {
+            const ymStpArray = await ymStpResponse.json();
+            if (ymStpArray.length > 0) {
+              const ymStp = ymStpArray[0];
+              console.log(`✅ Fetched YM STP from ALT recipe: ${ymStp.stok_kodu}`);
+              ymStpMap.set(ymStp.stok_kodu, ymStp);
+
+              // Also fetch its recipes
+              const ymStpRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(ymStp.stok_kodu)}`);
+              if (ymStpRecipeResponse && ymStpRecipeResponse.ok) {
+                const ymStpRecipes = await ymStpRecipeResponse.json();
+                console.log(`✅ Fetched ${ymStpRecipes.length} recipes for YM STP: ${ymStp.stok_kodu}`);
+                ymStpRecipes.forEach(r => {
+                  const key = `${ymStp.stok_kodu}-${r.bilesen_kodu}`;
+                  if (!ymStpRecipeMap.has(key)) {
+                    ymStpRecipeMap.set(key, {
+                      ...r,
+                      ym_stp_stok_kodu: ymStp.stok_kodu
+                    });
+                  }
+                });
+              }
+            } else {
+              console.warn(`⚠️ YM STP not found in database: ${ymStpKodu}`);
+            }
+          }
+        }
+      }
+    }
+
     // API call statistics
     console.log('📊 === API CALL STATISTICS ===');
 
