@@ -10694,19 +10694,21 @@ const TavliBalyaTelNetsis = () => {
                       // If main product was .P (YM STP), also collect the .P version of this alternative
                       if (isStpProduct) {
                         const ymStpKodu = ymSt.stok_kodu + '.P';
-                        let ymStp = ymStpData.find(ym => ym.stok_kodu === ymStpKodu);
 
-                        // ✅ FIX: If not found in bulk data (504 timeout), fetch individually
-                        if (!ymStp) {
-                          console.log(`⚠️ ALT YM STP not found in upfront data (likely 504 timeout), fetching individually: ${ymStpKodu}`);
-                          const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(ymStpKodu)}`);
-                          if (individualResponse && individualResponse.ok) {
-                            const ymStpArray = await individualResponse.json();
-                            if (ymStpArray.length > 0) {
-                              ymStp = ymStpArray[0];
-                              console.log(`✅ Fetched ALT YM STP individually: ${ymStp.stok_kodu}`);
-                            }
+                        // ✅ FIX: ymStpData is empty in performance mode, always fetch from API
+                        let ymStp = null;
+                        console.log(`📋 BATCH: Fetching YM STP alternative from API: ${ymStpKodu}`);
+                        const individualResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(ymStpKodu)}`);
+                        if (individualResponse && individualResponse.ok) {
+                          const ymStpArray = await individualResponse.json();
+                          if (ymStpArray.length > 0) {
+                            ymStp = ymStpArray[0];
+                            console.log(`✅ Fetched ALT YM STP from API: ${ymStp.stok_kodu}`);
+                          } else {
+                            console.warn(`⚠️ ALT YM STP not found in database: ${ymStpKodu}`);
                           }
+                        } else {
+                          console.error(`❌ Failed to fetch ALT YM STP: ${ymStpKodu}`, individualResponse?.status);
                         }
 
                         if (ymStp) {
@@ -11029,21 +11031,11 @@ const TavliBalyaTelNetsis = () => {
     const ymStSheet = workbook.addWorksheet('YM ST');
     ymStSheet.addRow(ymStpHeaders);
 
-    // Add main YM ST products (priority 0)
+    // ✅ FIX: Add all YM ST products (main + alternatives are already in ymStData from the Map)
+    // Don't write alternatives separately since they're already included in ymStData
     ymStData.forEach(ymSt => {
       ymStSheet.addRow(generateYmStStokKartiData(ymSt));
     });
-
-    // Add alternative YM ST products (priority 1, 2) to the SAME sheet
-    if (ymStAltDataObj) {
-      Object.values(ymStAltDataObj).forEach(altArray => {
-        if (Array.isArray(altArray)) {
-          altArray.forEach(ymSt => {
-            ymStSheet.addRow(generateYmStStokKartiData(ymSt));
-          });
-        }
-      });
-    }
 
     // Save with timestamp filename
     const buffer = await workbook.xlsx.writeBuffer();
