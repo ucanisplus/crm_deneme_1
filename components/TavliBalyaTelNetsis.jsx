@@ -10765,8 +10765,8 @@ const TavliBalyaTelNetsis = () => {
 
     // ✅ FIX: Extract YM STP from alternative YM TT recipes (priority > 0)
     console.log('🔧 Processing YM STP from YM TT alternative recipes...');
-    const allYmTtRecipes = Array.from(ymTtRecipeMap.values());
-    const ymTtAltRecipes = allYmTtRecipes.filter(r => (r.priority || 0) > 0);
+    const ymTtRecipesArray = Array.from(ymTtRecipeMap.values());
+    const ymTtAltRecipes = ymTtRecipesArray.filter(r => (r.priority || 0) > 0);
     console.log(`Found ${ymTtAltRecipes.length} YM TT alternative recipes to check for YM STP bilesen`);
 
     for (const recipe of ymTtAltRecipes) {
