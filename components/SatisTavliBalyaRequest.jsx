@@ -1892,6 +1892,10 @@ const SatisTavliBalyaRequest = () => {
                   name="coil_size"
                   value={`${requestData.ic_cap}-${requestData.dis_cap}`}
                   onChange={(e) => {
+                    if (e.target.value === 'custom') {
+                      // User wants to enter custom IC/OD - we'll handle this below with separate inputs
+                      return;
+                    }
                     const [ic, dis] = e.target.value.split('-').map(v => parseInt(v));
                     setRequestData(prev => ({
                       ...prev,
@@ -1901,14 +1905,142 @@ const SatisTavliBalyaRequest = () => {
                   }}
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="21-34">ID: 21 cm - OD: 34 cm</option>
-                  <option value="21-35">ID: 21 cm - OD: 35 cm</option>
-                  <option value="25-35">ID: 25 cm - OD: 35 cm</option>
-                  <option value="40-75">ID: 40 cm - OD: 75 cm</option>
-                  <option value="45-75">ID: 45 cm - OD: 75 cm (Varsayılan)</option>
+                  {(() => {
+                    const cap = parseFloat(requestData.cap) || 0;
+                    const isPuskurtme = requestData.yaglama_tipi === 'Püskürtme';
+                    const isDaldirma = requestData.yaglama_tipi === 'Daldırma';
+                    const isYagsiz = !requestData.yaglama_tipi || requestData.yaglama_tipi === '';
+
+                    // Helper to check if option should be enabled
+                    const isEnabled = (option) => {
+                      // PRIMARY CONSTRAINT: Yaglama type determines size category
+                      if (isPuskurtme) {
+                        // Püskürtme → TAVLI sizes (23-35, 25-35, 45-75, 45-76, 50-90)
+                        const isPuskurtmeSize = ['23-35', '25-35', '45-75', '45-76', '50-90'].includes(option);
+                        if (!isPuskurtmeSize) return false;
+
+                        // SECONDARY CONSTRAINT: Filter by diameter
+                        if (cap > 0 && cap < 1.80) {
+                          // Small diameter: Only 25-35
+                          return option === '25-35';
+                        }
+                        return true;
+                      } else if (isDaldirma || isYagsiz) {
+                        // Daldırma or Yağsız → BALYA sizes only (15-30, 21-34)
+                        return ['15-30', '21-34'].includes(option);
+                      }
+                      return true;
+                    };
+
+                    const getHint = (option) => {
+                      if (!isEnabled(option)) return '';
+                      // Recommended option hints
+                      if (isPuskurtme) {
+                        if (cap > 0 && cap < 1.80 && option === '25-35') return ' ✓ Önerilen';
+                        if (cap >= 1.80 && option === '45-75') return ' ✓ Önerilen';
+                      } else if (isDaldirma || isYagsiz) {
+                        if (option === '21-34') return ' ✓ Önerilen';
+                      }
+                      return '';
+                    };
+
+                    const options = [
+                      { value: '15-30', label: 'ID: 15 cm - OD: 30 cm' },
+                      { value: '21-34', label: 'ID: 21 cm - OD: 34 cm' },
+                      { value: '23-35', label: 'ID: 23 cm - OD: 35 cm' },
+                      { value: '25-35', label: 'ID: 25 cm - OD: 35 cm' },
+                      { value: '45-75', label: 'ID: 45 cm - OD: 75 cm' },
+                      { value: '45-76', label: 'ID: 45 cm - OD: 76 cm' },
+                      { value: '50-90', label: 'ID: 50 cm - OD: 90 cm' },
+                    ];
+
+                    return (
+                      <>
+                        {options.map(opt => {
+                          const enabled = isEnabled(opt.value);
+                          return (
+                            <option
+                              key={opt.value}
+                              value={opt.value}
+                              disabled={!enabled}
+                              style={!enabled ? { color: '#9ca3af' } : {}}
+                            >
+                              {opt.label}{getHint(opt.value)}
+                            </option>
+                          );
+                        })}
+                        <option value="custom" style={{ borderTop: '2px solid #ddd', marginTop: '8px' }}>
+                          ➕ Özel Boyut Gir
+                        </option>
+                      </>
+                    );
+                  })()}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">Sabit bobin boyutu kombinasyonları</p>
+                {(() => {
+                  const cap = parseFloat(requestData.cap) || 0;
+                  const isPuskurtme = requestData.yaglama_tipi === 'Püskürtme';
+                  const isDaldirma = requestData.yaglama_tipi === 'Daldırma';
+                  const isYagsiz = !requestData.yaglama_tipi || requestData.yaglama_tipi === '';
+                  const standardOptions = ['15-30', '21-34', '23-35', '25-35', '45-75', '45-76', '50-90'];
+                  const currentValue = `${requestData.ic_cap}-${requestData.dis_cap}`;
+                  const isCustom = !standardOptions.includes(currentValue);
+
+                  if (isCustom && requestData.ic_cap && requestData.dis_cap) {
+                    return (
+                      <p className="text-xs text-amber-600 mt-1">
+                        ⚠️ Özel boyut kullanılıyor. Standart boyutlar önerilir.
+                      </p>
+                    );
+                  }
+
+                  if (!requestData.yaglama_tipi) {
+                    return <p className="text-xs text-gray-500 mt-1">Önce yağlama tipini seçin - uygun IC-OD boyutları gösterilecek</p>;
+                  }
+
+                  if (isPuskurtme && cap === 0) {
+                    return <p className="text-xs text-gray-500 mt-1">Çap seçin - Püskürtme için uygun boyutlar gösterilecek</p>;
+                  }
+
+                  if (isPuskurtme) {
+                    if (cap > 0 && cap < 1.80) {
+                      return <p className="text-xs text-gray-500 mt-1">Püskürtme, küçük çap (&lt;1.80mm): Sadece 25-35 cm boyutu uygun</p>;
+                    }
+                    return <p className="text-xs text-gray-500 mt-1">Püskürtme: TAVLI boyutları (23-35, 25-35, 45-75, 45-76, 50-90)</p>;
+                  }
+
+                  if (isDaldirma || isYagsiz) {
+                    return <p className="text-xs text-gray-500 mt-1">{isDaldirma ? 'Daldırma' : 'Yağsız'}: BALYA boyutları (15-30, 21-34)</p>;
+                  }
+
+                  return <p className="text-xs text-gray-500 mt-1">Sabit bobin boyutu kombinasyonları</p>;
+                })()}
               </div>
+
+              {/* Custom IC/OD Input Section */}
+              {`${requestData.ic_cap}-${requestData.dis_cap}` !== '' && !['15-30', '21-34', '23-35', '25-35', '45-75', '45-76', '50-90'].includes(`${requestData.ic_cap}-${requestData.dis_cap}`) && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">İç Çap (cm)</label>
+                    <input
+                      type="number"
+                      value={requestData.ic_cap || ''}
+                      onChange={(e) => setRequestData(prev => ({ ...prev, ic_cap: parseInt(e.target.value) || 0 }))}
+                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Örn: 45"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dış Çap (cm)</label>
+                    <input
+                      type="number"
+                      value={requestData.dis_cap || ''}
+                      onChange={(e) => setRequestData(prev => ({ ...prev, dis_cap: parseInt(e.target.value) || 0 }))}
+                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Örn: 75"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Max Tolerans (mm)</label>

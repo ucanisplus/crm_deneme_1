@@ -4809,12 +4809,12 @@ const TavliBalyaTelNetsis = () => {
         let shouldClear = false;
 
         if (normalizedValue === 'Püskürtme') {
-          // Püskürtme only allows: 23-35, 45-75, 50-90
+          // Püskürtme only allows: 23-35, 45-75, 45-76, 50-90
           // Clear if current is 15-30 or 21-34
-          shouldClear = !((ic >= 23 && dis <= 35) || (ic >= 45 && dis <= 75) || (ic >= 50 && dis <= 90));
+          shouldClear = !((ic >= 23 && dis <= 35) || (ic >= 45 && dis <= 76) || (ic >= 50 && dis <= 90));
         } else if (normalizedValue === 'Daldırma') {
           // Daldırma only allows: 15-30, 21-34
-          // Clear if current is 23-35, 45-75, 50-90
+          // Clear if current is 23-35, 45-75, 45-76, 50-90
           shouldClear = !((ic >= 15 && dis <= 30) || (ic >= 21 && dis <= 34));
         }
 
@@ -4822,7 +4822,7 @@ const TavliBalyaTelNetsis = () => {
           console.warn(`IC-OD ${ic}-${dis} is invalid for ${normalizedValue}, resetting to default`);
           newData.ic_cap = 45;
           newData.dis_cap = 75;
-          toast.info(`IC-OD boyutları ${normalizedValue} yağlama tipi için uygun değil. Varsayılan 45-75 cm olarak ayarlandı.`);
+          // ✅ FIX: Removed "Varsayılan" toast as user requested
         }
       }
 
@@ -5009,10 +5009,10 @@ const TavliBalyaTelNetsis = () => {
         let isValid = false;
 
         if (mmData.yaglama_tipi === 'Püskürtme') {
-          // Püskürtme: 23-35 / 45-75 / 50-90
-          validRanges = ['23-35 cm', '45-75 cm', '50-90 cm'];
+          // Püskürtme: 23-35 / 45-75 / 45-76 / 50-90
+          validRanges = ['23-35 cm', '45-75 cm', '45-76 cm', '50-90 cm'];
           isValid = (ic >= 23 && dis <= 35) ||
-                   (ic >= 45 && dis <= 75) ||
+                   (ic >= 45 && dis <= 76) ||
                    (ic >= 50 && dis <= 90);
         } else if (mmData.yaglama_tipi === 'Daldırma') {
           // ✅ UPDATED: Daldırma: 15-30 / 21-34 (was 14.5-30 per gene2l.csv)
@@ -7074,12 +7074,18 @@ const TavliBalyaTelNetsis = () => {
 
       console.log(`Found ${ymStAlternatives.length} YM ST alternatives:`, ymStAlternatives.map(alt => `${alt.stokKodu} (priority ${alt.priority})`));
 
-      // Delete existing recipes first
+      // ✅ FIX: Delete existing recipes in parallel (not one-by-one)
       const existingResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(ymStpStokKodu)}`);
       if (existingResponse && existingResponse.ok) {
         const existing = await existingResponse.json();
-        for (const recipe of existing) {
-          await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}/${recipe.id}`, { method: 'DELETE' });
+        if (existing.length > 0) {
+          console.log(`🗑️ Deleting ${existing.length} existing YM STP recipes in parallel...`);
+          await Promise.all(
+            existing.map(recipe =>
+              fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}/${recipe.id}`, { method: 'DELETE' })
+                .catch(err => console.error(`Failed to delete recipe ${recipe.id}:`, err))
+            )
+          );
         }
       }
 
@@ -7452,12 +7458,17 @@ const TavliBalyaTelNetsis = () => {
               const flmCode = `FLM.${filmasinCode}.${quality}`;
               console.log(`   📝 Creating YM ST recipe: ${flmCode} → ${baseYmStKodu}`);
 
-              // Delete existing recipes first
+              // ✅ FIX: Delete existing recipes in parallel (not one-by-one)
               const existingRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_stok_kodu=${encodeURIComponent(baseYmStKodu)}`);
               if (existingRecipeResponse && existingRecipeResponse.ok) {
                 const existingRecipes = await existingRecipeResponse.json();
-                for (const recipe of existingRecipes) {
-                  await fetchWithAuth(`${API_URLS.galYmStRecete}/${recipe.id}`, { method: 'DELETE' });
+                if (existingRecipes.length > 0) {
+                  await Promise.all(
+                    existingRecipes.map(recipe =>
+                      fetchWithAuth(`${API_URLS.galYmStRecete}/${recipe.id}`, { method: 'DELETE' })
+                        .catch(err => console.error(`Failed to delete YM ST recipe ${recipe.id}:`, err))
+                    )
+                  );
                 }
               }
 
@@ -7546,12 +7557,17 @@ const TavliBalyaTelNetsis = () => {
                 // Create YM STP recipe (YM ST → YM STP with pressing)
                 console.log(`   📝 Creating YM STP recipe: ${baseYmStKodu} → ${ymStpKodu}`);
 
-                // Delete existing recipes first
+                // ✅ FIX: Delete existing recipes in parallel (not one-by-one)
                 const existingRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(ymStpKodu)}`);
                 if (existingRecipeResponse && existingRecipeResponse.ok) {
                   const existingRecipes = await existingRecipeResponse.json();
-                  for (const recipe of existingRecipes) {
-                    await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}/${recipe.id}`, { method: 'DELETE' });
+                  if (existingRecipes.length > 0) {
+                    await Promise.all(
+                      existingRecipes.map(recipe =>
+                        fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}/${recipe.id}`, { method: 'DELETE' })
+                          .catch(err => console.error(`Failed to delete YM STP recipe ${recipe.id}:`, err))
+                      )
+                    );
                   }
                 }
 
@@ -7667,12 +7683,18 @@ const TavliBalyaTelNetsis = () => {
 
       console.log(`\n✅ All alternative products ensured to exist. Proceeding with YM TT recipe creation...`);
 
-      // Delete existing recipes first
+      // ✅ FIX: Delete existing recipes in parallel (not one-by-one)
       const existingResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?mamul_kodu=${encodeURIComponent(ymTtStokKodu)}`);
       if (existingResponse && existingResponse.ok) {
         const existing = await existingResponse.json();
-        for (const recipe of existing) {
-          await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}/${recipe.id}`, { method: 'DELETE' });
+        if (existing.length > 0) {
+          console.log(`🗑️ Deleting ${existing.length} existing YM TT recipes in parallel...`);
+          await Promise.all(
+            existing.map(recipe =>
+              fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}/${recipe.id}`, { method: 'DELETE' })
+                .catch(err => console.error(`Failed to delete recipe ${recipe.id}:`, err))
+            )
+          );
         }
       }
 
@@ -7754,12 +7776,19 @@ const TavliBalyaTelNetsis = () => {
     try {
       console.log(`📝 Saving MM TT recipes for: ${mmTtStokKodu}`);
 
-      // Delete existing recipes first
+      // ✅ FIX: Delete existing recipes in parallel (not one-by-one)
       const existingResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mmTtId}`);
       if (existingResponse && existingResponse.ok) {
         const existing = await existingResponse.json();
-        for (const recipe of existing) {
-          await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}/${recipe.id}`, { method: 'DELETE' });
+        if (existing.length > 0) {
+          console.log(`🗑️ Deleting ${existing.length} existing MM TT recipes in parallel...`);
+          await Promise.all(
+            existing.map(recipe =>
+              fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}/${recipe.id}`, { method: 'DELETE' })
+                .catch(err => console.error(`Failed to delete recipe ${recipe.id}:`, err))
+            )
+          );
+          console.log(`✅ Deleted ${existing.length} MM TT recipes`);
         }
       }
 
@@ -14932,17 +14961,17 @@ const TavliBalyaTelNetsis = () => {
                   const shouldShow = (option) => {
                     // ✅ PRIMARY CONSTRAINT: Yaglama type determines size category
                     if (isPuskurtme) {
-                      // Püskürtme → TAVLI sizes (23-35, 25-35, 45-75, 50-90)
+                      // Püskürtme → TAVLI sizes (23-35, 25-35, 45-75, 45-76, 50-90)
                       // Then filter by diameter
                       if (cap > 0 && cap < 1.80) {
                         // Small diameter: Only 25-35
                         return option === '25-35';
                       } else if (cap >= 1.80) {
-                        // Large diameter: 23-35, 25-35, 45-75, 50-90
-                        return ['23-35', '25-35', '45-75', '50-90'].includes(option);
+                        // Large diameter: 23-35, 25-35, 45-75, 45-76, 50-90
+                        return ['23-35', '25-35', '45-75', '45-76', '50-90'].includes(option);
                       } else {
                         // No diameter yet: show all Püskürtme options
-                        return ['23-35', '25-35', '45-75', '50-90'].includes(option);
+                        return ['23-35', '25-35', '45-75', '45-76', '50-90'].includes(option);
                       }
                     } else if (isDaldirma || isYagsiz) {
                       // Daldırma or Yağsız → BALYA sizes only (15-30, 21-34)
@@ -14971,6 +15000,7 @@ const TavliBalyaTelNetsis = () => {
                     { value: '25-35', label: 'ID: 25 cm - OD: 35 cm' },
                     { value: '40-75', label: 'ID: 40 cm - OD: 75 cm' },
                     { value: '45-75', label: 'ID: 45 cm - OD: 75 cm' },
+                    { value: '45-76', label: 'ID: 45 cm - OD: 76 cm' },
                     { value: '50-90', label: 'ID: 50 cm - OD: 90 cm' },
                   ];
 
@@ -14995,7 +15025,7 @@ const TavliBalyaTelNetsis = () => {
               </select>
               {(() => {
                 const cap = parseFloat(mmData.cap) || 0;
-                const standardOptions = ['15-30', '21-34', '23-35', '25-35', '40-75', '45-75', '50-90'];
+                const standardOptions = ['15-30', '21-34', '23-35', '25-35', '40-75', '45-75', '45-76', '50-90'];
                 const currentValue = `${mmData.ic_cap}-${mmData.dis_cap}`;
                 const isCustom = !standardOptions.includes(currentValue);
                 const isPuskurtme = mmData.yaglama_tipi === 'Püskürtme';
@@ -15019,7 +15049,7 @@ const TavliBalyaTelNetsis = () => {
                 }
 
                 if (isPuskurtme) {
-                  return <p className="text-xs text-gray-500 mt-1">Püskürtme: TAVLI boyutları (23-35, 25-35, 45-75, 50-90) çapa göre filtreleniyor</p>;
+                  return <p className="text-xs text-gray-500 mt-1">Püskürtme: TAVLI boyutları (23-35, 25-35, 45-75, 45-76, 50-90) çapa göre filtreleniyor</p>;
                 }
 
                 if (isDaldirma || isYagsiz) {
