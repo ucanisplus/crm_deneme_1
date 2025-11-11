@@ -8154,161 +8154,156 @@ const TavliBalyaTelNetsis = () => {
         await deleteExistingRecipes('ymst', actualYmStId);
 
         let siraNo = 1;
-          
-          // YMST reçete sıralaması - Excel formatına uygun kesin sıralama 
-          // Sıralama: 1. FLM, 2. TLC01 (tam bu sıra)
-          const recipeEntries = Object.entries(ymStRecipe);
-          
-          // Filmaşin kodu doğru formatta olmalı
-          const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
-          if (flmEntry) {
-            // Filmaşin formatını kontrol et: FLM.XXXX.XXXX (örn. FLM.0550.1006)
-            const flmKey = flmEntry[0];
-            // Doğru format: FLM.XXXX.XXXX şeklinde olmalı, nokta ile ayrılmalı
-            if (!flmKey.match(/^FLM\.\d{4}\.\d{4}$/)) {
-              console.warn(`FLM kodu hatalı formatta: ${flmKey}, düzeltilmeli`);
-            }
+
+        // YMST reçete sıralaması - Excel formatına uygun kesin sıralama
+        // Sıralama: 1. FLM, 2. TLC01 (tam bu sıra)
+        const recipeEntries = Object.entries(ymStRecipe);
+
+        // Filmaşin kodu doğru formatta olmalı
+        const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
+        if (flmEntry) {
+          // Filmaşin formatını kontrol et: FLM.XXXX.XXXX (örn. FLM.0550.1006)
+          const flmKey = flmEntry[0];
+          // Doğru format: FLM.XXXX.XXXX şeklinde olmalı, nokta ile ayrılmalı
+          if (!flmKey.match(/^FLM\.\d{4}\.\d{4}$/)) {
+            console.warn(`FLM kodu hatalı formatta: ${flmKey}, düzeltilmeli`);
           }
-          
-          const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
-          const cotlc01Entry = recipeEntries.find(([key]) => key === 'COTLC01');
-          const ymStSourceEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') && key !== ymSt.stok_kodu);
+        }
 
-          // Diğer bileşenler - normalde yoktur ama güvenlik için
-          const otherEntries = recipeEntries.filter(([key]) =>
-            !key.includes('FLM.') &&
-            key !== 'TLC01' &&
-            key !== 'COTLC01' &&
-            !(key.includes('YM.ST.') && key !== ymSt.stok_kodu)
-          );
+        const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
+        const cotlc01Entry = recipeEntries.find(([key]) => key === 'COTLC01');
+        const ymStSourceEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') && key !== ymSt.stok_kodu);
 
-          // ✅ FIXED: Correct order - Material first (sira_no 1), Operation second (sira_no 2)
-          // Material: FLM or YM.ST source
-          // Operation: TLC01 or COTLC01
-          const materialEntry = flmEntry || ymStSourceEntry;
-          const operationEntry = tlc01Entry || cotlc01Entry;
-          const orderedEntries = [materialEntry, operationEntry, ...otherEntries].filter(Boolean);
+        // Diğer bileşenler - normalde yoktur ama güvenlik için
+        const otherEntries = recipeEntries.filter(([key]) =>
+          !key.includes('FLM.') &&
+          key !== 'TLC01' &&
+          key !== 'COTLC01' &&
+          !(key.includes('YM.ST.') && key !== ymSt.stok_kodu)
+        );
 
-          // Eğer orderedEntries içinde sadece bir tane FLM ve bir tane TLC01 yoksa uyarı ver
-          // ANCAK: < 1.5mm çaplı ürünler için FLM/TLC01 yerine Coiler/COTLC01 kullanılır
-          const ymStDiameter = parseFloat(ymSt?.cap || 0);
+        // ✅ FIXED: Correct order - Material first (sira_no 1), Operation second (sira_no 2)
+        // Material: FLM or YM.ST source
+        // Operation: TLC01 or COTLC01
+        const materialEntry = flmEntry || ymStSourceEntry;
+        const operationEntry = tlc01Entry || cotlc01Entry;
+        const orderedEntries = [materialEntry, operationEntry, ...otherEntries].filter(Boolean);
 
-          if (ymStDiameter >= 1.5) {
-            // Only check for FLM/TLC01 for products >= 1.5mm
-            if (!flmEntry) {
-              console.error(`HATA: YMST reçetesinde FLM bileşeni bulunamadı! (çap: ${ymStDiameter}mm)`);
-            }
+        // Eğer orderedEntries içinde sadece bir tane FLM ve bir tane TLC01 yoksa uyarı ver
+        // ANCAK: < 1.5mm çaplı ürünler için FLM/TLC01 yerine Coiler/COTLC01 kullanılır
+        const ymStDiameter = parseFloat(ymSt?.cap || 0);
 
-            if (!tlc01Entry) {
-              console.error(`HATA: YMST reçetesinde TLC01 operasyonu bulunamadı! (çap: ${ymStDiameter}mm)`);
-            }
-          } else {
-            // For < 1.5mm products, check for Coiler source and COTLC01
-            const hasCoilerSource = recipeEntries.some(([key]) => key.includes('YM.ST.') && key.includes('.0600.') || key.includes('.0550.') || key.includes('.ST'));
-            const hasCotlc01 = recipeEntries.some(([key]) => key === 'COTLC01');
-
-            if (!hasCoilerSource) {
-              console.warn(`UYARI: YMST reçetesinde Coiler kaynak (YM.ST) bulunamadı! (çap: ${ymStDiameter}mm)`);
-            }
-
-            if (!hasCotlc01) {
-              console.warn(`UYARI: YMST reçetesinde COTLC01 operasyonu bulunamadı! (çap: ${ymStDiameter}mm)`);
-            }
+        if (ymStDiameter >= 1.5) {
+          // Only check for FLM/TLC01 for products >= 1.5mm
+          if (!flmEntry) {
+            console.error(`HATA: YMST reçetesinde FLM bileşeni bulunamadı! (çap: ${ymStDiameter}mm)`);
           }
-          
-          // Reçete girdisi yoksa uyarı ver ve devam et
-          if (orderedEntries.length === 0) {
-            console.warn(`YMST ${ymStId} için eklenecek reçete bulunmadı!`);
-            continue; // Bir sonraki YMST'ye geç
+
+          if (!tlc01Entry) {
+            console.error(`HATA: YMST reçetesinde TLC01 operasyonu bulunamadı! (çap: ${ymStDiameter}mm)`);
           }
-          
-          for (const [key, value] of orderedEntries) {
-            if (value > 0) {
-              // Format the value exactly as it would appear in Excel, using points as decimal separators
-              let formattedValue = value;
-              if (typeof value === 'number') {
-                formattedValue = value.toLocaleString('en-US', {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 5,
-                  useGrouping: false // No thousand separators
-                });
-              }
-              
-              // Reçete parametrelerini hazırla
-              // DÜZELTME: YM.ST.xxxx formatındaki kodlar yanlışlıkla Operasyon olarak işaretlenmesin
-              // DÜZELTME: YM.ST ve FLM kodları her zaman Bileşen olmalı, sadece TLC01/COTLC01 ve GLV01 Operasyon olmalı
-              const isOperation = key === 'TLC01' || key === 'COTLC01' || key === 'GLV01';
+        } else {
+          // For < 1.5mm products, check for Coiler source and COTLC01
+          const hasCoilerSource = recipeEntries.some(([key]) => key.includes('YM.ST.') && key.includes('.0600.') || key.includes('.0550.') || key.includes('.ST'));
+          const hasCotlc01 = recipeEntries.some(([key]) => key === 'COTLC01');
 
-              // YM.ST içeren kodları kesinlikle Bileşen olarak işaretle
-              if (key.includes('YM.ST.')) {
-              }
+          if (!hasCoilerSource) {
+            console.warn(`UYARI: YMST reçetesinde Coiler kaynak (YM.ST) bulunamadı! (çap: ${ymStDiameter}mm)`);
+          }
+
+          if (!hasCotlc01) {
+            console.warn(`UYARI: YMST reçetesinde COTLC01 operasyonu bulunamadı! (çap: ${ymStDiameter}mm)`);
+          }
+        }
+
+        // Reçete girdisi yoksa uyarı ver ve devam et
+        if (orderedEntries.length === 0) {
+          console.warn(`YMST ${ymStId} için eklenecek reçete bulunmadı!`);
+          continue; // Bir sonraki YMST'ye geç
+        }
+
+        for (const [key, value] of orderedEntries) {
+          if (value > 0) {
+            // Format the value exactly as it would appear in Excel, using points as decimal separators
+            let formattedValue = value;
+            if (typeof value === 'number') {
+              formattedValue = value.toLocaleString('en-US', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 5,
+                useGrouping: false // No thousand separators
+              });
+            }
+
+            // Reçete parametrelerini hazırla
+            // DÜZELTME: YM.ST.xxxx formatındaki kodlar yanlışlıkla Operasyon olarak işaretlenmesin
+            // DÜZELTME: YM.ST ve FLM kodları her zaman Bileşen olmalı, sadece TLC01/COTLC01 ve GLV01 Operasyon olmalı
+            const isOperation = key === 'TLC01' || key === 'COTLC01' || key === 'GLV01';
+
+            // YM.ST içeren kodları kesinlikle Bileşen olarak işaretle
+            if (key.includes('YM.ST.')) {
+            }
 
 
-              const operasyonBilesen = (key === 'TLC01' || key === 'COTLC01') ? 'O' : 'B'; // ✅ FIXED: TLC01 and COTLC01 are Operasyon (O) in YMST recipes
-              const receteParams = {
-                ym_st_id: ymStId,
-                mamul_kodu: ymSt.stok_kodu,
-                bilesen_kodu: key,
-                miktar: formattedValue, // Use formatted value to match Excel
-                sira_no: siraNo++,
-                operasyon_bilesen: operasyonBilesen,
-                olcu_br: getOlcuBr(key),
-                olcu_br_bilesen: '1',
-                aciklama: getReceteAciklama(key),
-                recete_top: 1,
-                fire_orani: 0.0004, // Match Excel format
-                ua_dahil_edilsin: operasyonBilesen === 'O' ? 'E' : '',
-                son_operasyon: operasyonBilesen === 'O' ? 'E' : '',
-                // Match Excel format EXACTLY - VARCHAR=empty string, NUMERIC/INT=null
-                miktar_sabitle: '',
-                stok_maliyet: '',
-                fire_mik: null, // NUMERIC
-                sabit_fire_mik: null, // NUMERIC
-                istasyon_kodu: '',
-                hazirlik_suresi: null, // NUMERIC
-                uretim_suresi: operasyonBilesen === 'O' ? formattedValue : null, // NUMERIC
-                oncelik: null, // INT
-                planlama_orani: null, // NUMERIC
-                alt_pol_da_transfer: '',
-                alt_pol_ambar_cikis: '',
-                alt_pol_uretim_kaydi: '',
-                alt_pol_mrp: '',
-                ic_dis: ''
-              };
-              
-              // Parametre kontrolü
-              console.log("YMST REÇETE PARAMETRE KONTROLÜ:", JSON.stringify(receteParams));
+            const operasyonBilesen = (key === 'TLC01' || key === 'COTLC01') ? 'O' : 'B'; // ✅ FIXED: TLC01 and COTLC01 are Operasyon (O) in YMST recipes
+            const receteParams = {
+              ym_st_id: ymStId,
+              mamul_kodu: ymSt.stok_kodu,
+              bilesen_kodu: key,
+              miktar: formattedValue, // Use formatted value to match Excel
+              sira_no: siraNo++,
+              operasyon_bilesen: operasyonBilesen,
+              olcu_br: getOlcuBr(key),
+              olcu_br_bilesen: '1',
+              aciklama: getReceteAciklama(key),
+              recete_top: 1,
+              fire_orani: 0.0004, // Match Excel format
+              ua_dahil_edilsin: operasyonBilesen === 'O' ? 'E' : '',
+              son_operasyon: operasyonBilesen === 'O' ? 'E' : '',
+              // Match Excel format EXACTLY - VARCHAR=empty string, NUMERIC/INT=null
+              miktar_sabitle: '',
+              stok_maliyet: '',
+              fire_mik: null, // NUMERIC
+              sabit_fire_mik: null, // NUMERIC
+              istasyon_kodu: '',
+              hazirlik_suresi: null, // NUMERIC
+              uretim_suresi: operasyonBilesen === 'O' ? formattedValue : null, // NUMERIC
+              oncelik: null, // INT
+              planlama_orani: null, // NUMERIC
+              alt_pol_da_transfer: '',
+              alt_pol_ambar_cikis: '',
+              alt_pol_uretim_kaydi: '',
+              alt_pol_mrp: '',
+              ic_dis: ''
+            };
 
-              // ✅ FIX: Skip conflict check for newly created YM ST products to avoid 504 timeout
-              // Only check for conflicts if this is an existing YM ST being updated
-              // For new YM STs, there won't be any existing recipes, so skip the slow query
-              
-              try {
-                const receteResponse = await fetchWithAuth(API_URLS.galYmStRecete, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(receteParams)
-                });
-                
-                if (receteResponse && receteResponse.ok) {
-                } else {
-                  const statusCode = receteResponse ? receteResponse.status : 'unknown';
-                  console.error(`YMST reçetesi kaydedilemedi: ${key}, hata kodu: ${statusCode}`);
-                  
-                  if (statusCode === 409) {
-                    console.warn(`Muhtemelen reçete zaten mevcut. Devam ediliyor.`);
-                  }
+            // Parametre kontrolü
+            console.log("YMST REÇETE PARAMETRE KONTROLÜ:", JSON.stringify(receteParams));
+
+            // ✅ FIX: Skip conflict check for newly created YM ST products to avoid 504 timeout
+            // Only check for conflicts if this is an existing YM ST being updated
+            // For new YM STs, there won't be any existing recipes, so skip the slow query
+
+            try {
+              const receteResponse = await fetchWithAuth(API_URLS.galYmStRecete, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(receteParams)
+              });
+
+              if (receteResponse && receteResponse.ok) {
+              } else {
+                const statusCode = receteResponse ? receteResponse.status : 'unknown';
+                console.error(`YMST reçetesi kaydedilemedi: ${key}, hata kodu: ${statusCode}`);
+
+                if (statusCode === 409) {
+                  console.warn(`Muhtemelen reçete zaten mevcut. Devam ediliyor.`);
                 }
-              } catch (saveError) {
-                console.error(`YMST reçetesi kaydedilirken hata: ${saveError.message}`);
-                // Hataya rağmen devam et
               }
+            } catch (saveError) {
+              console.error(`YMST reçetesi kaydedilirken hata: ${saveError.message}`);
+              // Hataya rağmen devam et
             }
           }
-        } catch (mainError) {
-          console.error(`YMST ${ymStId} reçete işlemleri sırasında genel hata:`, mainError.message);
-          // Hata ile karşılaşılsa bile diğer YMST'ler için devam et
-          continue;
         }
       }
     } catch (error) {
