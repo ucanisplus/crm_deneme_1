@@ -1890,10 +1890,15 @@ const SatisTavliBalyaRequest = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Bobın Boyutu (İç Çap - Dış Çap)</label>
                 <select
                   name="coil_size"
-                  value={`${requestData.ic_cap}-${requestData.dis_cap}`}
+                  value={(() => {
+                    const standardOptions = ['15-30', '21-34', '23-35', '25-35', '35-65', '45-75', '45-76', '50-90'];
+                    const currentValue = `${requestData.ic_cap}-${requestData.dis_cap}`;
+                    return standardOptions.includes(currentValue) ? currentValue : 'custom';
+                  })()}
                   onChange={(e) => {
                     if (e.target.value === 'custom') {
-                      // User wants to enter custom IC/OD - we'll handle this below with separate inputs
+                      // Mark as custom, user will enter below
+                      setRequestData(prev => ({ ...prev, ic_cap: 0, dis_cap: 0 }));
                       return;
                     }
                     const [ic, dis] = e.target.value.split('-').map(v => parseInt(v));
@@ -1915,14 +1920,20 @@ const SatisTavliBalyaRequest = () => {
                     const isEnabled = (option) => {
                       // PRIMARY CONSTRAINT: Yaglama type determines size category
                       if (isPuskurtme) {
-                        // Püskürtme → TAVLI sizes (23-35, 25-35, 45-75, 45-76, 50-90)
-                        const isPuskurtmeSize = ['23-35', '25-35', '45-75', '45-76', '50-90'].includes(option);
+                        // Püskürtme → TAVLI sizes (23-35, 25-35, 35-65, 45-75, 45-76, 50-90)
+                        const isPuskurtmeSize = ['23-35', '25-35', '35-65', '45-75', '45-76', '50-90'].includes(option);
                         if (!isPuskurtmeSize) return false;
 
                         // SECONDARY CONSTRAINT: Filter by diameter
                         if (cap > 0 && cap < 1.80) {
-                          // Small diameter: Only 25-35
+                          // Small diameter (< 1.80mm): Only 25-35
                           return option === '25-35';
+                        } else if (cap >= 1.80 && cap < 2.50) {
+                          // Medium diameter (1.80-2.49mm): 23-35, 25-35, 45-75, 45-76
+                          return ['23-35', '25-35', '45-75', '45-76'].includes(option);
+                        } else if (cap >= 2.50) {
+                          // Large diameter (≥ 2.50mm): 35-65, 45-75, 45-76, 50-90
+                          return ['35-65', '45-75', '45-76', '50-90'].includes(option);
                         }
                         return true;
                       } else if (isDaldirma || isYagsiz) {
@@ -1937,7 +1948,8 @@ const SatisTavliBalyaRequest = () => {
                       // Recommended option hints
                       if (isPuskurtme) {
                         if (cap > 0 && cap < 1.80 && option === '25-35') return ' ✓ Önerilen';
-                        if (cap >= 1.80 && option === '45-75') return ' ✓ Önerilen';
+                        if (cap >= 1.80 && cap < 2.50 && option === '45-75') return ' ✓ Önerilen';
+                        if (cap >= 2.50 && option === '50-90') return ' ✓ Önerilen';
                       } else if (isDaldirma || isYagsiz) {
                         if (option === '21-34') return ' ✓ Önerilen';
                       }
@@ -1949,6 +1961,7 @@ const SatisTavliBalyaRequest = () => {
                       { value: '21-34', label: 'ID: 21 cm - OD: 34 cm' },
                       { value: '23-35', label: 'ID: 23 cm - OD: 35 cm' },
                       { value: '25-35', label: 'ID: 25 cm - OD: 35 cm' },
+                      { value: '35-65', label: 'ID: 35 cm - OD: 65 cm' },
                       { value: '45-75', label: 'ID: 45 cm - OD: 75 cm' },
                       { value: '45-76', label: 'ID: 45 cm - OD: 76 cm' },
                       { value: '50-90', label: 'ID: 50 cm - OD: 90 cm' },
@@ -1981,7 +1994,7 @@ const SatisTavliBalyaRequest = () => {
                   const isPuskurtme = requestData.yaglama_tipi === 'Püskürtme';
                   const isDaldirma = requestData.yaglama_tipi === 'Daldırma';
                   const isYagsiz = !requestData.yaglama_tipi || requestData.yaglama_tipi === '';
-                  const standardOptions = ['15-30', '21-34', '23-35', '25-35', '45-75', '45-76', '50-90'];
+                  const standardOptions = ['15-30', '21-34', '23-35', '25-35', '35-65', '45-75', '45-76', '50-90'];
                   const currentValue = `${requestData.ic_cap}-${requestData.dis_cap}`;
                   const isCustom = !standardOptions.includes(currentValue);
 
@@ -2003,9 +2016,13 @@ const SatisTavliBalyaRequest = () => {
 
                   if (isPuskurtme) {
                     if (cap > 0 && cap < 1.80) {
-                      return <p className="text-xs text-gray-500 mt-1">Püskürtme, küçük çap (&lt;1.80mm): Sadece 25-35 cm boyutu uygun</p>;
+                      return <p className="text-xs text-gray-500 mt-1">Püskürtme, küçük çap (&lt;1.80mm): Sadece 25-35 cm uygun</p>;
+                    } else if (cap >= 1.80 && cap < 2.50) {
+                      return <p className="text-xs text-gray-500 mt-1">Püskürtme, orta çap (1.80-2.49mm): 23-35, 25-35, 45-75, 45-76 cm uygun</p>;
+                    } else if (cap >= 2.50) {
+                      return <p className="text-xs text-gray-500 mt-1">Püskürtme, büyük çap (≥2.50mm): 35-65, 45-75, 45-76, 50-90 cm uygun</p>;
                     }
-                    return <p className="text-xs text-gray-500 mt-1">Püskürtme: TAVLI boyutları (23-35, 25-35, 45-75, 45-76, 50-90)</p>;
+                    return <p className="text-xs text-gray-500 mt-1">Püskürtme: TAVLI boyutları (23-35, 25-35, 35-65, 45-75, 45-76, 50-90)</p>;
                   }
 
                   if (isDaldirma || isYagsiz) {
@@ -2017,30 +2034,40 @@ const SatisTavliBalyaRequest = () => {
               </div>
 
               {/* Custom IC/OD Input Section */}
-              {`${requestData.ic_cap}-${requestData.dis_cap}` !== '' && !['15-30', '21-34', '23-35', '25-35', '45-75', '45-76', '50-90'].includes(`${requestData.ic_cap}-${requestData.dis_cap}`) && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">İç Çap (cm)</label>
-                    <input
-                      type="number"
-                      value={requestData.ic_cap || ''}
-                      onChange={(e) => setRequestData(prev => ({ ...prev, ic_cap: parseInt(e.target.value) || 0 }))}
-                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Örn: 45"
-                    />
+              {(() => {
+                const standardOptions = ['15-30', '21-34', '23-35', '25-35', '35-65', '45-75', '45-76', '50-90'];
+                const currentValue = `${requestData.ic_cap}-${requestData.dis_cap}`;
+                const showCustomInputs = !standardOptions.includes(currentValue) || (requestData.ic_cap === 0 && requestData.dis_cap === 0);
+
+                if (!showCustomInputs) return null;
+
+                return (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">İç Çap (cm)</label>
+                      <input
+                        type="number"
+                        value={requestData.ic_cap || ''}
+                        onChange={(e) => setRequestData(prev => ({ ...prev, ic_cap: parseInt(e.target.value) || 0 }))}
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Örn: 45"
+                        min="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Dış Çap (cm)</label>
+                      <input
+                        type="number"
+                        value={requestData.dis_cap || ''}
+                        onChange={(e) => setRequestData(prev => ({ ...prev, dis_cap: parseInt(e.target.value) || 0 }))}
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Örn: 75"
+                        min="0"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Dış Çap (cm)</label>
-                    <input
-                      type="number"
-                      value={requestData.dis_cap || ''}
-                      onChange={(e) => setRequestData(prev => ({ ...prev, dis_cap: parseInt(e.target.value) || 0 }))}
-                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Örn: 75"
-                    />
-                  </div>
-                </div>
-              )}
+                );
+              })()}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Max Tolerans (mm)</label>
