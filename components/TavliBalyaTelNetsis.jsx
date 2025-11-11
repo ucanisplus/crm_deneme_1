@@ -2499,11 +2499,10 @@ const TavliBalyaTelNetsis = () => {
       // Modali temizle ve girdi ekranına git (kullanıcı key values'ları editleyebilsin)
       setShowRequestDetailModal(false);
       setCurrentStep('input');
-      
-      // Trigger YM TT generation for the loaded data
-      generateYmTtData();
-      
-      // Populate suitable YM STs if needed  
+
+      // ✅ FIX: YM TT is generated automatically during save, no need to call here
+
+      // Populate suitable YM STs if needed
       await findSuitableYmSts();
       
     } catch (error) {
@@ -2565,12 +2564,12 @@ const TavliBalyaTelNetsis = () => {
         
         setPaketlemeSecenekleri(packaging);
       }
-      
+
       setShowRequestDetailModal(false);
       setCurrentStep('summary');
-      generateYmTtData();
+      // ✅ FIX: YM TT is generated automatically during save, no need to call here
       findSuitableYmSts();
-      
+
       toast.info('Talep onay için hazırlandı. Lütfen ürünü kaydedin.');
       
     } catch (error) {
