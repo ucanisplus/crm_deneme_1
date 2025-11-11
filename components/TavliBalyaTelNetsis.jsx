@@ -8261,26 +8261,10 @@ const TavliBalyaTelNetsis = () => {
               
               // Parametre kontrolü
               console.log("YMST REÇETE PARAMETRE KONTROLÜ:", JSON.stringify(receteParams));
-              
-              // Çakışabilecek mevcut reçeteleri kontrol et
-              try {
-                const checkResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_id=${ymStId}`);
-                if (checkResponse && checkResponse.ok) {
-                  const existingRecipes = await checkResponse.json();
-                  const conflictRecipe = existingRecipes.find(r => r.bilesen_kodu === key && r.mamul_kodu !== ymSt.stok_kodu);
-                  if (conflictRecipe) {
-                    console.error(`ÇAKIŞMA! Farklı mamul_kodu ile YMST reçete mevcut: ${conflictRecipe.mamul_kodu} (silinecek)`);
-                    try {
-                      await fetchWithAuth(`${API_URLS.galYmStRecete}/${conflictRecipe.id}`, { method: 'DELETE' });
-                    } catch (deleteError) {
-                      console.error(`Çakışan YMST reçetesi silinemedi: ${deleteError.message}`);
-                    }
-                  }
-                }
-              } catch (checkError) {
-                console.error(`YMST reçeteleri kontrol edilirken hata: ${checkError.message}`);
-                // Hataya rağmen devam et
-              }
+
+              // ✅ FIX: Skip conflict check for newly created YM ST products to avoid 504 timeout
+              // Only check for conflicts if this is an existing YM ST being updated
+              // For new YM STs, there won't be any existing recipes, so skip the slow query
               
               try {
                 const receteResponse = await fetchWithAuth(API_URLS.galYmStRecete, {
