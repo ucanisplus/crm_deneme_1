@@ -6579,14 +6579,32 @@ const TavliBalyaTelNetsis = () => {
   const generateYmStDatabaseData = (ymSt) => {
     const capValue = parseFloat(ymSt.cap);
     const capForExcel = capValue.toFixed(2);
-    
+
+    // ✅ FIX: Parse filmasin and quality from stok_kodu if not provided
+    // stok_kodu format: YM.ST.0239.0600.1008 or YM.ST.0239.ST
+    let filmasinValue = ymSt.filmasin;
+    let qualityValue = ymSt.quality;
+
+    if (!filmasinValue || !qualityValue) {
+      const parts = ymSt.stok_kodu.split('.');
+      if (parts.length >= 5) {
+        // Format: YM.ST.0239.0600.1008
+        filmasinValue = parseInt(parts[3]) / 100; // 0600 → 6.00
+        qualityValue = parts[4]; // 1008
+      } else if (parts.length === 4 && parts[3] === 'ST') {
+        // Format: YM.ST.0239.ST (COILER product, no filmasin)
+        filmasinValue = 0;
+        qualityValue = 'ST';
+      }
+    }
+
     return {
       stok_kodu: ymSt.stok_kodu,
-      stok_adi: ymSt.stok_adi,
+      stok_adi: ymSt.stok_adi || `YM Siyah Tel ${capForExcel} mm`,
       grup_kodu: 'YM',
       kod_1: 'ST',
-      kod_2: ymSt.filmasin.toString().padStart(4, '0'), // ✅ FIXED - Ensure 4-digit format (600 → "0600")
-      kod_3: ymSt.quality, // Store quality value in kod_3 to match Excel
+      kod_2: filmasinValue ? filmasinValue.toString().padStart(4, '0') : '', // ✅ FIXED - Ensure 4-digit format (600 → "0600")
+      kod_3: qualityValue || '', // Store quality value in kod_3 to match Excel
       muh_detay: '28',
       depo_kodu: '35',
       br_1: 'KG',
@@ -6600,14 +6618,14 @@ const TavliBalyaTelNetsis = () => {
       cevrim_degeri_2: 1,
       satis_kdv_orani: '20', // Match Excel format as string
       cap: ymSt.cap,
-      filmasin: parseFloat(ymSt.filmasin).toFixed(4), // Database uses decimal with 4 decimal places (e.g., 6.0000)
-      quality: ymSt.quality,
+      filmasin: filmasinValue ? parseFloat(filmasinValue).toFixed(4) : '0.0000', // Database uses decimal with 4 decimal places (e.g., 6.0000)
+      quality: qualityValue || '',
       ozel_saha_1_say: 1, // ✅ FIXED - Must ALWAYS be 1 for all YM ST products (NOT filmasin value!)
       birim_agirlik: ymSt.kg || 0,
       fiyat_birimi: 1,
       doviz_tip: 1,
       stok_turu: 'D',
-      ingilizce_isim: `YM Black Wire ${capForExcel} mm Quality: ${ymSt.quality}`,
+      ingilizce_isim: ymSt.ingilizce_isim || `YM Black Wire ${capForExcel} mm Quality: ${qualityValue || ''}`,
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H',
       priority: ymSt.priority !== undefined ? ymSt.priority : 0 // Default to 0 for main products
@@ -12630,18 +12648,26 @@ const TavliBalyaTelNetsis = () => {
         });
       }
 
-      // ✅ FIXED: YM STP REÇETE Sheet - ONE SHEET with ALL .P products (no ALT sheets)
-      // User requirement: "there shant be YMSTP alternative sheets"
-      // All priorities (0, 1, 2) go in the same YM STP REÇETE sheet
+      // ✅ FIXED: YM STP REÇETE Sheet - ONE SHEET with ONLY priority 0 (main recipes)
+      // FILMAŞIN alternatives (priority 1, 2, etc.) should NOT appear in YM STP recipes
+      // Each YM STP product should have exactly 5 components: YM ST, STPRS01, Çelik Çember, Çember Tokası, Kaldırma Kancası
       if (ymStpRecipesFromDb && ymStpRecipesFromDb.length > 0) {
-        console.log(`📋 YM STP: Creating ONE sheet with ALL .P products (all priorities)`);
+        console.log(`📋 YM STP: Creating ONE sheet with ONLY priority 0 (main recipes)`);
 
         const ymStpReceteSheet = workbook.addWorksheet('YM STP REÇETE');
         ymStpReceteSheet.addRow(receteHeaders);
 
-        // Group by product (all priorities together)
+        // ✅ FIX: Filter to ONLY priority 0 recipes (main recipes, not alternatives)
+        const mainYmStpRecipes = ymStpRecipesFromDb.filter(recipe => {
+          const priority = recipe.priority || 0;
+          return priority === 0;
+        });
+
+        console.log(`📊 Filtered YM STP recipes: ${ymStpRecipesFromDb.length} total → ${mainYmStpRecipes.length} priority 0 only`);
+
+        // Group by product (only priority 0)
         const ymStpByProduct = {};
-        ymStpRecipesFromDb.forEach(recipe => {
+        mainYmStpRecipes.forEach(recipe => {
           if (!ymStpByProduct[recipe.ym_stp_stok_kodu]) {
             ymStpByProduct[recipe.ym_stp_stok_kodu] = [];
           }
@@ -12660,7 +12686,7 @@ const TavliBalyaTelNetsis = () => {
           }
         });
 
-        console.log(`✅ YM STP REÇETE created with ${ymStpRecipesFromDb.length} recipes (all .P products in one sheet)`);
+        console.log(`✅ YM STP REÇETE created with ${mainYmStpRecipes.length} recipes (only priority 0, ~5 per product)`);
       }
 
       // YM ST REÇETE Sheet - Use PERFECTED format
