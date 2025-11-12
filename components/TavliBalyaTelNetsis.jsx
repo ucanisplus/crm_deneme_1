@@ -7180,6 +7180,9 @@ const TavliBalyaTelNetsis = () => {
               son_operasyon: recipe.operasyon_bilesen === 'O' ? 'E' : ''
             })
           });
+
+          // ⏱️ Add small delay between saves to prevent connection exhaustion
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
 
         console.log(`  ✅ Priority ${alternative.priority} recipes saved (${siraNo - 1} items) - Source: ${alternative.stokKodu}`);
@@ -7773,6 +7776,9 @@ const TavliBalyaTelNetsis = () => {
             body: JSON.stringify(recipeData)
           });
 
+          // ⏱️ Add small delay between saves to prevent connection exhaustion
+          await new Promise(resolve => setTimeout(resolve, 200));
+
           siraNo++;
         }
 
@@ -7973,8 +7979,6 @@ const TavliBalyaTelNetsis = () => {
           console.log(`   💾 Saving recipe #${siraNo}: ${key} → ${bilesenKodu}`);
           console.log(`      📊 Data:`, JSON.stringify(recipeData, null, 2));
 
-          // ✅ TEMP FIX: Disable retries to prevent connection pool exhaustion on timeouts
-          // TODO: Fix backend connection pooling instead
           const saveResponse = await fetchWithAuth(API_URLS.tavliBalyaMmRecete, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -7984,6 +7988,9 @@ const TavliBalyaTelNetsis = () => {
           if (!saveResponse || !saveResponse.ok) {
             throw new Error(`Failed to save recipe #${siraNo} for ${key}: ${saveResponse ? saveResponse.status : 'No response'}`);
           }
+
+          // ⏱️ Add small delay between saves to prevent connection exhaustion
+          await new Promise(resolve => setTimeout(resolve, 200));
 
           siraNo++;
         }
