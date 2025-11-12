@@ -7775,19 +7775,26 @@ const TavliBalyaTelNetsis = () => {
     try {
       console.log(`📝 Saving MM TT recipes for: ${mmTtStokKodu}`);
 
-      // ✅ FIX: Delete existing recipes in parallel (not one-by-one)
+      // ✅ FIX: Delete existing recipes in batches to avoid 504 timeouts
       const existingResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mmTtId}`);
       if (existingResponse && existingResponse.ok) {
         const existing = await existingResponse.json();
         if (existing.length > 0) {
-          console.log(`🗑️ Deleting ${existing.length} existing MM TT recipes in parallel...`);
-          await Promise.all(
-            existing.map(recipe =>
-              fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}/${recipe.id}`, { method: 'DELETE' })
-                .catch(err => console.error(`Failed to delete recipe ${recipe.id}:`, err))
-            )
-          );
-          console.log(`✅ Deleted ${existing.length} MM TT recipes`);
+          console.log(`🗑️ Deleting ${existing.length} existing MM TT recipes in batches...`);
+
+          // Delete in batches of 10 to avoid overwhelming serverless function
+          const BATCH_SIZE = 10;
+          for (let i = 0; i < existing.length; i += BATCH_SIZE) {
+            const batch = existing.slice(i, i + BATCH_SIZE);
+            await Promise.all(
+              batch.map(recipe =>
+                fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}/${recipe.id}`, { method: 'DELETE' })
+                  .catch(err => console.error(`Failed to delete recipe ${recipe.id}:`, err))
+              )
+            );
+            console.log(`   Deleted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} recipes`);
+          }
+          console.log(`✅ Deleted all ${existing.length} MM TT recipes`);
         }
       }
 
@@ -7859,8 +7866,15 @@ const TavliBalyaTelNetsis = () => {
           const operasyonBilesen = (key === 'TVPKT01' || key === 'BAL01') ? 'O' : 'B';
           let bilesenKodu = AUXILIARY_COMPONENTS[key] || key;
 
+          // ✅ CRITICAL FIX: If this is the YM TT source entry, use sourceStokKodu (with BALYA/BAG)
+          // instead of the key from mmRecipe (which is missing BALYA/BAG due to Auto-Fill bug)
+          if (key.startsWith('YM.TT.') && sourceEntry && sourceEntry[0] === key) {
+            bilesenKodu = sourceStokKodu;
+            console.log(`   🔧 Using sourceStokKodu for YM TT: ${sourceStokKodu} (instead of key: ${key})`);
+          }
+
           const recipeData = {
-            mm_id: mmTtId, // ✅ FIXED: Database column is mm_id, not mm_tt_id
+            mm_id: mmTtId,
             mamul_kodu: mmTtStokKodu,
             bilesen_kodu: bilesenKodu,
             miktar: value,
@@ -7871,11 +7885,26 @@ const TavliBalyaTelNetsis = () => {
             aciklama: getReceteAciklama(key),
             recete_top: 1,
             fire_orani: 0.0004,
+            oto_rec: '',
             ua_dahil_edilsin: operasyonBilesen === 'O' ? 'E' : '',
             son_operasyon: operasyonBilesen === 'O' ? 'E' : '',
             uretim_suresi: operasyonBilesen === 'O' ? value : null,
-            priority: 0, // ✅ ADDED: MM TT has only main recipe (no alternatives)
-            sequence: sequence || '' // ✅ ADDED: Sequence from parameter
+            // ✅ CRITICAL: Include ALL database fields with correct default values
+            miktar_sabitle: '',
+            stok_maliyet: '',
+            fire_mik: null,
+            sabit_fire_mik: null,
+            istasyon_kodu: '',
+            hazirlik_suresi: null,
+            oncelik: null,
+            planlama_orani: null,
+            alt_pol_da_transfer: '',
+            alt_pol_ambar_cikis: '',
+            alt_pol_uretim_kaydi: '',
+            alt_pol_mrp: '',
+            ic_dis: '',
+            priority: 0,
+            sequence: sequence || ''
           };
 
           console.log(`   💾 Saving recipe #${siraNo}: ${key} → ${bilesenKodu}`);
@@ -15101,10 +15130,10 @@ const TavliBalyaTelNetsis = () => {
                 value={normalizeDecimalDisplay(mmData.kg)}
                 onChange={(e) => handleInputChange('kg', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
-                placeholder="5-750"
+                placeholder="250-20000"
                 onKeyDown={(e) => handleCommaToPoint(e, 'kg')}
               />
-              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 5 - 750 kg</p>
+              <p className="text-xs text-gray-500 mt-1">İzin verilen aralık: 250 - 20000 kg</p>
             </div>
 
             <div className="space-y-2">
@@ -15924,7 +15953,10 @@ const TavliBalyaTelNetsis = () => {
                       // ✅ CRITICAL FIX: Use processSequence if available, otherwise calculate next sequence
                       // For new products, use '00' as temporary placeholder - will be updated during save
                       const sequence = processSequence && processSequence !== '00' ? processSequence : '00';
-                      const ymTtSource = `YM.TT.${capFormatted}.${sequence}`;
+
+                      // ✅ CRITICAL FIX: Include product type (BALYA/BAG) in YM TT source
+                      const productPrefix = mmData.product_type === 'TAVLI' ? 'BAG' : 'BALYA';
+                      const ymTtSource = `YM.TT.${productPrefix}.${capFormatted}.${sequence}`;
 
                       console.log(`📝 Auto-filling for YM ST ${index}: ${ymSt.stok_kodu}, YM TT source: ${ymTtSource}`);
 
