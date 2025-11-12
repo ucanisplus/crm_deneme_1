@@ -12253,19 +12253,20 @@ const TavliBalyaTelNetsis = () => {
       // ✅ FIXED: Use passed data instead of fetching from database!
       console.log(`📊 Using passed data: YM TT: ${ymTtData.length}, YM STP: ${ymStpData.length}`);
 
-      // ✅ NEW: Fetch ALL YM ST products used in YM TT recipes (not just from excelData)
-      console.log('\n🔍 === FETCHING ALL YM ST PRODUCTS FOR STOK KARTI ===');
+      // ✅ FIX: Extract YM STP products from YM TT recipes, then YM ST products from YM STP recipes
+      console.log('\n🔍 === EXTRACTING YM STP AND YM ST PRODUCTS FOR STOK KARTI ===');
 
-      // Fetch YM TT recipes to get all YM ST products used
-      const uniqueYmStCodesForStokKarti = new Set();
+      // Step 1: Extract YM STP products (.P suffix) from YM TT recipes
+      const uniqueYmStpCodesForStokKarti = new Set();
       for (const ymTt of ymTtData) {
         try {
           const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?mamul_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
           if (ymTtRecipeResponse && ymTtRecipeResponse.ok) {
             const recipes = await ymTtRecipeResponse.json();
             recipes.forEach(recipe => {
-              if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
-                uniqueYmStCodesForStokKarti.add(recipe.bilesen_kodu);
+              // YM TT uses YM STP products (with .P suffix)
+              if (recipe.operasyon_bilesen === 'B' && recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.P')) {
+                uniqueYmStpCodesForStokKarti.add(recipe.bilesen_kodu);
               }
             });
           }
@@ -12274,10 +12275,52 @@ const TavliBalyaTelNetsis = () => {
         }
       }
 
-      console.log(`📊 Found ${uniqueYmStCodesForStokKarti.size} unique YM ST products used in YM TT:`);
+      console.log(`📊 Found ${uniqueYmStpCodesForStokKarti.size} unique YM STP products used in YM TT:`);
+      Array.from(uniqueYmStpCodesForStokKarti).forEach(code => console.log(`  - ${code}`));
+
+      // Fetch all YM STP products for stok karti
+      const allYmStpProducts = [];
+      for (const ymStpCode of uniqueYmStpCodesForStokKarti) {
+        try {
+          // ✅ FIX: Use tavliNetsisYmStp (NOT galYmStp - that's for Galvanizli Tel!)
+          const ymStpResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(ymStpCode)}`);
+          if (ymStpResponse && ymStpResponse.ok) {
+            const ymStpProducts = await ymStpResponse.json();
+            if (ymStpProducts && ymStpProducts.length > 0) {
+              allYmStpProducts.push(ymStpProducts[0]);
+              console.log(`  ✅ Fetched YM STP: ${ymStpCode}`);
+            }
+          }
+        } catch (error) {
+          console.error(`Error fetching YM STP product for ${ymStpCode}:`, error);
+        }
+      }
+
+      // Merge YM STP with existing ymStpData (avoiding duplicates)
+      allYmStpProducts.forEach(ymStp => {
+        if (!ymStpData.find(item => item.stok_kodu === ymStp.stok_kodu)) {
+          ymStpData.push(ymStp);
+        }
+      });
+
+      console.log(`✅ Total YM STP products for STOK KARTI: ${ymStpData.length}`);
+
+      // Step 2: Get YM ST products by removing .P suffix from YM STP products
+      // ✅ FIX: YM ST count = YM STP count (1:1 mapping, NOT from FILMAŞIN alternatives!)
+      const uniqueYmStCodesForStokKarti = new Set();
+      for (const ymStpCode of uniqueYmStpCodesForStokKarti) {
+        // Simply remove .P suffix to get main YM ST product
+        if (ymStpCode.endsWith('.P')) {
+          const ymStCode = ymStpCode.slice(0, -2); // Remove ".P"
+          uniqueYmStCodesForStokKarti.add(ymStCode);
+          console.log(`  ✅ YM STP: ${ymStpCode} → YM ST: ${ymStCode}`);
+        }
+      }
+
+      console.log(`📊 Found ${uniqueYmStCodesForStokKarti.size} main YM ST products (1:1 with YM STP):`);
       Array.from(uniqueYmStCodesForStokKarti).forEach(code => console.log(`  - ${code}`));
 
-      // Fetch all YM ST products
+      // Fetch all YM ST products for stok karti
       const allYmStProducts = [];
       for (const ymStCode of uniqueYmStCodesForStokKarti) {
         try {
@@ -12286,7 +12329,7 @@ const TavliBalyaTelNetsis = () => {
             const ymStProducts = await ymStResponse.json();
             if (ymStProducts && ymStProducts.length > 0) {
               allYmStProducts.push(ymStProducts[0]);
-              console.log(`  ✅ Fetched ${ymStCode}`);
+              console.log(`  ✅ Fetched YM ST: ${ymStCode}`);
             }
           }
         } catch (error) {
@@ -12406,26 +12449,45 @@ const TavliBalyaTelNetsis = () => {
           console.error(`Error fetching YM TT recipes for ${ymTtStokKodu}:`, error);
         }
 
-        // Fetch YM STP recipes from database if pressing needed (cap > 1.8mm)
-        const cap = parseFloat(excelData.mmData.cap);
-        if (cap > 1.8) {
-          const ymStpStokKodu = `${mainYmSt.stok_kodu}.P`;
-          console.log(`📋 Fetching YM STP: ${ymStpStokKodu}`);
+      }
 
-          try {
-            const ymStpRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(ymStpStokKodu)}`);
-            if (ymStpRecipeResponse && ymStpRecipeResponse.ok) {
-              const recipes = await ymStpRecipeResponse.json();
-              recipes.forEach(recipe => {
-                recipe.ym_stp_stok_kodu = ymStpStokKodu;
-                recipe.sequence = sequence;
+      // ✅ FIX: Extract ALL unique YM STP products from YM TT recipes (not just main YM ST)
+      // YM TT alternatives use different YM STP products, so we need to fetch recipes for ALL of them
+      console.log('🔍 === EXTRACTING YM STP PRODUCTS FROM YM TT RECIPES ===');
+      const uniqueYmStpProducts = new Set();
+
+      for (const recipe of ymTtRecipesFromDb) {
+        // Find bilesen that are YM STP products (end with .P)
+        if (recipe.operasyon_bilesen === 'B' && recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.P')) {
+          uniqueYmStpProducts.add(recipe.bilesen_kodu);
+        }
+      }
+
+      console.log(`📊 Found ${uniqueYmStpProducts.size} unique YM STP products in YM TT recipes:`, Array.from(uniqueYmStpProducts));
+
+      // Fetch recipes for ALL YM STP products found in YM TT recipes
+      for (const ymStpStokKodu of uniqueYmStpProducts) {
+        console.log(`📋 Fetching YM STP recipes for: ${ymStpStokKodu}`);
+
+        try {
+          const ymStpRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(ymStpStokKodu)}`);
+          if (ymStpRecipeResponse && ymStpRecipeResponse.ok) {
+            const recipes = await ymStpRecipeResponse.json();
+            recipes.forEach(recipe => {
+              recipe.ym_stp_stok_kodu = ymStpStokKodu;
+              // Find sequence from task that uses this YM STP
+              const matchingTask = tasks.find(t => {
+                const allYmSts = [...(t.excelData?.selectedYmSts || []), ...(t.excelData?.autoGeneratedYmSts || [])];
+                const mainYmSt = allYmSts[t.excelData?.mainYmStIndex || 0];
+                return mainYmSt && `${mainYmSt.stok_kodu}.P` === ymStpStokKodu;
               });
-              ymStpRecipesFromDb.push(...recipes);
-              console.log(`📋 Fetched ${recipes.length} YM STP recipes for ${ymStpStokKodu}`);
-            }
-          } catch (error) {
-            console.error(`Error fetching YM STP recipes for ${ymStpStokKodu}:`, error);
+              recipe.sequence = matchingTask?.excelData?.sequence || '00';
+            });
+            ymStpRecipesFromDb.push(...recipes);
+            console.log(`📋 Fetched ${recipes.length} YM STP recipes for ${ymStpStokKodu}`);
           }
+        } catch (error) {
+          console.error(`Error fetching YM STP recipes for ${ymStpStokKodu}:`, error);
         }
       }
 
@@ -12601,28 +12663,32 @@ const TavliBalyaTelNetsis = () => {
       }
 
       // YM ST REÇETE Sheet - Use PERFECTED format
-      // ✅ FIX: Include ALL YM ST products used in YM TT AND YM STP recipes (not just from excelData)
+      // ✅ FIX: YM ST products = YM STP products with .P removed (1:1 mapping)
+      // NOT from FILMAŞIN alternatives in YM STP recipes!
       const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
       ymStReceteSheet.addRow(receteHeaders);
 
-      // Extract all unique YM ST stok_kodu values from YM TT recipes AND YM STP recipes
+      // Get main YM ST products by removing .P from YM STP products
       const uniqueYmStCodes = new Set();
+
+      // Extract YM STP products from YM TT recipes first
+      const ymStpCodesFromYmTt = new Set();
       ymTtRecipesFromDb.forEach(recipe => {
-        if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
-          uniqueYmStCodes.add(recipe.bilesen_kodu);
+        if (recipe.operasyon_bilesen === 'B' && recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.P')) {
+          ymStpCodesFromYmTt.add(recipe.bilesen_kodu);
         }
       });
 
-      // ✅ CRITICAL FIX: Also extract YM ST products from YM STP recipes
-      // YM STP uses YM ST products as components (e.g., base product before pressing)
-      ymStpRecipesFromDb.forEach(recipe => {
-        if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.') && !recipe.bilesen_kodu.endsWith('.P')) {
-          uniqueYmStCodes.add(recipe.bilesen_kodu);
+      // Remove .P suffix to get main YM ST products
+      ymStpCodesFromYmTt.forEach(ymStpCode => {
+        if (ymStpCode.endsWith('.P')) {
+          const ymStCode = ymStpCode.slice(0, -2);
+          uniqueYmStCodes.add(ymStCode);
         }
       });
 
-      console.log(`\n🔍 === EXTRACTING ALL YM ST PRODUCTS FROM YM TT AND YM STP RECIPES ===`);
-      console.log(`📊 Found ${uniqueYmStCodes.size} unique YM ST products used in YM TT and YM STP:`);
+      console.log(`\n🔍 === EXTRACTING MAIN YM ST PRODUCTS (1:1 with YM STP) ===`);
+      console.log(`📊 Found ${uniqueYmStCodes.size} main YM ST products (YM STP count: ${ymStpCodesFromYmTt.size}):`);
       Array.from(uniqueYmStCodes).forEach(code => console.log(`  - ${code}`));
 
       // Fetch YM ST recipes from database for ALL products used in YM TT and YM STP
