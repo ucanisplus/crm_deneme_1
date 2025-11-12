@@ -6510,9 +6510,10 @@ const TavliBalyaTelNetsis = () => {
       stok_kodu: stokKodu,
       stok_adi: generatedStokAdi,
       product_type: mmData.product_type, // TAVLI or BALYA
-      // ✅ FIX: Database constraint chk_product_type_yaglama only allows yaglama_tipi for BALYA products
+      // ✅ FIX: Database constraint requires BALYA products to have valid yaglama_tipi (not empty string)
       // TAVLI products must have NULL yaglama_tipi (yaglama info is already in stok_adi)
-      yaglama_tipi: mmData.product_type === 'BALYA' ? (mmData.yaglama_tipi || '') : null,
+      // Default to 'Yağsız' if yaglama_tipi is empty for BALYA products
+      yaglama_tipi: mmData.product_type === 'BALYA' ? (mmData.yaglama_tipi || 'Yağsız') : null,
       grup_kodu: 'MM',
       kod_1: 'TT', // Changed from GT to TT
       turu: 'M',
@@ -14784,7 +14785,10 @@ const TavliBalyaTelNetsis = () => {
     // Then add packaging options
     if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
     if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
-    if (paketlemeSecenekleri.karton) suffixes.push('Krtn');
+    // ✅ FIX: Karton only for oiled products (per genel2.csv: "Yağlı ürünlerde ekle")
+    if (paketlemeSecenekleri.karton && mmData.yaglama_tipi && mmData.yaglama_tipi !== '' && mmData.yaglama_tipi !== 'Yağsız') {
+      suffixes.push('Krtn');
+    }
 
     console.log('📝 Packaging suffixes:', suffixes);
 
