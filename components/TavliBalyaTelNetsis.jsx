@@ -10957,6 +10957,60 @@ const TavliBalyaTelNetsis = () => {
       }
     }
 
+    // ✅ FIX: Extract direct YM ST from alternative YM TT recipes (priority > 0, < 1.8mm products without .P)
+    console.log('🔧 Processing direct YM ST from YM TT alternative recipes...');
+    for (const recipe of ymTtAltRecipes) {
+      if (recipe.bilesen_kodu &&
+          recipe.bilesen_kodu.startsWith('YM.ST.') &&
+          !recipe.bilesen_kodu.endsWith('.P') &&
+          !recipe.bilesen_kodu.startsWith('SM-AMB') &&
+          recipe.operasyon_bilesen === 'B') {
+
+        const ymStKodu = recipe.bilesen_kodu;
+
+        // Check if already in map
+        if (!ymStMap.has(ymStKodu)) {
+          console.log(`📋 Found direct YM ST in ALT recipe (priority ${recipe.priority}): ${ymStKodu}, fetching...`);
+
+          let ymSt = ymStData.find(ym => ym.stok_kodu === ymStKodu);
+
+          if (!ymSt) {
+            console.log(`⚠️ YM ST not found in upfront data, fetching individually: ${ymStKodu}`);
+            const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymStKodu)}`);
+            if (ymStResponse && ymStResponse.ok) {
+              const ymStArray = await ymStResponse.json();
+              if (ymStArray.length > 0) {
+                ymSt = ymStArray[0];
+              }
+            }
+          }
+
+          if (ymSt) {
+            console.log(`✅ Adding direct YM ST from ALT recipe: ${ymSt.stok_kodu}`);
+            ymStMap.set(ymSt.stok_kodu, ymSt);
+
+            // Also fetch its recipes
+            let ymStRecipes = ymStRecipeData.filter(r => r.mamul_kodu === ymSt.stok_kodu);
+            if (ymStRecipes.length === 0) {
+              console.log(`⚠️ No YM ST recipes in upfront data, fetching individually for ${ymSt.stok_kodu}...`);
+              const recipeResp = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
+              if (recipeResp && recipeResp.ok) {
+                ymStRecipes = await recipeResp.json();
+              }
+            }
+            ymStRecipes.forEach(r => {
+              const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
+              if (!ymStRecipeMap.has(key)) {
+                ymStRecipeMap.set(key, { ...r, ym_st_stok_kodu: ymSt.stok_kodu });
+              }
+            });
+          } else {
+            console.warn(`⚠️ YM ST not found in database: ${ymStKodu}`);
+          }
+        }
+      }
+    }
+
     // API call statistics
     console.log('📊 === API CALL STATISTICS ===');
 
