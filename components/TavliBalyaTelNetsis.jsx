@@ -7448,20 +7448,20 @@ const TavliBalyaTelNetsis = () => {
           if (!existingYmSt || existingYmSt.length === 0) {
             console.log(`   ❌ YM ST not found, creating: ${baseYmStKodu}`);
 
-            // Create YM ST product
-            const ymStData = {
+            // ✅ FIX: Use generateYmStDatabaseData for complete data format (same as main save flow)
+            // Create temporary YM ST object with required fields
+            const tempYmSt = {
               stok_kodu: baseYmStKodu,
               stok_adi: `YM Siyah Tel ${cap.toFixed(2)} mm HM:${filmasinCode}.${quality}`,
-              grup_kodu: 'YM',
-              kod_1: 'ST',
               cap: cap,
               filmasin: filmasin,
               quality: quality,
-              kdv_orani: 20,
-              muh_detay: '28',
-              depo_kodu: '35',
-              stok_turu: 'D'
+              ingilizce_isim: `YM Black Wire ${cap.toFixed(2)} mm HM:${filmasinCode}.${quality}`,
+              priority: alternative.priority
             };
+
+            // Use the same data generation function as main save flow
+            const ymStData = generateYmStDatabaseData(tempYmSt);
 
             const ymStCreateResponse = await fetchWithAuth(API_URLS.galYmSt, {
               method: 'POST',
