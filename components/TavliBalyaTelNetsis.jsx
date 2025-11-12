@@ -10365,6 +10365,48 @@ const TavliBalyaTelNetsis = () => {
                         });
                       });
 
+                      // ✅ FIX: Add ALL YM ST bilesens from YM STP recipes
+                      for (const recipe of ymStpRecipes) {
+                        if (recipe.bilesen_kodu &&
+                            recipe.bilesen_kodu.startsWith('YM.ST.') &&
+                            !recipe.bilesen_kodu.startsWith('SM-AMB') &&
+                            (recipe.operasyon_bilesen === 'B' || recipe.operasyon_bilesen === 'Bileşen')) {
+
+                          const ymStBilesenKodu = recipe.bilesen_kodu;
+                          let ymStBilesen = ymStData.find(ym => ym.stok_kodu === ymStBilesenKodu);
+
+                          if (!ymStBilesen) {
+                            console.log(`⚠️ YM ST bilesen not found in upfront data, fetching: ${ymStBilesenKodu}`);
+                            const resp = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymStBilesenKodu)}`);
+                            if (resp && resp.ok) {
+                              const arr = await resp.json();
+                              if (arr.length > 0) ymStBilesen = arr[0];
+                            }
+                          }
+
+                          if (ymStBilesen && !ymStMap.has(ymStBilesen.stok_kodu)) {
+                            console.log(`✅ Adding YM ST bilesen from YM STP recipe: ${ymStBilesen.stok_kodu}`);
+                            ymStMap.set(ymStBilesen.stok_kodu, ymStBilesen);
+
+                            // Also fetch its recipes
+                            let ymStBilesenRecipes = ymStRecipeData.filter(r => r.mamul_kodu === ymStBilesen.stok_kodu);
+                            if (ymStBilesenRecipes.length === 0) {
+                              console.log(`⚠️ No YM ST recipes in upfront data, fetching individually for ${ymStBilesen.stok_kodu}...`);
+                              const recipeResp = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(ymStBilesen.stok_kodu)}`);
+                              if (recipeResp && recipeResp.ok) {
+                                ymStBilesenRecipes = await recipeResp.json();
+                              }
+                            }
+                            ymStBilesenRecipes.forEach(r => {
+                              const key = `${ymStBilesen.stok_kodu}-${r.bilesen_kodu}`;
+                              if (!ymStRecipeMap.has(key)) {
+                                ymStRecipeMap.set(key, { ...r, ym_st_stok_kodu: ymStBilesen.stok_kodu });
+                              }
+                            });
+                          }
+                        }
+                      }
+
                       // Also fetch the underlying YM ST (without .P) that was pressed
                       const baseYmStKodu = bilesenKodu.replace('.P', '');
                       let baseYmSt = ymStData.find(r => r.stok_kodu === baseYmStKodu);
@@ -10764,6 +10806,47 @@ const TavliBalyaTelNetsis = () => {
                               });
                             }
                           });
+
+                          // ✅ FIX: Add ALL YM ST bilesens from YM STP recipes (ALT path)
+                          for (const recipe of ymStpRecipes) {
+                            if (recipe.bilesen_kodu &&
+                                recipe.bilesen_kodu.startsWith('YM.ST.') &&
+                                !recipe.bilesen_kodu.startsWith('SM-AMB') &&
+                                (recipe.operasyon_bilesen === 'B' || recipe.operasyon_bilesen === 'Bileşen')) {
+
+                              const ymStBilesenKodu = recipe.bilesen_kodu;
+                              let ymStBilesen = ymStData.find(ym => ym.stok_kodu === ymStBilesenKodu);
+
+                              if (!ymStBilesen) {
+                                console.log(`⚠️ YM ST bilesen not found in upfront data (ALT), fetching: ${ymStBilesenKodu}`);
+                                const resp = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymStBilesenKodu)}`);
+                                if (resp && resp.ok) {
+                                  const arr = await resp.json();
+                                  if (arr.length > 0) ymStBilesen = arr[0];
+                                }
+                              }
+
+                              if (ymStBilesen && !ymStMap.has(ymStBilesen.stok_kodu)) {
+                                console.log(`✅ Adding YM ST bilesen from YM STP recipe (ALT): ${ymStBilesen.stok_kodu}`);
+                                ymStMap.set(ymStBilesen.stok_kodu, ymStBilesen);
+
+                                // Also fetch its recipes
+                                let ymStBilesenRecipes = ymStRecipeData.filter(r => r.mamul_kodu === ymStBilesen.stok_kodu);
+                                if (ymStBilesenRecipes.length === 0) {
+                                  const recipeResp = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(ymStBilesen.stok_kodu)}`);
+                                  if (recipeResp && recipeResp.ok) {
+                                    ymStBilesenRecipes = await recipeResp.json();
+                                  }
+                                }
+                                ymStBilesenRecipes.forEach(r => {
+                                  const key = `${ymStBilesen.stok_kodu}-${r.bilesen_kodu}`;
+                                  if (!ymStRecipeMap.has(key)) {
+                                    ymStRecipeMap.set(key, { ...r, ym_st_stok_kodu: ymStBilesen.stok_kodu });
+                                  }
+                                });
+                              }
+                            }
+                          }
                         }
                       }
                     }
@@ -10824,6 +10907,47 @@ const TavliBalyaTelNetsis = () => {
                     });
                   }
                 });
+
+                // ✅ FIX: Add ALL YM ST bilesens from YM STP recipes (alternative YM TT recipes path)
+                for (const recipe of ymStpRecipes) {
+                  if (recipe.bilesen_kodu &&
+                      recipe.bilesen_kodu.startsWith('YM.ST.') &&
+                      !recipe.bilesen_kodu.startsWith('SM-AMB') &&
+                      (recipe.operasyon_bilesen === 'B' || recipe.operasyon_bilesen === 'Bileşen')) {
+
+                    const ymStBilesenKodu = recipe.bilesen_kodu;
+                    let ymStBilesen = ymStData.find(ym => ym.stok_kodu === ymStBilesenKodu);
+
+                    if (!ymStBilesen) {
+                      console.log(`⚠️ YM ST bilesen not found in upfront data (ALT YM TT), fetching: ${ymStBilesenKodu}`);
+                      const resp = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymStBilesenKodu)}`);
+                      if (resp && resp.ok) {
+                        const arr = await resp.json();
+                        if (arr.length > 0) ymStBilesen = arr[0];
+                      }
+                    }
+
+                    if (ymStBilesen && !ymStMap.has(ymStBilesen.stok_kodu)) {
+                      console.log(`✅ Adding YM ST bilesen from YM STP recipe (ALT YM TT): ${ymStBilesen.stok_kodu}`);
+                      ymStMap.set(ymStBilesen.stok_kodu, ymStBilesen);
+
+                      // Also fetch its recipes
+                      let ymStBilesenRecipes = ymStRecipeData.filter(r => r.mamul_kodu === ymStBilesen.stok_kodu);
+                      if (ymStBilesenRecipes.length === 0) {
+                        const recipeResp = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(ymStBilesen.stok_kodu)}`);
+                        if (recipeResp && recipeResp.ok) {
+                          ymStBilesenRecipes = await recipeResp.json();
+                        }
+                      }
+                      ymStBilesenRecipes.forEach(r => {
+                        const key = `${ymStBilesen.stok_kodu}-${r.bilesen_kodu}`;
+                        if (!ymStRecipeMap.has(key)) {
+                          ymStRecipeMap.set(key, { ...r, ym_st_stok_kodu: ymStBilesen.stok_kodu });
+                        }
+                      });
+                    }
+                  }
+                }
               }
             } else {
               console.warn(`⚠️ YM STP not found in database: ${ymStpKodu}`);
