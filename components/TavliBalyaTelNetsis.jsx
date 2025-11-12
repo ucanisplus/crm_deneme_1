@@ -7479,18 +7479,15 @@ const TavliBalyaTelNetsis = () => {
               const flmCode = `FLM.${filmasinCode}.${quality}`;
               console.log(`   📝 Creating YM ST recipe: ${flmCode} → ${baseYmStKodu}`);
 
-              // ✅ FIX: Delete existing recipes in parallel (not one-by-one)
-              const existingRecipeResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?ym_st_stok_kodu=${encodeURIComponent(baseYmStKodu)}`);
-              if (existingRecipeResponse && existingRecipeResponse.ok) {
-                const existingRecipes = await existingRecipeResponse.json();
-                if (existingRecipes.length > 0) {
-                  await Promise.all(
-                    existingRecipes.map(recipe =>
-                      fetchWithAuth(`${API_URLS.galYmStRecete}/${recipe.id}`, { method: 'DELETE' })
-                        .catch(err => console.error(`Failed to delete YM ST recipe ${recipe.id}:`, err))
-                    )
-                  );
-                }
+              // ✅ OPTIMIZED: Use bulk delete endpoint instead of deleting one-by-one
+              try {
+                await fetchWithAuth(`${API_URLS.galYmStRecete}/bulk/${encodeURIComponent(baseYmStKodu)}`, {
+                  method: 'DELETE'
+                });
+                console.log(`   ✅ Bulk deleted existing YM ST recipes for ${baseYmStKodu}`);
+              } catch (deleteError) {
+                // If bulk delete fails (e.g., no recipes exist), that's okay - continue
+                console.log(`   ⏭️ No existing recipes to delete for ${baseYmStKodu}`);
               }
 
               // Create FLM component
