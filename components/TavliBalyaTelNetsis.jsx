@@ -11864,10 +11864,11 @@ const TavliBalyaTelNetsis = () => {
     // Sadece ana YMST için MM TT reçete satırları ekle
     const mmRecipe = { ...excelData.allRecipes.mmRecipes[mainYmStIndex_] } || {};
     
-    
+
     // ✅ FIXED: Create correct YM.TT code - SHARED by both TAVLI and BALYA
     const capFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
-    const correctStokKodu = `YM.TT.${capFormatted}.${sequence}`;
+    const productType = excelData.mmData.product_type || 'BAG'; // BAG or TAVLI
+    const correctStokKodu = `YM.TT.${productType}.${capFormatted}.${sequence}`;
 
     // Fix recipe YM.TT codes - create new object
     const fixedRecipe = {};
@@ -12117,7 +12118,8 @@ const TavliBalyaTelNetsis = () => {
       if (mainYmSt) {
         // ✅ FIXED: YM.TT is SHARED by both TAVLI and BALYA
         const capFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
-        const ymTtStokKodu = `YM.TT.${capFormatted}.${excelData.sequence}`;
+        const productType = excelData.mmData.product_type || 'BAG'; // BAG or TAVLI
+        const ymTtStokKodu = `YM.TT.${productType}.${capFormatted}.${excelData.sequence}`;
         const ymTtItem = {
           stok_kodu: ymTtStokKodu,
           cap: excelData.mmData.cap,
@@ -12382,9 +12384,11 @@ const TavliBalyaTelNetsis = () => {
 
         // ✅ CRITICAL FIX: YM TT uses MM cap, NOT YM ST cap! (like YM GT uses MM GT cap in GalvanizliTel)
         const mmCapFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
-        const ymTtStokKodu = `YM.TT.${mmCapFormatted}.${sequence}`;
+        // ✅ FIX: Include product_type in YM TT stok kodu (BALYA/TAVLI)
+        const productType = excelData.mmData.product_type || 'BAG'; // BAG or TAVLI
+        const ymTtStokKodu = `YM.TT.${productType}.${mmCapFormatted}.${sequence}`;
 
-        console.log(`📋 Fetching YM TT: ${ymTtStokKodu} (MM cap: ${excelData.mmData.cap}mm, NOT YM ST cap: ${mainYmSt.cap}mm)`);
+        console.log(`📋 Fetching YM TT: ${ymTtStokKodu} (MM cap: ${excelData.mmData.cap}mm, product type: ${productType})`);
 
         // Fetch YM TT recipes from database (all priorities)
         try {
@@ -12454,7 +12458,8 @@ const TavliBalyaTelNetsis = () => {
         // ✅ FIXED: Use YM.TT logic - SHARED by both TAVLI and BALYA
         const mmRecipe = { ...excelData.allRecipes.mmRecipes[mainYmStIndex] } || {};
         const capFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
-        const correctStokKodu = `YM.TT.${capFormatted}.${sequence}`;
+        const productType = excelData.mmData.product_type || 'BAG'; // BAG or TAVLI
+        const correctStokKodu = `YM.TT.${productType}.${capFormatted}.${sequence}`;
 
         // Fix YM.TT key in recipe
         const fixedRecipe = {};
@@ -12771,7 +12776,8 @@ const TavliBalyaTelNetsis = () => {
       // ✅ FIXED: Add MM TT recipes - YM.TT is SHARED by both TAVLI and BALYA
       const mmRecipe = { ...excelData.allRecipes.mmRecipes[mainYmStIndex_] } || {};
       const capFormatted = Math.round(parseFloat(excelData.mmData.cap) * 100).toString().padStart(4, '0');
-      const correctStokKodu = `YM.TT.${capFormatted}.${sequence}`;
+      const productType = excelData.mmData.product_type || 'BAG'; // BAG or TAVLI
+      const correctStokKodu = `YM.TT.${productType}.${capFormatted}.${sequence}`;
 
       // Fix YM.TT key in recipe (same logic as individual function)
       const fixedRecipe = {};
@@ -13417,7 +13423,8 @@ const TavliBalyaTelNetsis = () => {
     // ✅ FIXED: Tavlı/Balya uses YM.TT intermediates - SHARED by both
     // Create correct YM.TT stok kodu - should match MM TT sequence
     const capFormatted = Math.round(parseFloat(mmData.cap) * 100).toString().padStart(4, '0');
-    const correctStokKodu = `YM.TT.${capFormatted}.${sequence}`;
+    const productType = mmData.product_type || 'BAG'; // BAG or TAVLI
+    const correctStokKodu = `YM.TT.${productType}.${capFormatted}.${sequence}`;
 
     // Fix recipe YM.TT codes - create new object
     const fixedRecipe = {};
