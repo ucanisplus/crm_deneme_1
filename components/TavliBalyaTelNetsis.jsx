@@ -7768,6 +7768,52 @@ const TavliBalyaTelNetsis = () => {
   };
 
   /**
+   * Retry wrapper with exponential backoff for 504 Gateway Timeout errors
+   * Retries up to maxRetries times with increasing delays
+   */
+  const fetchWithRetry = async (url, options = {}, maxRetries = 3) => {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetchWithAuth(url, options);
+
+        // If 504, retry with exponential backoff
+        if (response && response.status === 504) {
+          console.warn(`⚠️ 504 Gateway Timeout (attempt ${attempt}/${maxRetries}): ${options.method || 'GET'} ${url}`);
+
+          if (attempt < maxRetries) {
+            // Exponential backoff: 2s, 4s, 8s
+            const delayMs = Math.pow(2, attempt) * 1000;
+            console.log(`   ⏳ Retrying in ${delayMs/1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            continue;
+          } else {
+            console.error(`❌ Max retries reached for: ${options.method || 'GET'} ${url}`);
+            lastError = new Error(`504 Gateway Timeout after ${maxRetries} attempts`);
+            throw lastError;
+          }
+        }
+
+        // Success or other error - return response
+        return response;
+      } catch (error) {
+        console.error(`❌ Request failed (attempt ${attempt}/${maxRetries}):`, error.message);
+        lastError = error;
+
+        if (attempt < maxRetries) {
+          const delayMs = Math.pow(2, attempt) * 1000;
+          console.log(`   ⏳ Retrying in ${delayMs/1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+
+    // All retries exhausted
+    throw lastError || new Error('Request failed after all retries');
+  };
+
+  /**
    * Save MM TT Recipes (Final Product Packaging)
    * Recipe: Source (YM.TT) + TVPKT01/BAL01 + Auxiliary Components
    */
@@ -7788,8 +7834,8 @@ const TavliBalyaTelNetsis = () => {
             const batch = existing.slice(i, i + BATCH_SIZE);
             await Promise.all(
               batch.map(recipe =>
-                fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}/${recipe.id}`, { method: 'DELETE' })
-                  .catch(err => console.error(`Failed to delete recipe ${recipe.id}:`, err))
+                fetchWithRetry(`${API_URLS.tavliBalyaMmRecete}/${recipe.id}`, { method: 'DELETE' }, 3)
+                  .catch(err => console.error(`Failed to delete recipe ${recipe.id} after retries:`, err))
               )
             );
             console.log(`   Deleted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} recipes`);
@@ -7910,11 +7956,15 @@ const TavliBalyaTelNetsis = () => {
           console.log(`   💾 Saving recipe #${siraNo}: ${key} → ${bilesenKodu}`);
           console.log(`      📊 Data:`, JSON.stringify(recipeData, null, 2));
 
-          await fetchWithAuth(API_URLS.tavliBalyaMmRecete, {
+          const saveResponse = await fetchWithRetry(API_URLS.tavliBalyaMmRecete, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(recipeData)
-          });
+          }, 3);
+
+          if (!saveResponse || !saveResponse.ok) {
+            throw new Error(`Failed to save recipe #${siraNo} for ${key}: ${saveResponse ? saveResponse.status : 'No response'}`);
+          }
 
           siraNo++;
         }
@@ -8319,24 +8369,27 @@ const TavliBalyaTelNetsis = () => {
             // For new YM STs, there won't be any existing recipes, so skip the slow query
 
             try {
-              const receteResponse = await fetchWithAuth(API_URLS.galYmStRecete, {
+              const receteResponse = await fetchWithRetry(API_URLS.galYmStRecete, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(receteParams)
-              });
+              }, 3);
 
               if (receteResponse && receteResponse.ok) {
+                console.log(`   ✅ YM ST recipe saved: ${key}`);
               } else {
                 const statusCode = receteResponse ? receteResponse.status : 'unknown';
                 console.error(`YMST reçetesi kaydedilemedi: ${key}, hata kodu: ${statusCode}`);
 
                 if (statusCode === 409) {
                   console.warn(`Muhtemelen reçete zaten mevcut. Devam ediliyor.`);
+                } else {
+                  throw new Error(`Failed to save YM ST recipe ${key}: ${statusCode}`);
                 }
               }
             } catch (saveError) {
-              console.error(`YMST reçetesi kaydedilirken hata: ${saveError.message}`);
-              // Hataya rağmen devam et
+              console.error(`❌ YMST reçetesi kaydedilirken hata (all retries failed): ${saveError.message}`);
+              throw saveError; // Rethrow to stop the save process
             }
           }
         }
@@ -8461,23 +8514,23 @@ const TavliBalyaTelNetsis = () => {
       // 404 hata durumunda alternatif yöntem kullan
       let recipes = [];
       try {
-        const response = await fetchWithAuth(queryUrl);
-        
+        const response = await fetchWithRetry(queryUrl, {}, 3);
+
         // Yanıt varsa ve başarılıysa
         if (response && response.ok) {
           recipes = await response.json();
-        } 
+        }
         // 404 hatası veya başka bir hata durumunda
         else {
           const status = response ? response.status : 'unknown';
-          
+
           // 404 hatası durumunda boş dizi döndür ve işleme devam et
           if (status === 404) {
             return; // Hiç reçete yoksa silmeye gerek yok
           }
         }
       } catch (fetchError) {
-        console.error(`${typeLabel} reçeteleri aranırken hata:`, fetchError.message);
+        console.error(`${typeLabel} reçeteleri aranırken hata (after retries):`, fetchError.message);
         
         // HATA DURUMUNDA ALTERNATIF YÖNTEM: Tüm reçete listesini getir ve filtrele
         try {
@@ -8512,16 +8565,16 @@ const TavliBalyaTelNetsis = () => {
       
       for (const recipe of recipes) {
         try {
-          const deleteResponse = await fetchWithAuth(`${apiUrl}/${recipe.id}`, { method: 'DELETE' });
-          
+          const deleteResponse = await fetchWithRetry(`${apiUrl}/${recipe.id}`, { method: 'DELETE' }, 3);
+
           if (deleteResponse && deleteResponse.ok) {
             successCount++;
           } else {
-            console.error(`${typeLabel} reçetesi silinemedi: ID=${recipe.id}, HTTP ${deleteResponse ? deleteResponse.status : 'unknown'}`);
+            console.error(`${typeLabel} reçetesi silinemedi (after retries): ID=${recipe.id}, HTTP ${deleteResponse ? deleteResponse.status : 'unknown'}`);
             errorCount++;
           }
         } catch (deleteError) {
-          console.error(`${typeLabel} reçetesi silinirken hata: ${deleteError.message}`);
+          console.error(`❌ ${typeLabel} reçetesi silinirken hata (all retries failed): ${deleteError.message}`);
           errorCount++;
           // Silme hatası oluşsa bile diğer reçeteleri silmeye devam et
         }
@@ -16202,7 +16255,7 @@ const TavliBalyaTelNetsis = () => {
                           { key: 'AMB.TOKA.SIGNODE.114P. DKP', label: 'Çember Tokası', type: 'input', unit: 'AD', condition: mmData.product_type === 'TAVLI' },
                           { key: 'AMB.APEX CEMBER 38X080', label: 'Çelik Çember', type: 'input', unit: 'AD', condition: mmData.product_type === 'TAVLI' },
                           // ✅ BOTH TAVLI and BALYA components
-                          { key: 'AMB.PLASTİK.ÇEMBER', label: 'Plastik Çember', type: 'input', unit: 'M', alwaysShow: true },
+                          { key: 'AMB.PLASTİK.ÇEMBER', label: 'Plastik Çember', type: 'input', unit: 'M', condition: mmData.product_type === 'BALYA' && mmData.yaglama_tipi && mmData.yaglama_tipi !== '' },
                           { key: 'AMB.PALET', label: 'Palet', type: 'input', unit: 'AD', condition: paketlemeSecenekleri.paletli }
                         ];
 
