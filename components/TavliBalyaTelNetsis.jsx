@@ -7187,8 +7187,8 @@ const TavliBalyaTelNetsis = () => {
     try {
       console.log(`📝 Saving YM TT recipes WITH ALTERNATIVES (FILMAŞIN matrix) for: ${ymTtStokKodu}`);
 
-      // Extract diameter from YM TT stock code (e.g., YM.TT.0196.00 → 1.96mm)
-      const diameterMatch = ymTtStokKodu.match(/YM\.TT\.(\d{4})\./);
+      // Extract diameter from YM TT stock code (e.g., YM.TT.BALYA.0196.00 → 1.96mm)
+      const diameterMatch = ymTtStokKodu.match(/YM\.TT\.(?:BALYA|BAG)\.(\d{4})\./);
       if (!diameterMatch) {
         console.error(`Cannot extract diameter from YM TT code: ${ymTtStokKodu}`);
         return;
@@ -7804,12 +7804,18 @@ const TavliBalyaTelNetsis = () => {
       console.log(`📦 ALL mmRecipe keys:`, Object.keys(mmRecipe));
       console.log(`📝 sourceStokKodu parameter: ${sourceStokKodu}`);
 
-      // ✅ FIXED: Match YM TT source by diameter pattern, ignoring sequence differences
-      // Otomatik Doldur uses YM.TT.xxxx.00, but actual product has YM.TT.xxxx.01/02/etc
-      const sourcePattern = sourceStokKodu.substring(0, sourceStokKodu.lastIndexOf('.')); // Get "YM.TT.0236" from "YM.TT.0236.01"
-      const sourceEntry = recipeEntries.find(([key]) =>
-        key === sourceStokKodu || key.startsWith(sourcePattern + '.')
-      );
+      // ✅ FIXED: Match YM TT source by diameter pattern, handling BALYA/BAG in stok_kodu
+      // mmRecipe keys: YM.TT.0161.00 (no product type)
+      // sourceStokKodu: YM.TT.BALYA.0161.00 (with product type)
+      // Extract diameter: YM.TT.BALYA.0161.00 → 0161
+      const diameterMatch = sourceStokKodu.match(/YM\.TT\.(?:BALYA|BAG)?\.?(\d{4})\./);
+      const sourceEntry = diameterMatch
+        ? recipeEntries.find(([key]) => {
+            // Match by diameter: YM.TT.0161.XX or YM.TT.BALYA.0161.XX or YM.TT.BAG.0161.XX
+            const keyDiameterMatch = key.match(/YM\.TT\.(?:BALYA|BAG)?\.?(\d{4})\./);
+            return keyDiameterMatch && keyDiameterMatch[1] === diameterMatch[1];
+          })
+        : recipeEntries.find(([key]) => key === sourceStokKodu);
       const packagingEntry = recipeEntries.find(([key]) => key === 'TVPKT01' || key === 'BAL01');
       const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL'); // Optional (oiled only)
       const shrinkEntry = recipeEntries.find(([key]) => key === shrinkCode);
