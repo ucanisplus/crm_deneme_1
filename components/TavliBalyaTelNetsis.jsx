@@ -3120,7 +3120,7 @@ const TavliBalyaTelNetsis = () => {
       // Create .ST product
       autoYmSts.push({
         stok_kodu: stokKodu,
-        stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm (Coiler)`,
+        stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:ST`,
         cap: ymStDiameter,
         filmasin: 0, // .ST products have no filmasin
         quality: 'ST',
@@ -3199,7 +3199,7 @@ const TavliBalyaTelNetsis = () => {
         if (!existing) {
           autoYmSts.push({
             stok_kodu: stokKoduAlt,
-            stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm (Coiler ALT)`,
+            stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:ST`,
             cap: ymStDiameter,
             filmasin: 0,
             quality: 'ST',
@@ -3336,7 +3336,7 @@ const TavliBalyaTelNetsis = () => {
         } else {
           autoYmSts.push({
             stok_kodu: stokKodu,
-            stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm (Coiler)`,
+            stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:ST`,
             cap: ymStDiameter,
             filmasin: 0,
             quality: 'ST',
@@ -6581,30 +6581,47 @@ const TavliBalyaTelNetsis = () => {
     const capForExcel = capValue.toFixed(2);
 
     // ✅ FIX: Parse filmasin and quality from stok_kodu if not provided
-    // stok_kodu format: YM.ST.0239.0600.1008 or YM.ST.0239.ST
+    // stok_kodu format: YM.ST.0239.0600.1008 (FILMAŞIN) or YM.ST.0239.ST (COILER)
     let filmasinValue = ymSt.filmasin;
     let qualityValue = ymSt.quality;
+    let isCoilerProduct = false;
 
-    if (!filmasinValue || !qualityValue) {
+    if ((!filmasinValue && filmasinValue !== 0) || !qualityValue) {
       const parts = ymSt.stok_kodu.split('.');
       if (parts.length >= 5) {
-        // Format: YM.ST.0239.0600.1008
+        // Format: YM.ST.0239.0600.1008 (FILMAŞIN product)
         filmasinValue = parseInt(parts[3]) / 100; // 0600 → 6.00
         qualityValue = parts[4]; // 1008
+        isCoilerProduct = false;
       } else if (parts.length === 4 && parts[3] === 'ST') {
-        // Format: YM.ST.0239.ST (COILER product, no filmasin)
-        filmasinValue = 0;
-        qualityValue = 'ST';
+        // Format: YM.ST.0239.ST (COILER product - no filmasin, no quality)
+        filmasinValue = null;
+        qualityValue = null;
+        isCoilerProduct = true;
       }
+    }
+
+    // ✅ FIX: COILER products use HM:ST format (not "(Coiler)")
+    // Format based on existing database records:
+    // COILER: "YM Siyah Tel 1.72 mm HM:ST" / "YM Black Wire 1.72 mm Quality: ST"
+    // FILMAŞIN: "YM Siyah Tel 2.15 mm HM:0600.1006" / "YM Black Wire 2.15 mm HM:0600.1006"
+    let stokAdi, ingilizceIsim;
+    if (isCoilerProduct) {
+      stokAdi = ymSt.stok_adi || `YM Siyah Tel ${capForExcel} mm HM:ST`;
+      ingilizceIsim = ymSt.ingilizce_isim || `YM Black Wire ${capForExcel} mm Quality: ST`;
+    } else {
+      const filmasinCode = filmasinValue ? Math.round(filmasinValue * 100).toString().padStart(4, '0') : '';
+      stokAdi = ymSt.stok_adi || `YM Siyah Tel ${capForExcel} mm HM:${filmasinCode}.${qualityValue || ''}`;
+      ingilizceIsim = ymSt.ingilizce_isim || `YM Black Wire ${capForExcel} mm HM:${filmasinCode}.${qualityValue || ''}`;
     }
 
     return {
       stok_kodu: ymSt.stok_kodu,
-      stok_adi: ymSt.stok_adi || `YM Siyah Tel ${capForExcel} mm`,
+      stok_adi: stokAdi,
       grup_kodu: 'YM',
       kod_1: 'ST',
-      kod_2: filmasinValue ? filmasinValue.toString().padStart(4, '0') : '', // ✅ FIXED - Ensure 4-digit format (600 → "0600")
-      kod_3: qualityValue || '', // Store quality value in kod_3 to match Excel
+      kod_2: filmasinValue ? Math.round(filmasinValue * 100).toString().padStart(4, '0') : '', // Empty for COILER
+      kod_3: qualityValue || '', // Empty for COILER
       muh_detay: '28',
       depo_kodu: '35',
       br_1: 'KG',
@@ -6618,14 +6635,14 @@ const TavliBalyaTelNetsis = () => {
       cevrim_degeri_2: 1,
       satis_kdv_orani: '20', // Match Excel format as string
       cap: ymSt.cap,
-      filmasin: filmasinValue ? parseFloat(filmasinValue).toFixed(4) : '0.0000', // Database uses decimal with 4 decimal places (e.g., 6.0000)
-      quality: qualityValue || '',
+      filmasin: filmasinValue ? parseFloat(filmasinValue).toFixed(4) : null, // NULL for COILER products
+      quality: qualityValue || null, // NULL for COILER products
       ozel_saha_1_say: 1, // ✅ FIXED - Must ALWAYS be 1 for all YM ST products (NOT filmasin value!)
       birim_agirlik: ymSt.kg || 0,
       fiyat_birimi: 1,
       doviz_tip: 1,
       stok_turu: 'D',
-      ingilizce_isim: ymSt.ingilizce_isim || `YM Black Wire ${capForExcel} mm Quality: ${qualityValue || ''}`,
+      ingilizce_isim: ingilizceIsim,
       esnek_yapilandir: 'H',
       super_recete_kullanilsin: 'H',
       priority: ymSt.priority !== undefined ? ymSt.priority : 0 // Default to 0 for main products
