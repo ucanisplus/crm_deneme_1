@@ -7440,23 +7440,39 @@ const TavliBalyaTelNetsis = () => {
 
         console.log(`\n   📌 Checking alternative (priority ${alternative.priority}): ${altStokKodu}`);
 
+        // ✅ FIX: Detect COILER vs FILMAŞIN products and handle both
+        let cap, filmasin, quality, isCoilerProduct;
+
         // Check if it's a COILER .ST product (format: YM.ST.CCCC.ST)
         if (baseYmStKodu.endsWith('.ST')) {
-          console.log(`   ✓ COILER .ST product - these are auto-generated separately, skipping...`);
-          continue;
-        }
+          console.log(`   📝 COILER .ST product detected: ${baseYmStKodu}`);
 
-        // Parse regular FİLMAŞİN YM ST code (format: YM.ST.CCCC.FFFF.QQQQ)
-        const ymStMatch = baseYmStKodu.match(/YM\.ST\.(\d{4})\.(\d{4})\.(\d{4})/);
-        if (!ymStMatch) {
-          console.warn(`   ⚠️ Cannot parse YM ST code: ${baseYmStKodu}, skipping...`);
-          continue;
-        }
+          // Parse COILER format: YM.ST.0169.ST
+          const coilerMatch = baseYmStKodu.match(/YM\.ST\.(\d{4})\.ST/);
+          if (!coilerMatch) {
+            console.warn(`   ⚠️ Cannot parse COILER YM ST code: ${baseYmStKodu}, skipping...`);
+            continue;
+          }
 
-        const [_, capCode, filmasinCode, qualityCode] = ymStMatch;
-        const cap = parseInt(capCode) / 100;
-        const filmasin = parseInt(filmasinCode) / 100;
-        const quality = qualityCode;
+          cap = parseInt(coilerMatch[1]) / 100;
+          filmasin = null; // COILER products have no filmasin
+          quality = null; // COILER products have no quality
+          isCoilerProduct = true;
+
+        } else {
+          // Parse regular FİLMAŞİN YM ST code (format: YM.ST.CCCC.FFFF.QQQQ)
+          const ymStMatch = baseYmStKodu.match(/YM\.ST\.(\d{4})\.(\d{4})\.(\d{4})/);
+          if (!ymStMatch) {
+            console.warn(`   ⚠️ Cannot parse YM ST code: ${baseYmStKodu}, skipping...`);
+            continue;
+          }
+
+          const [_, capCode, filmasinCode, qualityCode] = ymStMatch;
+          cap = parseInt(capCode) / 100;
+          filmasin = parseInt(filmasinCode) / 100;
+          quality = qualityCode;
+          isCoilerProduct = false;
+        }
 
         // STEP 1: Check if base YM ST exists, if not create it + recipe
         console.log(`   🔍 Checking if YM ST exists: ${baseYmStKodu}`);
@@ -7472,11 +7488,15 @@ const TavliBalyaTelNetsis = () => {
             // Create temporary YM ST object with required fields
             const tempYmSt = {
               stok_kodu: baseYmStKodu,
-              stok_adi: `YM Siyah Tel ${cap.toFixed(2)} mm HM:${filmasinCode}.${quality}`,
+              stok_adi: isCoilerProduct
+                ? `YM Siyah Tel ${cap.toFixed(2)} mm HM:ST`
+                : `YM Siyah Tel ${cap.toFixed(2)} mm HM:${Math.round(filmasin * 100).toString().padStart(4, '0')}.${quality}`,
               cap: cap,
-              filmasin: filmasin,
-              quality: quality,
-              ingilizce_isim: `YM Black Wire ${cap.toFixed(2)} mm HM:${filmasinCode}.${quality}`,
+              filmasin: filmasin, // null for COILER
+              quality: quality, // null for COILER
+              ingilizce_isim: isCoilerProduct
+                ? `YM Black Wire ${cap.toFixed(2)} mm Quality: ST`
+                : `YM Black Wire ${cap.toFixed(2)} mm HM:${Math.round(filmasin * 100).toString().padStart(4, '0')}.${quality}`,
               priority: alternative.priority
             };
 
@@ -7492,9 +7512,13 @@ const TavliBalyaTelNetsis = () => {
             if (ymStCreateResponse && ymStCreateResponse.ok) {
               console.log(`   ✅ YM ST created: ${baseYmStKodu}`);
 
-              // Create YM ST recipe (FLM → YM ST)
-              const flmCode = `FLM.${filmasinCode}.${quality}`;
-              console.log(`   📝 Creating YM ST recipe: ${flmCode} → ${baseYmStKodu}`);
+              // ✅ FIX: COILER products don't need FLM recipes (they're alternatives without their own production recipes)
+              if (isCoilerProduct) {
+                console.log(`   ⏭️ COILER product - skipping recipe creation (used as YM TT alternative only)`);
+              } else {
+                // Create YM ST recipe (FLM → YM ST) for FILMAŞIN products
+                const flmCode = `FLM.${Math.round(filmasin * 100).toString().padStart(4, '0')}.${quality}`;
+                console.log(`   📝 Creating YM ST recipe: ${flmCode} → ${baseYmStKodu}`);
 
               // ✅ OPTIMIZED: Use bulk delete endpoint instead of deleting one-by-one
               try {
@@ -7546,7 +7570,8 @@ const TavliBalyaTelNetsis = () => {
                 })
               });
 
-              console.log(`   ✅ YM ST recipe created`);
+                console.log(`   ✅ YM ST recipe created`);
+              } // End else (FILMAŞIN recipe creation)
             } else {
               console.error(`   ❌ Failed to create YM ST: ${baseYmStKodu}`);
             }
