@@ -7844,10 +7844,10 @@ const TavliBalyaTelNetsis = () => {
       console.log(`🗑️ Deleting existing MM TT recipes for mm_id: ${mmTtId}...`);
 
       try {
-        const bulkDeleteResponse = await fetchWithRetry(
+        // ✅ TEMP FIX: Disable retries to prevent connection pool exhaustion on timeouts
+        const bulkDeleteResponse = await fetchWithAuth(
           `${API_URLS.tavliBalyaMmRecete}/bulk/${mmTtId}`,
-          { method: 'DELETE' },
-          3
+          { method: 'DELETE' }
         );
 
         if (bulkDeleteResponse && bulkDeleteResponse.ok) {
@@ -7973,11 +7973,13 @@ const TavliBalyaTelNetsis = () => {
           console.log(`   💾 Saving recipe #${siraNo}: ${key} → ${bilesenKodu}`);
           console.log(`      📊 Data:`, JSON.stringify(recipeData, null, 2));
 
-          const saveResponse = await fetchWithRetry(API_URLS.tavliBalyaMmRecete, {
+          // ✅ TEMP FIX: Disable retries to prevent connection pool exhaustion on timeouts
+          // TODO: Fix backend connection pooling instead
+          const saveResponse = await fetchWithAuth(API_URLS.tavliBalyaMmRecete, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(recipeData)
-          }, 3);
+          });
 
           if (!saveResponse || !saveResponse.ok) {
             throw new Error(`Failed to save recipe #${siraNo} for ${key}: ${saveResponse ? saveResponse.status : 'No response'}`);
