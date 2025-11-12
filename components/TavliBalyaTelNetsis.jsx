@@ -7821,27 +7821,25 @@ const TavliBalyaTelNetsis = () => {
     try {
       console.log(`📝 Saving MM TT recipes for: ${mmTtStokKodu}`);
 
-      // ✅ FIX: Delete existing recipes in batches to avoid 504 timeouts
-      const existingResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}?mm_id=${mmTtId}`);
-      if (existingResponse && existingResponse.ok) {
-        const existing = await existingResponse.json();
-        if (existing.length > 0) {
-          console.log(`🗑️ Deleting ${existing.length} existing MM TT recipes in batches...`);
+      // ✅ OPTIMIZED: Use bulk delete endpoint for much faster deletion
+      console.log(`🗑️ Deleting existing MM TT recipes for mm_id: ${mmTtId}...`);
 
-          // Delete in batches of 10 to avoid overwhelming serverless function
-          const BATCH_SIZE = 10;
-          for (let i = 0; i < existing.length; i += BATCH_SIZE) {
-            const batch = existing.slice(i, i + BATCH_SIZE);
-            await Promise.all(
-              batch.map(recipe =>
-                fetchWithRetry(`${API_URLS.tavliBalyaMmRecete}/${recipe.id}`, { method: 'DELETE' }, 3)
-                  .catch(err => console.error(`Failed to delete recipe ${recipe.id} after retries:`, err))
-              )
-            );
-            console.log(`   Deleted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} recipes`);
-          }
-          console.log(`✅ Deleted all ${existing.length} MM TT recipes`);
+      try {
+        const bulkDeleteResponse = await fetchWithRetry(
+          `${API_URLS.tavliBalyaMmRecete}/bulk/${mmTtId}`,
+          { method: 'DELETE' },
+          3
+        );
+
+        if (bulkDeleteResponse && bulkDeleteResponse.ok) {
+          const deleteResult = await bulkDeleteResponse.json();
+          console.log(`✅ Bulk deleted ${deleteResult.deletedCount} existing MM TT recipes in one operation!`);
+        } else {
+          console.warn(`⚠️ Bulk delete failed (${bulkDeleteResponse?.status}), recipes may still exist`);
         }
+      } catch (deleteError) {
+        console.error(`❌ Bulk delete error: ${deleteError.message}`);
+        // Continue anyway - new recipes will be created
       }
 
       let siraNo = 1;
