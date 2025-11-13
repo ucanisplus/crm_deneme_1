@@ -12355,17 +12355,29 @@ const TavliBalyaTelNetsis = () => {
       // ✅ FIX: Extract YM STP products from YM TT recipes, then YM ST products from YM STP recipes
       console.log('\n🔍 === EXTRACTING YM STP AND YM ST PRODUCTS FOR STOK KARTI ===');
 
-      // Step 1: Extract YM STP products (.P suffix) from YM TT recipes
+      // Step 1: Extract YM STP products (.P suffix) and direct YM ST from YM TT recipes
       const uniqueYmStpCodesForStokKarti = new Set();
+      const directYmStCodesForStokKarti = new Set(); // ✅ NEW: For < 1.5mm products
+
       for (const ymTt of ymTtData) {
         try {
           const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?mamul_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
           if (ymTtRecipeResponse && ymTtRecipeResponse.ok) {
             const recipes = await ymTtRecipeResponse.json();
             recipes.forEach(recipe => {
-              // YM TT uses YM STP products (with .P suffix)
+              // YM TT uses YM STP products (with .P suffix) for >= 1.8mm
               if (recipe.operasyon_bilesen === 'B' && recipe.bilesen_kodu && recipe.bilesen_kodu.endsWith('.P')) {
                 uniqueYmStpCodesForStokKarti.add(recipe.bilesen_kodu);
+              }
+              // ✅ FIX: YM TT uses YM ST directly (any YM.ST.* without .P) for < 1.8mm
+              // This covers:
+              // 1. < 1.5mm: YM.ST.XXXX.ST (COILER)
+              // 2. 1.5-1.8mm: YM.ST.XXXX.YYYY.ZZZZ (Filmaşin) + YM.ST.XXXX.ST (COILER in ALT)
+              else if (recipe.operasyon_bilesen === 'B' && recipe.bilesen_kodu &&
+                       recipe.bilesen_kodu.startsWith('YM.ST.') && !recipe.bilesen_kodu.endsWith('.P')) {
+                directYmStCodesForStokKarti.add(recipe.bilesen_kodu);
+                const productType = recipe.bilesen_kodu.endsWith('.ST') ? 'COILER' : 'FILMAŞIN';
+                console.log(`  ✅ Found direct YM ST in YM TT (${productType}, no pressing): ${recipe.bilesen_kodu}`);
               }
             });
           }
@@ -12416,7 +12428,13 @@ const TavliBalyaTelNetsis = () => {
         }
       }
 
-      console.log(`📊 Found ${uniqueYmStCodesForStokKarti.size} main YM ST products (1:1 with YM STP):`);
+      // ✅ FIX: Add direct YM ST codes (< 1.5mm products with no pressing)
+      directYmStCodesForStokKarti.forEach(ymStCode => {
+        uniqueYmStCodesForStokKarti.add(ymStCode);
+        console.log(`  ✅ Direct YM ST (no YM STP): ${ymStCode}`);
+      });
+
+      console.log(`📊 Found ${uniqueYmStCodesForStokKarti.size} main YM ST products (${uniqueYmStpCodesForStokKarti.size} from YM STP + ${directYmStCodesForStokKarti.size} direct):`);
       Array.from(uniqueYmStCodesForStokKarti).forEach(code => console.log(`  - ${code}`));
 
       // Fetch all YM ST products for stok karti
@@ -12791,6 +12809,22 @@ const TavliBalyaTelNetsis = () => {
         if (ymStpCode.endsWith('.P')) {
           const ymStCode = ymStpCode.slice(0, -2);
           uniqueYmStCodes.add(ymStCode);
+        }
+      });
+
+      // ✅ FIX: Extract ALL YM ST products used in YM TT (covers all 3 scenarios)
+      // This includes:
+      // 1. < 1.5mm: YM.ST.XXXX.ST (COILER, no pressing)
+      // 2. 1.5-1.8mm: YM.ST.XXXX.YYYY.ZZZZ (Filmaşin, no pressing) + YM.ST.XXXX.ST (COILER in ALT 1)
+      // 3. ≥1.8mm: Already handled above via .P suffix removal
+      ymTtRecipesFromDb.forEach(recipe => {
+        if (recipe.operasyon_bilesen === 'B' && recipe.bilesen_kodu &&
+            recipe.bilesen_kodu.startsWith('YM.ST.') && !recipe.bilesen_kodu.endsWith('.P')) {
+          // This is a YM ST product used directly by YM TT (without pressing .P suffix)
+          // Can be either COILER (.ST) or Filmaşin (XXXX.YYYY.ZZZZ)
+          uniqueYmStCodes.add(recipe.bilesen_kodu);
+          const productType = recipe.bilesen_kodu.endsWith('.ST') ? 'COILER' : 'FILMAŞIN';
+          console.log(`  ✅ Found direct YM ST in YM TT (${productType}, no pressing): ${recipe.bilesen_kodu}`);
         }
       });
 
