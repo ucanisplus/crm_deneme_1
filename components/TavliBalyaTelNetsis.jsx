@@ -7672,12 +7672,13 @@ const TavliBalyaTelNetsis = () => {
 
               // Create YM STP product
               // ✅ FIXED: Removed kdv_orani - column doesn't exist in tavli_netsis_ym_stp table
+              // ✅ FIX: Calculate filmasinCode from filmasin variable (filmasinCode is out of scope here)
               const ymStpData = {
                 stok_kodu: ymStpKodu,
                 stok_adi: `YM Preslenmiş Tel ${cap.toFixed(2)} mm`,
                 grup_kodu: 'YM',
                 kod_1: 'STP',
-                kod_2: filmasinCode,
+                kod_2: Math.round(filmasin * 100).toString().padStart(4, '0'),
                 kod_3: quality,
                 cap: cap
               };
