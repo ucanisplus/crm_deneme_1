@@ -212,7 +212,8 @@ const getYmStAlternativesForYmTt = (ymTtDiameter, needsPressing = false) => {
 // COILER ALTERNATIVE MATRIX - For YM ST RECETE ALT Sheets
 // Based on: COİL ALTERNATİF.csv
 // ============================================================================
-const COILER_ALTERNATIVE_MATRIX = {
+// ✅ FIX: Convert to function to avoid TDZ issues during minification
+const getCoilerAlternativeMatrix = () => ({
   // Category 1: 0.84mm ONLY (YM.ST.084.ST)
   '0.84': [
     { priority: 0, cap: 2.16, filmasin: 6.0, quality: '1006' },
@@ -232,7 +233,7 @@ const COILER_ALTERNATIVE_MATRIX = {
   // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
   // Per COİL ALTERNATİF matrix: Only 5 alternatives (0-4), all 1006 grade
   // NOTE: 2.36mm (→2.40mm) only has 6.0mm alternatives (no 5.5mm)
-  '≤1.49': [
+  'lte1.49': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
@@ -285,10 +286,10 @@ const COILER_ALTERNATIVE_MATRIX = {
 
   // ✅ ADDED: Category 8: 8.00mm and above - Maximum thickness
   // Ana=10.0/1010 (1 alternative - main only)
-  '≥8.00': [
+  'gte8.00': [
     { priority: 0, cap: 2.26, filmasin: 10.0, quality: '1010' }
   ]
-};
+});
 
 // Helper: Determine which COILER category a .ST product belongs to
 const getCoilerCategory = (stokKodu) => {
@@ -300,8 +301,13 @@ const getCoilerCategory = (stokKodu) => {
 
   if (diameter === 0.84) return '0.84';
   if (diameter === 1.16) return '1.16'; // Special ZIRH TELİ product
-  if (diameter <= 1.49) return '≤1.49';
+  if (diameter <= 1.49) return 'lte1.49';
   if (diameter >= 1.50 && diameter <= 1.79) return '1.50-1.79';
+  if (diameter >= 1.80 && diameter <= 3.49) return '1.80-3.49';
+  if (diameter >= 3.50 && diameter <= 3.99) return '3.50-3.99';
+  if (diameter >= 4.00 && diameter <= 6.99) return '4.00-6.99';
+  if (diameter >= 7.00 && diameter <= 7.99) return '7.00-7.99';
+  if (diameter >= 8.00) return 'gte8.00';
 
   return null; // Outside COILER range
 };
@@ -353,7 +359,7 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
       return;
     }
 
-    const alternatives = COILER_ALTERNATIVE_MATRIX[category];
+    const alternatives = getCoilerAlternativeMatrix()[category];
     console.log(`🔄 ${stokKodu}: Category ${category}, ${alternatives.length} alternatives available`);
 
     // For each alternative priority (1-8)
@@ -7095,16 +7101,16 @@ const TavliBalyaTelNetsis = () => {
         let category = null;
         if (ymStpDiameter === 0.84) category = '0.84';
         else if (ymStpDiameter === 1.16) category = '1.16';
-        else if (ymStpDiameter <= 1.49) category = '≤1.49';
+        else if (ymStpDiameter <= 1.49) category = 'lte1.49';
         else if (ymStpDiameter >= 1.50 && ymStpDiameter <= 1.79) category = '1.50-1.79';
         else if (ymStpDiameter >= 1.80 && ymStpDiameter <= 3.49) category = '1.80-3.49';
         else if (ymStpDiameter >= 3.50 && ymStpDiameter <= 3.99) category = '3.50-3.99';
         else if (ymStpDiameter >= 4.00 && ymStpDiameter <= 6.99) category = '4.00-6.99';
         else if (ymStpDiameter >= 7.00 && ymStpDiameter <= 7.99) category = '7.00-7.99';
-        else if (ymStpDiameter >= 8.00) category = '≥8.00';
+        else if (ymStpDiameter >= 8.00) category = 'gte8.00';
 
         if (category) {
-          const alternatives = COILER_ALTERNATIVE_MATRIX[category];
+          const alternatives = getCoilerAlternativeMatrix()[category];
           console.log(`📋 YM STP ${ymStpDiameter}mm → Category ${category}: ${alternatives.length} alternatives available`);
 
           alternatives.forEach(altDef => {
