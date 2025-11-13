@@ -19115,12 +19115,34 @@ const TavliBalyaTelNetsis = () => {
                 </button>
               </div>
               
-              <p className="text-gray-600 mb-6">
-                {deleteType === 'mm' 
-                  ? 'Bu MM TT\'yi ve tüm bağlı verilerini (YM TT\'ler, reçeteler vb.) silmek istediğinizden emin misiniz?'
-                  : 'Bu YM ST\'yi ve bağlı reçetelerini silmek istediğinizden emin misiniz?'
-                }
-              </p>
+              <div className="mb-6">
+                {deleteType === 'mm' ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-yellow-800 font-medium mb-2">⚠️ Cascade Silme İşlemi</p>
+                    <p className="text-gray-700 mb-2">
+                      Bu MM TT ürününü sildiğinizde, aşağıdaki veriler de otomatik olarak silinecektir:
+                    </p>
+                    <ul className="list-disc list-inside text-gray-700 space-y-1">
+                      <li>MM TT ürünü ve tüm reçeteleri</li>
+                      <li>Bu MM'ye bağlı TÜM YM TT ürünleri ve reçeteleri</li>
+                    </ul>
+                    <p className="text-gray-700 mt-2 text-sm">
+                      <strong>Not:</strong> YM ST ve YM STP ürünleri silinmeyecektir (başka ürünler tarafından kullanılıyor olabilir).
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-yellow-800 font-medium mb-2">⚠️ Cascade Silme İşlemi</p>
+                    <p className="text-gray-700 mb-2">
+                      Bu YM ST ürününü sildiğinizde, aşağıdaki veriler de otomatik olarak silinecektir:
+                    </p>
+                    <ul className="list-disc list-inside text-gray-700 space-y-1">
+                      <li>YM ST ürünü ve tüm reçeteleri</li>
+                      <li>Bu YM ST'ye bağlı YM STP ürünü ve reçeteleri (varsa)</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
               
               <div className="flex gap-3">
                 <button
@@ -19162,10 +19184,20 @@ const TavliBalyaTelNetsis = () => {
                 </button>
               </div>
               
-              <p className="text-gray-600 mb-4">
-                {activeDbTab === 'mm' 
-                  ? 'Tüm MM TT ve ilişkili YM TT verilerini ve bunların tüm reçetelerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.'
-                  : 'Tüm YM ST verilerini ve reçetelerini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.'}
+              <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 mb-4">
+                <p className="text-red-800 font-semibold mb-2">⚠️ UYARI: VERİTABANINDAKİ TÜM ÜRÜNLER SİLİNECEK!</p>
+                <p className="text-red-700 mb-2">
+                  {activeDbTab === 'mm'
+                    ? `Bu işlem veritabanındaki TÜM ${existingMms.length} MM TT ürününü, bunlara bağlı TÜM YM TT ürünlerini ve TÜM reçeteleri kalıcı olarak silecektir.`
+                    : `Bu işlem veritabanındaki TÜM ${existingYmSts.length} YM ST ürününü, bunlara bağlı TÜM YM STP ürünlerini ve TÜM reçeteleri kalıcı olarak silecektir.`}
+                </p>
+                <p className="text-red-700 font-medium">
+                  Bu ürünler hangi talebe ait olursa olsun (şu an açık olan talep dahil) TÜM ÜRÜNLER silinecektir!
+                </p>
+              </div>
+
+              <p className="text-gray-600 mb-4 font-medium">
+                Bu işlem GERİ ALINAMAZ ve veri kaybına neden olur!
               </p>
               
               <p className="text-red-600 font-medium mb-4">
