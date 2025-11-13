@@ -7731,7 +7731,8 @@ const TavliBalyaTelNetsis = () => {
                 });
 
                 // Create STPRS01 operation
-                const pressingDuration = (4.5 / 650) * kg;
+                // ✅ FIX: Use getOperationDuration to get rate (dk/kg), not total time
+                const pressingDuration = getOperationDuration('STPRS01', kg);
                 await fetchWithAuth(API_URLS.tavliNetsisYmStpRecete, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
