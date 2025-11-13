@@ -212,8 +212,10 @@ const getYmStAlternativesForYmTt = (ymTtDiameter, needsPressing = false) => {
 // COILER ALTERNATIVE MATRIX - For YM ST RECETE ALT Sheets
 // Based on: COİL ALTERNATİF.csv
 // ============================================================================
-const COILER_ALT_MAT = {
-  '0_84': [
+// ✅ FIX: Convert to function to avoid TDZ issues during minification
+const getCoilerAlternativeMatrix = () => ({
+  // Category 1: 0.84mm ONLY (YM.ST.084.ST)
+  '0.84': [
     { priority: 0, cap: 2.16, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.16, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.26, filmasin: 5.5, quality: '1006' },
@@ -221,65 +223,93 @@ const COILER_ALT_MAT = {
     { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
     { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
   ],
-  '1_16': [
-    { priority: 0, cap: 2.26, filmasin: 5.5, quality: '1005' },
-    { priority: 1, cap: 2.16, filmasin: 5.5, quality: '1005' }
+
+  // Category 1.5: 1.16mm ONLY (Special ZIRH TELİ product)
+  '1.16': [
+    { priority: 0, cap: 2.26, filmasin: 5.5, quality: '1005' },  // Main: YM.ST.0226.0550.1005
+    { priority: 1, cap: 2.16, filmasin: 5.5, quality: '1005' }   // Alt 1: YM.ST.0216.0550.1005
   ],
-  'lte1_49': [
+
+  // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
+  // Per COİL ALTERNATİF matrix: Only 5 alternatives (0-4), all 1006 grade
+  // NOTE: 2.36mm (→2.40mm) only has 6.0mm alternatives (no 5.5mm)
+  'lte1.49': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
     { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
-    { priority: 4, cap: 2.36, filmasin: 6.0, quality: '1006' }
+    { priority: 4, cap: 2.36, filmasin: 6.0, quality: '1006' }  // 2.40mm has only 6.0mm alternatives
   ],
-  '1_50_1_79': [
+
+  // Category 3: 1.50mm to 1.79mm
+  // NOTE: 2.36mm (→2.40mm) only has 6.0mm alternatives (no 5.5mm)
+  '1.50-1.79': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
     { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
-    { priority: 4, cap: 2.36, filmasin: 6.0, quality: '1006' },
+    { priority: 4, cap: 2.36, filmasin: 6.0, quality: '1006' },  // 2.40mm: only 6.0mm (no 5.5mm)
     { priority: 5, cap: 2.16, filmasin: 6.0, quality: '1008' },
     { priority: 6, cap: 2.26, filmasin: 6.0, quality: '1008' },
-    { priority: 7, cap: 2.36, filmasin: 6.0, quality: '1008' }
+    { priority: 7, cap: 2.36, filmasin: 6.0, quality: '1008' }   // 2.40mm: only 6.0mm quality 1008
   ],
-  '1_80_3_49': [
+
+  // ✅ ADDED: Category 4: 1.80mm-3.49mm - Standard filmaşin range
+  // Ana=6.0/1006, ALT_1=6.0/1008, ALT_2=5.5/1006 (3 alternatives like in FILMAŞIN matrix)
+  '1.80-3.49': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 6.0, quality: '1008' },
     { priority: 2, cap: 2.26, filmasin: 5.5, quality: '1006' }
   ],
-  '3_50_3_99': [
+
+  // ✅ ADDED: Category 5: 3.50mm-3.99mm - Thicker filmaşin
+  // Ana=6.0/1008, ALT_1=7.0/1008, ALT_2=7.0/1010 (3 alternatives)
+  '3.50-3.99': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1008' },
     { priority: 1, cap: 2.26, filmasin: 7.0, quality: '1008' },
     { priority: 2, cap: 2.26, filmasin: 7.0, quality: '1010' }
   ],
-  '4_00_6_99': [
+
+  // ✅ ADDED: Category 6: 4.00mm-6.99mm - Thick filmaşin
+  // Ana=7.0/1008, ALT_1=7.0/1010 (2 alternatives)
+  '4.00-6.99': [
     { priority: 0, cap: 2.26, filmasin: 7.0, quality: '1008' },
     { priority: 1, cap: 2.26, filmasin: 7.0, quality: '1010' }
   ],
-  '7_00_7_99': [
+
+  // ✅ ADDED: Category 7: 7.00mm-7.99mm - Very thick filmaşin
+  // Ana=9.0/1010, ALT_1=9.0/1008 (2 alternatives)
+  '7.00-7.99': [
     { priority: 0, cap: 2.26, filmasin: 9.0, quality: '1010' },
     { priority: 1, cap: 2.26, filmasin: 9.0, quality: '1008' }
   ],
-  'gte8_00': [
+
+  // ✅ ADDED: Category 8: 8.00mm and above - Maximum thickness
+  // Ana=10.0/1010 (1 alternative - main only)
+  'gte8.00': [
     { priority: 0, cap: 2.26, filmasin: 10.0, quality: '1010' }
   ]
-};
+});
 
 // Helper: Determine which COILER category a .ST product belongs to
 const getCoilerCategory = (stokKodu) => {
+  // Extract diameter from YM.ST.084.ST -> 0.84mm
   const match = stokKodu.match(/YM\.ST\.(\d{4})\.ST/);
   if (!match) return null;
-  const diameter = parseInt(match[1], 10) / 100;
-  if (diameter === 0.84) return '0_84';
-  if (diameter === 1.16) return '1_16';
-  if (diameter <= 1.49) return 'lte1_49';
-  if (diameter >= 1.50 && diameter <= 1.79) return '1_50_1_79';
-  if (diameter >= 1.80 && diameter <= 3.49) return '1_80_3_49';
-  if (diameter >= 3.50 && diameter <= 3.99) return '3_50_3_99';
-  if (diameter >= 4.00 && diameter <= 6.99) return '4_00_6_99';
-  if (diameter >= 7.00 && diameter <= 7.99) return '7_00_7_99';
-  if (diameter >= 8.00) return 'gte8_00';
-  return null;
+
+  const diameter = parseInt(match[1], 10) / 100; // 084 -> 0.84
+
+  if (diameter === 0.84) return '0.84';
+  if (diameter === 1.16) return '1.16'; // Special ZIRH TELİ product
+  if (diameter <= 1.49) return 'lte1.49';
+  if (diameter >= 1.50 && diameter <= 1.79) return '1.50-1.79';
+  if (diameter >= 1.80 && diameter <= 3.49) return '1.80-3.49';
+  if (diameter >= 3.50 && diameter <= 3.99) return '3.50-3.99';
+  if (diameter >= 4.00 && diameter <= 6.99) return '4.00-6.99';
+  if (diameter >= 7.00 && diameter <= 7.99) return '7.00-7.99';
+  if (diameter >= 8.00) return 'gte8.00';
+
+  return null; // Outside COILER range
 };
 
 // Helper: Generate alternative recipes for .ST COILER products
@@ -322,16 +352,14 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
     stProductCount++;
     const productRecipes = recipesByProduct[stokKodu];
 
+    // Determine which COILER category this product belongs to
     const category = getCoilerCategory(stokKodu);
     if (!category) {
       console.log(`⚠️ ${stokKodu}: Not in COILER matrix range, skipping`);
       return;
     }
-    const alternatives = COILER_ALT_MAT[category];
-    if (!alternatives) {
-      console.log(`⚠️ ${stokKodu}: No alternatives found for category ${category}`);
-      return;
-    }
+
+    const alternatives = getCoilerAlternativeMatrix()[category];
     console.log(`🔄 ${stokKodu}: Category ${category}, ${alternatives.length} alternatives available`);
 
     // For each alternative priority (1-8)
@@ -346,17 +374,13 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
       // Get the main bilesen (priority 0) definition
       const mainDef = alternatives.find(a => a.priority === 0);
 
-      // ✅ Extract properties first to avoid TDZ
-      const altDefCap = altDef.cap;
-      const mainDefCap = mainDef.cap;
-
       // Calculate duration adjustment ratio
       // Logic: Less reduction needed = Less time
       // Thinner starting bilesen (smaller cap) → LESS reduction needed → SHORTER duration
       // Thicker starting bilesen (larger cap) → MORE reduction needed → LONGER duration
       // Example: To produce 0.73mm, starting from 2.16mm is faster than starting from 2.26mm
       // Formula: (altCap/mainCap)² where altCap < mainCap gives ratio < 1 (shorter duration)
-      const durationRatio = Math.pow(altDefCap / mainDefCap, 2);
+      const durationRatio = Math.pow(altDef.cap / mainDef.cap, 2);
 
       // Initialize priority array if needed
       if (!alternativesByPriority[priority]) {
@@ -369,15 +393,10 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
           // BILESEN ROW: Replace bilesen_kodu with alternative
           const oldBilesenKodu = recipe.bilesen_kodu;
 
-          // ✅ Extract all properties first to avoid TDZ
-          const altCap = altDef.cap;
-          const altFilmasin = altDef.filmasin;
-          const altQuality = altDef.quality;
-
           // Build new bilesen code: YM.ST.{cap}.{filmasin}.{quality}
-          const capCode = String(Math.round(altCap * 100)).padStart(4, '0');
-          const filmasinCode = String(Math.round(altFilmasin * 100)).padStart(4, '0');
-          const newBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${altQuality}`;
+          const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
+          const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
+          const newBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
 
           alternativesByPriority[priority].push({
             ...recipe,
@@ -7078,45 +7097,37 @@ const TavliBalyaTelNetsis = () => {
           { stokKodu: mainYmSt.stok_kodu, priority: 0, ymStDiameter: parseFloat(mainYmSt.cap) }
         ];
 
+        // Determine COILER category based on YM STP diameter
         let category = null;
-        if (ymStpDiameter === 0.84) category = '0_84';
-        else if (ymStpDiameter === 1.16) category = '1_16';
-        else if (ymStpDiameter <= 1.49) category = 'lte1_49';
-        else if (ymStpDiameter >= 1.50 && ymStpDiameter <= 1.79) category = '1_50_1_79';
-        else if (ymStpDiameter >= 1.80 && ymStpDiameter <= 3.49) category = '1_80_3_49';
-        else if (ymStpDiameter >= 3.50 && ymStpDiameter <= 3.99) category = '3_50_3_99';
-        else if (ymStpDiameter >= 4.00 && ymStpDiameter <= 6.99) category = '4_00_6_99';
-        else if (ymStpDiameter >= 7.00 && ymStpDiameter <= 7.99) category = '7_00_7_99';
-        else if (ymStpDiameter >= 8.00) category = 'gte8_00';
+        if (ymStpDiameter === 0.84) category = '0.84';
+        else if (ymStpDiameter === 1.16) category = '1.16';
+        else if (ymStpDiameter <= 1.49) category = 'lte1.49';
+        else if (ymStpDiameter >= 1.50 && ymStpDiameter <= 1.79) category = '1.50-1.79';
+        else if (ymStpDiameter >= 1.80 && ymStpDiameter <= 3.49) category = '1.80-3.49';
+        else if (ymStpDiameter >= 3.50 && ymStpDiameter <= 3.99) category = '3.50-3.99';
+        else if (ymStpDiameter >= 4.00 && ymStpDiameter <= 6.99) category = '4.00-6.99';
+        else if (ymStpDiameter >= 7.00 && ymStpDiameter <= 7.99) category = '7.00-7.99';
+        else if (ymStpDiameter >= 8.00) category = 'gte8.00';
 
         if (category) {
-          const alternatives = COILER_ALT_MAT[category];
-          if (!alternatives) {
-            console.log(`⚠️ YM STP ${ymStpDiameter}mm: No alternatives found for category ${category}`);
-          } else {
-            console.log(`📋 YM STP ${ymStpDiameter}mm → Category ${category}: ${alternatives.length} alternatives available`);
-            alternatives.forEach(altDef => {
-              // ✅ FIX: Skip priority 0 (already added manually from main product above)
-              // Priority 0 exists in COILER_ALTERNATIVE_MATRIX but we add it separately above
-              if (altDef.priority > 0) {
-                // ✅ Extract all properties first to avoid TDZ
-                const altCap = altDef.cap;
-                const altFilmasin = altDef.filmasin;
-                const altQuality = altDef.quality;
-                const altPriority = altDef.priority;
+          const alternatives = getCoilerAlternativeMatrix()[category];
+          console.log(`📋 YM STP ${ymStpDiameter}mm → Category ${category}: ${alternatives.length} alternatives available`);
 
-                const capCode = String(Math.round(altCap * 100)).padStart(4, '0');
-                const filmasinCode = String(Math.round(altFilmasin * 100)).padStart(4, '0');
-                const stokKodu = `YM.ST.${capCode}.${filmasinCode}.${altQuality}`;
+          alternatives.forEach(altDef => {
+            // ✅ FIX: Skip priority 0 (already added manually from main product above)
+            // Priority 0 exists in COILER_ALTERNATIVE_MATRIX but we add it separately above
+            if (altDef.priority > 0) {
+              const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
+              const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
+              const stokKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
 
-                ymStAlternatives.push({
-                  stokKodu: stokKodu,
-                  priority: altPriority,
-                  ymStDiameter: altCap
-                });
-              }
-            });
-          }
+              ymStAlternatives.push({
+                stokKodu: stokKodu,
+                priority: altDef.priority,
+                ymStDiameter: altDef.cap
+              });
+            }
+          });
         }
 
         console.log(`✅ Generated ${ymStAlternatives.length} YM ST alternatives using COILER matrix (up to 8)`);
