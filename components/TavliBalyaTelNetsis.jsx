@@ -10534,19 +10534,26 @@ const TavliBalyaTelNetsis = () => {
                   });
                 });
 
-                // STEP 4: Extract main YM ST or YM STP from YM TT recipes
-                console.log(`🔍 [${request.id}] Analyzing ${ymTtRecipes.length} YM TT recipes for extraction:`);
+                // STEP 4: Extract ALL YM ST or YM STP from YM TT recipes (including ALL priorities for alternatives)
+                console.log(`🔍 [${request.id}] Analyzing ${ymTtRecipes.length} YM TT recipes for extraction (ALL priorities):`);
                 ymTtRecipes.forEach((r, idx) => {
-                  console.log(`  Recipe ${idx + 1}: bilesen_kodu="${r.bilesen_kodu}", operasyon_bilesen="${r.operasyon_bilesen}"`);
+                  console.log(`  Recipe ${idx + 1}: bilesen_kodu="${r.bilesen_kodu}", operasyon_bilesen="${r.operasyon_bilesen}", priority=${r.priority || 0}`);
                 });
 
-                const mainYmStRecipe = ymTtRecipes.find(r =>
+                // ✅ FIX: Extract ALL YM ST/YM STP products from ALL priorities (not just main)
+                // This ensures .ST COILER products used in YM TT ALT 1 are included
+                const allYmStOrYmStpRecipes = ymTtRecipes.filter(r =>
                   (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
                   r.bilesen_kodu &&
                   r.bilesen_kodu.startsWith('YM.ST.')
                 );
 
-                console.log(`🔍 [${request.id}] mainYmStRecipe found: ${mainYmStRecipe ? mainYmStRecipe.bilesen_kodu : 'NONE'}`);
+                console.log(`🔍 [${request.id}] Found ${allYmStOrYmStpRecipes.length} YM ST/YM STP products across ALL priorities:`,
+                  allYmStOrYmStpRecipes.map(r => ({ code: r.bilesen_kodu, priority: r.priority || 0 })));
+
+                // Get the main one (priority 0) for backwards compatibility
+                const mainYmStRecipe = allYmStOrYmStpRecipes.find(r => (r.priority || 0) === 0) || allYmStOrYmStpRecipes[0];
+                console.log(`🔍 [${request.id}] mainYmStRecipe (priority 0) found: ${mainYmStRecipe ? mainYmStRecipe.bilesen_kodu : 'NONE'}`);
 
                 if (mainYmStRecipe) {
                   const bilesenKodu = mainYmStRecipe.bilesen_kodu;
@@ -10722,6 +10729,90 @@ const TavliBalyaTelNetsis = () => {
                           ...r,
                           ym_st_stok_kodu: ymSt.stok_kodu
                         });
+                      });
+                    }
+                  }
+                }
+
+                // ✅ FIX: Also process ALL other YM ST/YM STP products from YM TT alternatives (priority 1, 2, 3)
+                // This ensures .ST COILER products used in YM TT ALT 1 are included
+                const alternativeYmStRecipes = allYmStOrYmStpRecipes.filter(r => (r.priority || 0) !== 0);
+                console.log(`🔍 [${request.id}] Processing ${alternativeYmStRecipes.length} alternative YM ST/YM STP products...`);
+
+                for (const altRecipe of alternativeYmStRecipes) {
+                  const altBilesenKodu = altRecipe.bilesen_kodu;
+                  console.log(`  Processing ALT priority ${altRecipe.priority}: ${altBilesenKodu}`);
+
+                  // Check if it's YM STP (.P) or YM ST (non-.P)
+                  if (altBilesenKodu.endsWith('.P')) {
+                    // YM STP - similar logic as main, but for alternative
+                    let ymStp = ymStpData.find(r => r.stok_kodu === altBilesenKodu);
+                    if (!ymStp) {
+                      const resp = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(altBilesenKodu)}`);
+                      if (resp && resp.ok) {
+                        const arr = await resp.json();
+                        if (arr.length > 0) ymStp = arr[0];
+                      }
+                    }
+                    if (ymStp && !ymStpMap.has(ymStp.stok_kodu)) {
+                      ymStpMap.set(ymStp.stok_kodu, ymStp);
+                      // Fetch and store recipes...
+                      let ymStpRecipes = ymStpRecipeData.filter(r => r.mamul_kodu === ymStp.stok_kodu);
+                      if (ymStpRecipes.length === 0) {
+                        const resp = await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}?mamul_kodu=${encodeURIComponent(ymStp.stok_kodu)}`);
+                        if (resp && resp.ok) ymStpRecipes = await resp.json();
+                      }
+                      ymStpRecipes.forEach(r => {
+                        const key = `${ymStp.stok_kodu}-${r.bilesen_kodu}`;
+                        ymStpRecipeMap.set(key, { ...r, ym_stp_stok_kodu: ymStp.stok_kodu });
+                      });
+
+                      // Also get base YM ST (without .P)
+                      const baseYmStKodu = altBilesenKodu.replace('.P', '');
+                      let baseYmSt = ymStData.find(r => r.stok_kodu === baseYmStKodu);
+                      if (!baseYmSt) {
+                        const resp = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(baseYmStKodu)}`);
+                        if (resp && resp.ok) {
+                          const arr = await resp.json();
+                          if (arr.length > 0) baseYmSt = arr[0];
+                        }
+                      }
+                      if (baseYmSt && !ymStMap.has(baseYmSt.stok_kodu)) {
+                        ymStMap.set(baseYmSt.stok_kodu, baseYmSt);
+                        // Fetch recipes...
+                        let baseYmStRecipes = ymStRecipeData.filter(r => r.mamul_kodu === baseYmSt.stok_kodu);
+                        if (baseYmStRecipes.length === 0) {
+                          const resp = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(baseYmSt.stok_kodu)}`);
+                          if (resp && resp.ok) baseYmStRecipes = await resp.json();
+                        }
+                        baseYmStRecipes.forEach(r => {
+                          const key = `${baseYmSt.stok_kodu}-${r.bilesen_kodu}`;
+                          ymStRecipeMap.set(key, { ...r, ym_st_stok_kodu: baseYmSt.stok_kodu });
+                        });
+                      }
+                    }
+                  } else {
+                    // YM ST (non-.P) - direct YM ST product
+                    let ymSt = ymStData.find(r => r.stok_kodu === altBilesenKodu);
+                    if (!ymSt) {
+                      const resp = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(altBilesenKodu)}`);
+                      if (resp && resp.ok) {
+                        const arr = await resp.json();
+                        if (arr.length > 0) ymSt = arr[0];
+                      }
+                    }
+                    if (ymSt && !ymStMap.has(ymSt.stok_kodu)) {
+                      console.log(`  ✅ Adding alternative YM ST (priority ${altRecipe.priority}): ${ymSt.stok_kodu}`);
+                      ymStMap.set(ymSt.stok_kodu, ymSt);
+                      // Fetch recipes...
+                      let ymStRecipes = ymStRecipeData.filter(r => r.mamul_kodu === ymSt.stok_kodu);
+                      if (ymStRecipes.length === 0) {
+                        const resp = await fetchWithAuth(`${API_URLS.galYmStRecete}?mamul_kodu=${encodeURIComponent(ymSt.stok_kodu)}`);
+                        if (resp && resp.ok) ymStRecipes = await resp.json();
+                      }
+                      ymStRecipes.forEach(r => {
+                        const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
+                        ymStRecipeMap.set(key, { ...r, ym_st_stok_kodu: ymSt.stok_kodu });
                       });
                     }
                   }
