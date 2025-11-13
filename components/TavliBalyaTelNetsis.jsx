@@ -230,27 +230,27 @@ const COILER_ALTERNATIVE_MATRIX = {
   ],
 
   // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
-  // Per COİL ALTERNATİF matrix: Only 5 alternatives (0-4), all 1006 grade
-  // NOTE: 2.36mm (→2.40mm) only has 6.0mm alternatives (no 5.5mm)
+  // Per COİL ALTERNATİF matrix: Only 6 alternatives (0-5), all 1006 grade
   '≤1.49': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
     { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
-    { priority: 4, cap: 2.36, filmasin: 6.0, quality: '1006' }  // 2.40mm has only 6.0mm alternatives
+    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
   ],
 
   // Category 3: 1.50mm to 1.79mm
-  // NOTE: 2.36mm (→2.40mm) only has 6.0mm alternatives (no 5.5mm)
   '1.50-1.79': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
     { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
-    { priority: 4, cap: 2.36, filmasin: 6.0, quality: '1006' },  // 2.40mm: only 6.0mm (no 5.5mm)
-    { priority: 5, cap: 2.16, filmasin: 6.0, quality: '1008' },
-    { priority: 6, cap: 2.26, filmasin: 6.0, quality: '1008' },
-    { priority: 7, cap: 2.36, filmasin: 6.0, quality: '1008' }   // 2.40mm: only 6.0mm quality 1008
+    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
+    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' },
+    { priority: 6, cap: 2.16, filmasin: 6.0, quality: '1008' },
+    { priority: 7, cap: 2.26, filmasin: 6.0, quality: '1008' },
+    { priority: 8, cap: 2.36, filmasin: 6.0, quality: '1008' }
   ],
 
   // ✅ ADDED: Category 4: 1.80mm-3.49mm - Standard filmaşin range
@@ -9941,52 +9941,6 @@ const TavliBalyaTelNetsis = () => {
 
     console.log(`📋 TÜM ÜRÜNLER: Filtered YM ST products - ${filteredYmStProducts.length} products (down from ${allYMSTProducts.filter(p => !p.stok_kodu.endsWith('.P')).length})`);
 
-    // ✅ FIX: Generate COILER alternatives BEFORE creating stock sheet
-    // This ensures source products referenced in ALT sheets are included in stock
-    const stProducts = allYMSTProducts.filter(p =>
-      p.stok_kodu && p.stok_kodu.endsWith('.ST') && allUsedYmStCodes.has(p.stok_kodu)
-    );
-
-    console.log(`📋 TÜM ÜRÜNLER: Found ${stProducts.length} .ST products for COILER alternatives`);
-
-    // Generate alternatives using COILER matrix
-    const ymStAltRecipes = generateCoilerAlternatives(mainYmStRecetes, stProducts);
-
-    // ✅ FIX: Collect bilesen codes from ALT recipes and add missing products to stock
-    const altBilesenCodes = new Set();
-    Object.keys(ymStAltRecipes).forEach(priority => {
-      const altRecipes = ymStAltRecipes[priority];
-      if (altRecipes) {
-        altRecipes.forEach(recipe => {
-          if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
-            altBilesenCodes.add(recipe.bilesen_kodu);
-          }
-        });
-      }
-    });
-
-    console.log(`📋 TÜM ÜRÜNLER: Collected ${altBilesenCodes.size} unique YM ST codes from COILER ALT recipes`);
-
-    // Add missing products that are referenced in ALT recipes but not in stock
-    const missingProducts = [];
-    altBilesenCodes.forEach(code => {
-      if (!filteredYmStProducts.find(p => p.stok_kodu === code)) {
-        const product = allYMSTProducts.find(p => p.stok_kodu === code);
-        if (product) {
-          missingProducts.push(product);
-          console.log(`   ✅ Adding missing source product: ${code}`);
-        } else {
-          console.warn(`   ⚠️  Product ${code} referenced in ALT recipes but NOT found in database!`);
-        }
-      }
-    });
-
-    // Add missing products to filtered list
-    if (missingProducts.length > 0) {
-      filteredYmStProducts.push(...missingProducts);
-      console.log(`📋 TÜM ÜRÜNLER: Added ${missingProducts.length} missing source products - now ${filteredYmStProducts.length} total YM ST products`);
-    }
-
     // ===== 1. STOK KARTLARI EXCEL (4 sheets: MM TT + YM TT + YM STP + YM ST) =====
     const stokWorkbook = new ExcelJS.Workbook();
 
@@ -10242,7 +10196,15 @@ const TavliBalyaTelNetsis = () => {
     });
 
     // YM ST REÇETE ALT 1-8 Sheets (generated from COILER matrix for .ST products only)
-    // NOTE: ymStAltRecipes already generated earlier (before stock sheet) to ensure source products are included in stock
+    // ✅ FILTER: Get only .ST products that are used by TAVLI/BALYA
+    const stProducts = allYMSTProducts.filter(p =>
+      p.stok_kodu && p.stok_kodu.endsWith('.ST') && allUsedYmStCodes.has(p.stok_kodu)
+    );
+
+    console.log(`📋 TÜM ÜRÜNLER: Found ${stProducts.length} .ST products used by TAVLI/BALYA for COILER alternatives`);
+
+    // Generate alternatives using COILER matrix
+    const ymStAltRecipes = generateCoilerAlternatives(mainYmStRecetes, stProducts);
 
     // Create sheets for each priority (1-8)
     for (let priority = 1; priority <= 8; priority++) {
