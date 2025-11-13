@@ -212,7 +212,8 @@ const getYmStAlternativesForYmTt = (ymTtDiameter, needsPressing = false) => {
 // COILER ALTERNATIVE MATRIX - For YM ST RECETE ALT Sheets
 // Based on: COİL ALTERNATİF.csv
 // ============================================================================
-const COILER_ALTERNATIVE_MATRIX = {
+// ✅ FIX: Convert to function to avoid TDZ issues during minification
+const getCoilerAlternativeMatrix = () => ({
   // Category 1: 0.84mm ONLY (YM.ST.084.ST)
   '0.84': [
     { priority: 0, cap: 2.16, filmasin: 6.0, quality: '1006' },
@@ -230,27 +231,27 @@ const COILER_ALTERNATIVE_MATRIX = {
   ],
 
   // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
-  // Per COİL ALTERNATİF matrix: Only 6 alternatives (0-5), all 1006 grade
-  '≤1.49': [
+  // Per COİL ALTERNATİF matrix: Only 5 alternatives (0-4), all 1006 grade
+  // NOTE: 2.36mm (→2.40mm) only has 6.0mm alternatives (no 5.5mm)
+  'lte1.49': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
     { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
-    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
-    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
+    { priority: 4, cap: 2.36, filmasin: 6.0, quality: '1006' }  // 2.40mm has only 6.0mm alternatives
   ],
 
   // Category 3: 1.50mm to 1.79mm
+  // NOTE: 2.36mm (→2.40mm) only has 6.0mm alternatives (no 5.5mm)
   '1.50-1.79': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
     { priority: 2, cap: 2.16, filmasin: 5.5, quality: '1006' },
     { priority: 3, cap: 2.16, filmasin: 6.0, quality: '1006' },
-    { priority: 4, cap: 2.36, filmasin: 5.5, quality: '1006' },
-    { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' },
-    { priority: 6, cap: 2.16, filmasin: 6.0, quality: '1008' },
-    { priority: 7, cap: 2.26, filmasin: 6.0, quality: '1008' },
-    { priority: 8, cap: 2.36, filmasin: 6.0, quality: '1008' }
+    { priority: 4, cap: 2.36, filmasin: 6.0, quality: '1006' },  // 2.40mm: only 6.0mm (no 5.5mm)
+    { priority: 5, cap: 2.16, filmasin: 6.0, quality: '1008' },
+    { priority: 6, cap: 2.26, filmasin: 6.0, quality: '1008' },
+    { priority: 7, cap: 2.36, filmasin: 6.0, quality: '1008' }   // 2.40mm: only 6.0mm quality 1008
   ],
 
   // ✅ ADDED: Category 4: 1.80mm-3.49mm - Standard filmaşin range
@@ -285,10 +286,10 @@ const COILER_ALTERNATIVE_MATRIX = {
 
   // ✅ ADDED: Category 8: 8.00mm and above - Maximum thickness
   // Ana=10.0/1010 (1 alternative - main only)
-  '≥8.00': [
+  'gte8.00': [
     { priority: 0, cap: 2.26, filmasin: 10.0, quality: '1010' }
   ]
-};
+});
 
 // Helper: Determine which COILER category a .ST product belongs to
 const getCoilerCategory = (stokKodu) => {
@@ -300,8 +301,13 @@ const getCoilerCategory = (stokKodu) => {
 
   if (diameter === 0.84) return '0.84';
   if (diameter === 1.16) return '1.16'; // Special ZIRH TELİ product
-  if (diameter <= 1.49) return '≤1.49';
+  if (diameter <= 1.49) return 'lte1.49';
   if (diameter >= 1.50 && diameter <= 1.79) return '1.50-1.79';
+  if (diameter >= 1.80 && diameter <= 3.49) return '1.80-3.49';
+  if (diameter >= 3.50 && diameter <= 3.99) return '3.50-3.99';
+  if (diameter >= 4.00 && diameter <= 6.99) return '4.00-6.99';
+  if (diameter >= 7.00 && diameter <= 7.99) return '7.00-7.99';
+  if (diameter >= 8.00) return 'gte8.00';
 
   return null; // Outside COILER range
 };
@@ -353,7 +359,7 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
       return;
     }
 
-    const alternatives = COILER_ALTERNATIVE_MATRIX[category];
+    const alternatives = getCoilerAlternativeMatrix()[category];
     console.log(`🔄 ${stokKodu}: Category ${category}, ${alternatives.length} alternatives available`);
 
     // For each alternative priority (1-8)
@@ -7095,16 +7101,16 @@ const TavliBalyaTelNetsis = () => {
         let category = null;
         if (ymStpDiameter === 0.84) category = '0.84';
         else if (ymStpDiameter === 1.16) category = '1.16';
-        else if (ymStpDiameter <= 1.49) category = '≤1.49';
+        else if (ymStpDiameter <= 1.49) category = 'lte1.49';
         else if (ymStpDiameter >= 1.50 && ymStpDiameter <= 1.79) category = '1.50-1.79';
         else if (ymStpDiameter >= 1.80 && ymStpDiameter <= 3.49) category = '1.80-3.49';
         else if (ymStpDiameter >= 3.50 && ymStpDiameter <= 3.99) category = '3.50-3.99';
         else if (ymStpDiameter >= 4.00 && ymStpDiameter <= 6.99) category = '4.00-6.99';
         else if (ymStpDiameter >= 7.00 && ymStpDiameter <= 7.99) category = '7.00-7.99';
-        else if (ymStpDiameter >= 8.00) category = '≥8.00';
+        else if (ymStpDiameter >= 8.00) category = 'gte8.00';
 
         if (category) {
-          const alternatives = COILER_ALTERNATIVE_MATRIX[category];
+          const alternatives = getCoilerAlternativeMatrix()[category];
           console.log(`📋 YM STP ${ymStpDiameter}mm → Category ${category}: ${alternatives.length} alternatives available`);
 
           alternatives.forEach(altDef => {
@@ -7548,55 +7554,55 @@ const TavliBalyaTelNetsis = () => {
                 const flmCode = `FLM.${Math.round(filmasin * 100).toString().padStart(4, '0')}.${quality}`;
                 console.log(`   📝 Creating YM ST recipe: ${flmCode} → ${baseYmStKodu}`);
 
-              // ✅ OPTIMIZED: Use bulk delete endpoint instead of deleting one-by-one
-              try {
-                await fetchWithAuth(`${API_URLS.galYmStRecete}/bulk/${encodeURIComponent(baseYmStKodu)}`, {
-                  method: 'DELETE'
+                // ✅ OPTIMIZED: Use bulk delete endpoint instead of deleting one-by-one
+                try {
+                  await fetchWithAuth(`${API_URLS.galYmStRecete}/bulk/${encodeURIComponent(baseYmStKodu)}`, {
+                    method: 'DELETE'
+                  });
+                  console.log(`   ✅ Bulk deleted existing YM ST recipes for ${baseYmStKodu}`);
+                } catch (deleteError) {
+                  // If bulk delete fails (e.g., no recipes exist), that's okay - continue
+                  console.log(`   ⏭️ No existing recipes to delete for ${baseYmStKodu}`);
+                }
+
+                // Create FLM component
+                await fetchWithAuth(API_URLS.galYmStRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_st_stok_kodu: baseYmStKodu,
+                    mamul_kodu: baseYmStKodu,
+                    bilesen_kodu: flmCode,
+                    operasyon_bilesen: 'B',
+                    miktar: 1.0,
+                    olcu_br: 'KG',
+                    aciklama: 'Filmaşin Tüketimi',
+                    sira_no: 1,
+                    recete_toplama: '1',
+                    olcu_br_bilesen: '1'
+                  })
                 });
-                console.log(`   ✅ Bulk deleted existing YM ST recipes for ${baseYmStKodu}`);
-              } catch (deleteError) {
-                // If bulk delete fails (e.g., no recipes exist), that's okay - continue
-                console.log(`   ⏭️ No existing recipes to delete for ${baseYmStKodu}`);
-              }
 
-              // Create FLM component
-              await fetchWithAuth(API_URLS.galYmStRecete, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  ym_st_stok_kodu: baseYmStKodu,
-                  mamul_kodu: baseYmStKodu,
-                  bilesen_kodu: flmCode,
-                  operasyon_bilesen: 'B',
-                  miktar: 1.0,
-                  olcu_br: 'KG',
-                  aciklama: 'Filmaşin Tüketimi',
-                  sira_no: 1,
-                  recete_toplama: '1',
-                  olcu_br_bilesen: '1'
-                })
-              });
-
-              // Create TLC01 operation
-              await fetchWithAuth(API_URLS.galYmStRecete, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  ym_st_stok_kodu: baseYmStKodu,
-                  mamul_kodu: baseYmStKodu,
-                  bilesen_kodu: 'TLC01',
-                  operasyon_bilesen: 'O',
-                  miktar: 0.002,
-                  olcu_br: 'DK',
-                  aciklama: 'Tel Çekme Operasyonu',
-                  sira_no: 2,
-                  recete_toplama: '1',
-                  olcu_br_bilesen: '1',
-                  uretim_suresi: 0.002,
-                  ua_dahil_edilsin: 'E',
-                  son_operasyon: 'E'
-                })
-              });
+                // Create TLC01 operation
+                await fetchWithAuth(API_URLS.galYmStRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_st_stok_kodu: baseYmStKodu,
+                    mamul_kodu: baseYmStKodu,
+                    bilesen_kodu: 'TLC01',
+                    operasyon_bilesen: 'O',
+                    miktar: 0.002,
+                    olcu_br: 'DK',
+                    aciklama: 'Tel Çekme Operasyonu',
+                    sira_no: 2,
+                    recete_toplama: '1',
+                    olcu_br_bilesen: '1',
+                    uretim_suresi: 0.002,
+                    ua_dahil_edilsin: 'E',
+                    son_operasyon: 'E'
+                  })
+                });
 
                 console.log(`   ✅ YM ST recipe created`);
               } // End else (FILMAŞIN recipe creation)
@@ -9941,6 +9947,52 @@ const TavliBalyaTelNetsis = () => {
 
     console.log(`📋 TÜM ÜRÜNLER: Filtered YM ST products - ${filteredYmStProducts.length} products (down from ${allYMSTProducts.filter(p => !p.stok_kodu.endsWith('.P')).length})`);
 
+    // ✅ FIX: Generate COILER alternatives BEFORE creating stock sheet
+    // This ensures source products referenced in ALT sheets are included in stock
+    const stProducts = allYMSTProducts.filter(p =>
+      p.stok_kodu && p.stok_kodu.endsWith('.ST') && allUsedYmStCodes.has(p.stok_kodu)
+    );
+
+    console.log(`📋 TÜM ÜRÜNLER: Found ${stProducts.length} .ST products for COILER alternatives`);
+
+    // Generate alternatives using COILER matrix
+    const ymStAltRecipes = generateCoilerAlternatives(mainYmStRecetes, stProducts);
+
+    // ✅ FIX: Collect bilesen codes from ALT recipes and add missing products to stock
+    const altBilesenCodes = new Set();
+    Object.keys(ymStAltRecipes).forEach(priority => {
+      const altRecipes = ymStAltRecipes[priority];
+      if (altRecipes) {
+        altRecipes.forEach(recipe => {
+          if (recipe.bilesen_kodu && recipe.bilesen_kodu.startsWith('YM.ST.')) {
+            altBilesenCodes.add(recipe.bilesen_kodu);
+          }
+        });
+      }
+    });
+
+    console.log(`📋 TÜM ÜRÜNLER: Collected ${altBilesenCodes.size} unique YM ST codes from COILER ALT recipes`);
+
+    // Add missing products that are referenced in ALT recipes but not in stock
+    const missingProducts = [];
+    altBilesenCodes.forEach(code => {
+      if (!filteredYmStProducts.find(p => p.stok_kodu === code)) {
+        const product = allYMSTProducts.find(p => p.stok_kodu === code);
+        if (product) {
+          missingProducts.push(product);
+          console.log(`   ✅ Adding missing source product: ${code}`);
+        } else {
+          console.warn(`   ⚠️  Product ${code} referenced in ALT recipes but NOT found in database!`);
+        }
+      }
+    });
+
+    // Add missing products to filtered list
+    if (missingProducts.length > 0) {
+      filteredYmStProducts.push(...missingProducts);
+      console.log(`📋 TÜM ÜRÜNLER: Added ${missingProducts.length} missing source products - now ${filteredYmStProducts.length} total YM ST products`);
+    }
+
     // ===== 1. STOK KARTLARI EXCEL (4 sheets: MM TT + YM TT + YM STP + YM ST) =====
     const stokWorkbook = new ExcelJS.Workbook();
 
@@ -10196,15 +10248,7 @@ const TavliBalyaTelNetsis = () => {
     });
 
     // YM ST REÇETE ALT 1-8 Sheets (generated from COILER matrix for .ST products only)
-    // ✅ FILTER: Get only .ST products that are used by TAVLI/BALYA
-    const stProducts = allYMSTProducts.filter(p =>
-      p.stok_kodu && p.stok_kodu.endsWith('.ST') && allUsedYmStCodes.has(p.stok_kodu)
-    );
-
-    console.log(`📋 TÜM ÜRÜNLER: Found ${stProducts.length} .ST products used by TAVLI/BALYA for COILER alternatives`);
-
-    // Generate alternatives using COILER matrix
-    const ymStAltRecipes = generateCoilerAlternatives(mainYmStRecetes, stProducts);
+    // NOTE: ymStAltRecipes already generated earlier (before stock sheet) to ensure source products are included in stock
 
     // Create sheets for each priority (1-8)
     for (let priority = 1; priority <= 8; priority++) {
