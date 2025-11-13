@@ -331,20 +331,24 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
     recipesByProduct[productCode].push(recipe);
   });
 
-  console.log(`📋 TÜM ÜRÜNLER: Processing ${Object.keys(recipesByProduct).length} unique YM ST products`);
-  console.log(`🔍 Product codes found:`, Object.keys(recipesByProduct).slice(0, 5));
+  console.log(`📋 TÜM ÜRÜNLER: Processing ${Object.keys(recipesByProduct).length} unique YM ST products with recipes`);
+  console.log(`🔍 Product codes found: (${Object.keys(recipesByProduct).length})`, Object.keys(recipesByProduct).slice(0, 5));
+
+  // ✅ FIX: Also process .ST products that don't have recipes yet (newly created products)
+  const coilerProducts = ymStProducts.filter(p => p.stok_kodu && p.stok_kodu.endsWith('.ST'));
+  console.log(`📦 Found ${coilerProducts.length} .ST COILER products in product list`);
+  coilerProducts.forEach(p => console.log(`  - ${p.stok_kodu} (${p.cap}mm)`));
 
   let stProductCount = 0;
 
   // For each .ST product, generate alternatives
-  Object.keys(recipesByProduct).forEach(stokKodu => {
-    // Check if it's a .ST product (COTLC01 method)
-    if (!stokKodu.endsWith('.ST')) {
-      return; // Skip non-.ST products silently
-    }
+  coilerProducts.forEach(product => {
+    const stokKodu = product.stok_kodu;
 
     stProductCount++;
-    const productRecipes = recipesByProduct[stokKodu];
+
+    // Get recipes for this product (may be empty for newly created products)
+    let productRecipes = recipesByProduct[stokKodu] || [];
 
     // Determine which COILER category this product belongs to
     const category = getCoilerCategory(stokKodu);
@@ -355,6 +359,47 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
 
     const alternatives = COILER_ALTERNATIVE_MATRIX[category];
     console.log(`🔄 ${stokKodu}: Category ${category}, ${alternatives.length} alternatives available`);
+
+    // ✅ FIX: If no recipes exist for this product, create base recipes dynamically
+    if (productRecipes.length === 0) {
+      console.log(`  📝 No recipes in DB for ${stokKodu}, creating base recipes dynamically`);
+
+      // Get main bilesen definition (priority 0)
+      const mainDef = alternatives.find(a => a.priority === 0);
+      if (!mainDef) {
+        console.log(`  ⚠️ No main definition (priority 0) found for category ${category}`);
+        return;
+      }
+
+      // Create base bilesen code: YM.ST.{cap}.{filmasin}.{quality}
+      const capCode = String(Math.round(mainDef.cap * 100)).padStart(4, '0');
+      const filmasinCode = String(Math.round(mainDef.filmasin * 100)).padStart(4, '0');
+      const baseBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${mainDef.quality}`;
+
+      // Calculate COTLC01 duration using the same formula as bulk Excel
+      const cap = product.cap || parseFloat(stokKodu.match(/YM\.ST\.(\d{4})\.ST/)?.[1]) / 100;
+      const cotlc01Duration = 0.04546 * (1.36 / cap);
+
+      // Create base recipes: bilesen + COTLC01 operation
+      productRecipes = [
+        {
+          mamul_kodu: stokKodu,
+          operasyon_bilesen: 'B',
+          bilesen_kodu: baseBilesenKodu,
+          miktar: 1,
+          sira_no: 1
+        },
+        {
+          mamul_kodu: stokKodu,
+          operasyon_bilesen: 'O',
+          bilesen_kodu: 'COTLC01',
+          miktar: parseFloat(cotlc01Duration.toFixed(5)),
+          sira_no: 2
+        }
+      ];
+
+      console.log(`  ✅ Created base recipes: ${baseBilesenKodu} + COTLC01 (${cotlc01Duration.toFixed(5)} DK)`);
+    }
 
     // For each alternative priority (1-8)
     for (let priority = 1; priority <= 8; priority++) {
@@ -12439,6 +12484,7 @@ const TavliBalyaTelNetsis = () => {
 
       // Fetch all YM ST products for stok karti
       const allYmStProducts = [];
+      const missingCoilerProducts = []; // Track missing .ST COILER products to create later
       for (const ymStCode of uniqueYmStCodesForStokKarti) {
         try {
           const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?stok_kodu=${encodeURIComponent(ymStCode)}`);
@@ -12447,10 +12493,42 @@ const TavliBalyaTelNetsis = () => {
             if (ymStProducts && ymStProducts.length > 0) {
               allYmStProducts.push(ymStProducts[0]);
               console.log(`  ✅ Fetched YM ST: ${ymStCode}`);
+            } else if (ymStCode.endsWith('.ST')) {
+              // ✅ FIX: COILER product not found in DB - will create it dynamically
+              console.log(`  ⚠️ COILER product not in DB yet, will create: ${ymStCode}`);
+              missingCoilerProducts.push(ymStCode);
             }
           }
         } catch (error) {
           console.error(`Error fetching YM ST product for ${ymStCode}:`, error);
+        }
+      }
+
+      // ✅ FIX: Create missing COILER products dynamically for stock table
+      for (const ymStCode of missingCoilerProducts) {
+        // Extract diameter from stok_kodu (e.g., YM.ST.0165.ST → 1.65mm)
+        const capMatch = ymStCode.match(/YM\.ST\.(\d{4})\.ST/);
+        if (capMatch) {
+          const capStr = capMatch[1];
+          const cap = parseFloat(capStr) / 100; // Convert 0165 → 1.65
+
+          // Create minimal product data for stock table
+          const coilerProduct = {
+            stok_kodu: ymStCode,
+            stok_adi: `YM Siyah Tel ${cap.toFixed(2)} mm HM:ST`,
+            grup_kodu: 'YM',
+            kod_1: 'ST',
+            cap: cap,
+            depo_kodu: '35',
+            birim_1: 'KG',
+            birim_2: 'TN',
+            cevirim_payi_1: 1,
+            cevirim_paydasi_1: 1000,
+            cevirim_degeri_1: 0.001
+          };
+
+          allYmStProducts.push(coilerProduct);
+          console.log(`  ✅ Created dynamic COILER product: ${ymStCode} (${cap}mm)`);
         }
       }
 
@@ -12897,6 +12975,24 @@ const TavliBalyaTelNetsis = () => {
             const ymStProducts = await ymStResponse.json();
             if (ymStProducts && ymStProducts.length > 0) {
               ymStProductsForAlternatives.push(ymStProducts[0]);
+            } else if (ymStCode.endsWith('.ST')) {
+              // ✅ FIX: COILER product not in DB yet - create dynamically for recipe generation
+              const capMatch = ymStCode.match(/YM\.ST\.(\d{4})\.ST/);
+              if (capMatch) {
+                const capStr = capMatch[1];
+                const cap = parseFloat(capStr) / 100; // Convert 0165 → 1.65
+
+                const coilerProduct = {
+                  stok_kodu: ymStCode,
+                  stok_adi: `YM Siyah Tel ${cap.toFixed(2)} mm HM:ST`,
+                  grup_kodu: 'YM',
+                  kod_1: 'ST',
+                  cap: cap
+                };
+
+                ymStProductsForAlternatives.push(coilerProduct);
+                console.log(`  ✅ Created dynamic COILER product for recipes: ${ymStCode} (${cap}mm)`);
+              }
             }
           }
         } catch (error) {
