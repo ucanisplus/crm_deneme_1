@@ -388,9 +388,13 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
           const oldBilesenKodu = recipe.bilesen_kodu;
 
           // Build new bilesen code: YM.ST.{cap}.{filmasin}.{quality}
-          const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
-          const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
-          const newBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
+          // Extract properties first to avoid minification TDZ issues
+          const altCap = altDef.cap;
+          const altFilmasin = altDef.filmasin;
+          const altQuality = altDef.quality;
+          const capCode = String(Math.round(altCap * 100)).padStart(4, '0');
+          const filmasinCode = String(Math.round(altFilmasin * 100)).padStart(4, '0');
+          const newBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${altQuality}`;
 
           alternativesByPriority[priority].push({
             ...recipe,
