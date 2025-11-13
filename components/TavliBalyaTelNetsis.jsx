@@ -346,13 +346,17 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
       // Get the main bilesen (priority 0) definition
       const mainDef = alternatives.find(a => a.priority === 0);
 
+      // ✅ Extract properties first to avoid TDZ
+      const altDefCap = altDef.cap;
+      const mainDefCap = mainDef.cap;
+
       // Calculate duration adjustment ratio
       // Logic: Less reduction needed = Less time
       // Thinner starting bilesen (smaller cap) → LESS reduction needed → SHORTER duration
       // Thicker starting bilesen (larger cap) → MORE reduction needed → LONGER duration
       // Example: To produce 0.73mm, starting from 2.16mm is faster than starting from 2.26mm
       // Formula: (altCap/mainCap)² where altCap < mainCap gives ratio < 1 (shorter duration)
-      const durationRatio = Math.pow(altDef.cap / mainDef.cap, 2);
+      const durationRatio = Math.pow(altDefCap / mainDefCap, 2);
 
       // Initialize priority array if needed
       if (!alternativesByPriority[priority]) {
@@ -365,10 +369,15 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
           // BILESEN ROW: Replace bilesen_kodu with alternative
           const oldBilesenKodu = recipe.bilesen_kodu;
 
+          // ✅ Extract all properties first to avoid TDZ
+          const altCap = altDef.cap;
+          const altFilmasin = altDef.filmasin;
+          const altQuality = altDef.quality;
+
           // Build new bilesen code: YM.ST.{cap}.{filmasin}.{quality}
-          const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
-          const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
-          const newBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
+          const capCode = String(Math.round(altCap * 100)).padStart(4, '0');
+          const filmasinCode = String(Math.round(altFilmasin * 100)).padStart(4, '0');
+          const newBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${altQuality}`;
 
           alternativesByPriority[priority].push({
             ...recipe,
@@ -7090,14 +7099,20 @@ const TavliBalyaTelNetsis = () => {
               // ✅ FIX: Skip priority 0 (already added manually from main product above)
               // Priority 0 exists in COILER_ALTERNATIVE_MATRIX but we add it separately above
               if (altDef.priority > 0) {
-                const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
-                const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
-                const stokKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
+                // ✅ Extract all properties first to avoid TDZ
+                const altCap = altDef.cap;
+                const altFilmasin = altDef.filmasin;
+                const altQuality = altDef.quality;
+                const altPriority = altDef.priority;
+
+                const capCode = String(Math.round(altCap * 100)).padStart(4, '0');
+                const filmasinCode = String(Math.round(altFilmasin * 100)).padStart(4, '0');
+                const stokKodu = `YM.ST.${capCode}.${filmasinCode}.${altQuality}`;
 
                 ymStAlternatives.push({
                   stokKodu: stokKodu,
-                  priority: altDef.priority,
-                  ymStDiameter: altDef.cap
+                  priority: altPriority,
+                  ymStDiameter: altCap
                 });
               }
             });
