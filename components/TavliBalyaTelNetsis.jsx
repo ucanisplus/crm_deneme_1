@@ -7548,55 +7548,55 @@ const TavliBalyaTelNetsis = () => {
                 const flmCode = `FLM.${Math.round(filmasin * 100).toString().padStart(4, '0')}.${quality}`;
                 console.log(`   📝 Creating YM ST recipe: ${flmCode} → ${baseYmStKodu}`);
 
-              // ✅ OPTIMIZED: Use bulk delete endpoint instead of deleting one-by-one
-              try {
-                await fetchWithAuth(`${API_URLS.galYmStRecete}/bulk/${encodeURIComponent(baseYmStKodu)}`, {
-                  method: 'DELETE'
+                // ✅ OPTIMIZED: Use bulk delete endpoint instead of deleting one-by-one
+                try {
+                  await fetchWithAuth(`${API_URLS.galYmStRecete}/bulk/${encodeURIComponent(baseYmStKodu)}`, {
+                    method: 'DELETE'
+                  });
+                  console.log(`   ✅ Bulk deleted existing YM ST recipes for ${baseYmStKodu}`);
+                } catch (deleteError) {
+                  // If bulk delete fails (e.g., no recipes exist), that's okay - continue
+                  console.log(`   ⏭️ No existing recipes to delete for ${baseYmStKodu}`);
+                }
+
+                // Create FLM component
+                await fetchWithAuth(API_URLS.galYmStRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_st_stok_kodu: baseYmStKodu,
+                    mamul_kodu: baseYmStKodu,
+                    bilesen_kodu: flmCode,
+                    operasyon_bilesen: 'B',
+                    miktar: 1.0,
+                    olcu_br: 'KG',
+                    aciklama: 'Filmaşin Tüketimi',
+                    sira_no: 1,
+                    recete_toplama: '1',
+                    olcu_br_bilesen: '1'
+                  })
                 });
-                console.log(`   ✅ Bulk deleted existing YM ST recipes for ${baseYmStKodu}`);
-              } catch (deleteError) {
-                // If bulk delete fails (e.g., no recipes exist), that's okay - continue
-                console.log(`   ⏭️ No existing recipes to delete for ${baseYmStKodu}`);
-              }
 
-              // Create FLM component
-              await fetchWithAuth(API_URLS.galYmStRecete, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  ym_st_stok_kodu: baseYmStKodu,
-                  mamul_kodu: baseYmStKodu,
-                  bilesen_kodu: flmCode,
-                  operasyon_bilesen: 'B',
-                  miktar: 1.0,
-                  olcu_br: 'KG',
-                  aciklama: 'Filmaşin Tüketimi',
-                  sira_no: 1,
-                  recete_toplama: '1',
-                  olcu_br_bilesen: '1'
-                })
-              });
-
-              // Create TLC01 operation
-              await fetchWithAuth(API_URLS.galYmStRecete, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  ym_st_stok_kodu: baseYmStKodu,
-                  mamul_kodu: baseYmStKodu,
-                  bilesen_kodu: 'TLC01',
-                  operasyon_bilesen: 'O',
-                  miktar: 0.002,
-                  olcu_br: 'DK',
-                  aciklama: 'Tel Çekme Operasyonu',
-                  sira_no: 2,
-                  recete_toplama: '1',
-                  olcu_br_bilesen: '1',
-                  uretim_suresi: 0.002,
-                  ua_dahil_edilsin: 'E',
-                  son_operasyon: 'E'
-                })
-              });
+                // Create TLC01 operation
+                await fetchWithAuth(API_URLS.galYmStRecete, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    ym_st_stok_kodu: baseYmStKodu,
+                    mamul_kodu: baseYmStKodu,
+                    bilesen_kodu: 'TLC01',
+                    operasyon_bilesen: 'O',
+                    miktar: 0.002,
+                    olcu_br: 'DK',
+                    aciklama: 'Tel Çekme Operasyonu',
+                    sira_no: 2,
+                    recete_toplama: '1',
+                    olcu_br_bilesen: '1',
+                    uretim_suresi: 0.002,
+                    ua_dahil_edilsin: 'E',
+                    son_operasyon: 'E'
+                  })
+                });
 
                 console.log(`   ✅ YM ST recipe created`);
               } // End else (FILMAŞIN recipe creation)
