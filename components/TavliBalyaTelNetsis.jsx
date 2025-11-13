@@ -3132,40 +3132,38 @@ const TavliBalyaTelNetsis = () => {
       });
 
     } else if (ymStDiameter >= 1.5 && ymStDiameter < 1.8) {
-      // ========== CASE 2: 1.5-1.8mm → BOTH filmaşin (Ana) + .ST (ALT_1) ==========
-      console.log('📍 YM ST 1.5-1.8mm: Creating filmaşin (Ana) + .ST (ALT_1)');
+      // ========== CASE 2: 1.5-1.8mm → ALL filmaşin alternatives + .ST ==========
+      console.log('📍 YM ST 1.5-1.8mm: Creating ALL filmaşin alternatives + .ST');
 
-      // Ana: Filmaşin-based from matrix priority 0
       const matrixAlts = getMatrixAlternatives(ymStDiameter);
-      const anaAlt = matrixAlts && matrixAlts.length > 0 && matrixAlts[0].priority === 0
-        ? matrixAlts[0]
-        : null;
 
-      if (anaAlt) {
-        const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
-        const filmasinStr = (anaAlt.diameter * 100).toString().padStart(4, '0');
-        const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${anaAlt.quality}`;
+      if (matrixAlts && matrixAlts.length > 0) {
+        // ✅ FIX: Create ALL filmaşin alternatives from matrix (not just priority 0)
+        for (const alt of matrixAlts) {
+          const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
+          const filmasinStr = (alt.diameter * 100).toString().padStart(4, '0');
+          const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${alt.quality}`;
 
-        // Check if Ana product already exists
-        try {
-          const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
-          if (!existing) {
-            autoYmSts.push({
-              stok_kodu: stokKodu,
-              stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${anaAlt.quality}`,
-              cap: ymStDiameter,
-              filmasin: Math.round(anaAlt.diameter * 100),
-              quality: anaAlt.quality,
-              payda_1: 1, // Filmaşin products use 1.000
-              kaplama: kaplama,
-              source: 'auto-generated',
-              priority: 0,
-              isMain: true,
-              isExisting: false
-            });
+          try {
+            const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
+            if (!existing) {
+              autoYmSts.push({
+                stok_kodu: stokKodu,
+                stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${alt.quality}`,
+                cap: ymStDiameter,
+                filmasin: alt.diameter, // ✅ FIXED: Use diameter directly (6.0, not 600)
+                quality: alt.quality,
+                payda_1: 1, // Filmaşin products use 1.000
+                kaplama: kaplama,
+                source: 'auto-generated',
+                priority: alt.priority,
+                isMain: alt.priority === 0,
+                isExisting: false
+              });
+            }
+          } catch (error) {
+            console.error(`Error checking filmaşin alternative priority ${alt.priority}:`, error);
           }
-        } catch (error) {
-          console.error('Error checking Ana product:', error);
         }
       } else {
         // Fallback to FILMASIN_MAPPING if matrix not available
@@ -3190,7 +3188,7 @@ const TavliBalyaTelNetsis = () => {
         });
       }
 
-      // ALT_1: .ST product
+      // ✅ PLUS: Create .ST product as additional alternative
       const capStrAlt = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
       const stokKoduAlt = `YM.ST.${capStrAlt}.ST`;
 
@@ -3236,7 +3234,7 @@ const TavliBalyaTelNetsis = () => {
                 stok_kodu: stokKodu,
                 stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${alt.quality}`,
                 cap: ymStDiameter,
-                filmasin: Math.round(alt.diameter * 100),
+                filmasin: alt.diameter, // ✅ FIXED: Use diameter directly (6.0, not 600)
                 quality: alt.quality,
                 payda_1: 1,
                 kaplama: kaplama,
@@ -3374,7 +3372,7 @@ const TavliBalyaTelNetsis = () => {
               stok_kodu: stokKodu,
               stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm HM:${filmasinStr}.${mainAlt.quality}`,
               cap: ymStDiameter,
-              filmasin: Math.round(mainAlt.diameter * 100),
+              filmasin: mainAlt.diameter, // ✅ FIXED: Use diameter directly (6.0, not 600)
               quality: mainAlt.quality,
               payda_1: 1,
               kaplama: kaplama,
@@ -5925,47 +5923,77 @@ const TavliBalyaTelNetsis = () => {
       const mmStokKodu = `TT.${productPrefix}.${capFormatted2}.${sequence}`;
 
       // STEP 1: Create YM STP if pressing is needed (cap >= 1.8mm per gene2l.csv)
+      // ✅ FIX: Create .P version for ALL YM ST alternatives, not just mainYmSt
       if (needsPressing) {
-        const ymStpData = generateYmStpDatabaseData(mainYmSt, sequence);
+        console.log(`\n🔨 Creating YM STP (.P) products for ${allYmSts.length} YM ST alternatives...`);
 
-        try {
-          const ymStpResponse = await fetchWithAuth(API_URLS.tavliNetsisYmStp, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ymStpData)
-          });
+        for (let i = 0; i < allYmSts.length; i++) {
+          const ymSt = allYmSts[i];
+          const ymStCapValue = parseFloat(ymSt.cap);
 
-          if (ymStpResponse && ymStpResponse.ok) {
-            const ymStpResult = await ymStpResponse.json();
-            ymStpStokKodu = ymStpResult.stok_kodu;
-            console.log('✅ YM STP created:', ymStpResult.stok_kodu);
-          } else if (ymStpResponse && ymStpResponse.status === 409) {
-            // 409 Conflict - product already exists, fetch it
-            console.log('⚠️ YM STP already exists (409), fetching existing product...');
-            const existingStokKodu = ymStpData.stok_kodu;
-            console.log(`🔍 Searching for existing YM STP: ${existingStokKodu}`);
+          // Only create YM STP if this specific YM ST has cap >= 1.8
+          if (ymStCapValue >= 1.8) {
+            const ymStpData = generateYmStpDatabaseData(ymSt, sequence);
+            console.log(`📦 Creating YM STP [${i+1}/${allYmSts.length}]: ${ymStpData.stok_kodu} (from ${ymSt.stok_kodu})`);
 
-            const existingResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(existingStokKodu)}`);
-            if (existingResponse && existingResponse.ok) {
-              const existingProducts = await existingResponse.json();
-              if (existingProducts && existingProducts.length > 0) {
-                ymStpStokKodu = existingProducts[0].stok_kodu;
-                console.log(`✅ Found existing YM STP: ${ymStpStokKodu}`);
+            try {
+              const ymStpResponse = await fetchWithAuth(API_URLS.tavliNetsisYmStp, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ymStpData)
+              });
+
+              if (ymStpResponse && ymStpResponse.ok) {
+                const ymStpResult = await ymStpResponse.json();
+
+                // Save the MAIN YM STP stok_kodu for YM TT creation
+                if (i === mainYmStIndex || (mainYmStIndex === -1 && i === 0)) {
+                  ymStpStokKodu = ymStpResult.stok_kodu;
+                  console.log(`✅ YM STP created (MAIN): ${ymStpResult.stok_kodu}`);
+                } else {
+                  console.log(`✅ YM STP created (ALT): ${ymStpResult.stok_kodu}`);
+                }
+              } else if (ymStpResponse && ymStpResponse.status === 409) {
+                // 409 Conflict - product already exists, fetch it
+                console.log(`⚠️ YM STP already exists (409): ${ymStpData.stok_kodu}`);
+                const existingStokKodu = ymStpData.stok_kodu;
+
+                const existingResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(existingStokKodu)}`);
+                if (existingResponse && existingResponse.ok) {
+                  const existingProducts = await existingResponse.json();
+                  if (existingProducts && existingProducts.length > 0) {
+                    // Save the MAIN YM STP stok_kodu for YM TT creation
+                    if (i === mainYmStIndex || (mainYmStIndex === -1 && i === 0)) {
+                      ymStpStokKodu = existingProducts[0].stok_kodu;
+                      console.log(`✅ Found existing YM STP (MAIN): ${ymStpStokKodu}`);
+                    } else {
+                      console.log(`✅ Found existing YM STP (ALT): ${existingProducts[0].stok_kodu}`);
+                    }
+                  } else {
+                    console.warn(`⚠️ YM STP search returned empty: ${existingStokKodu}`);
+                    if (i === mainYmStIndex || (mainYmStIndex === -1 && i === 0)) {
+                      ymStpStokKodu = existingStokKodu;
+                    }
+                  }
+                } else {
+                  console.warn(`⚠️ Failed to fetch existing YM STP: ${existingStokKodu}`);
+                  if (i === mainYmStIndex || (mainYmStIndex === -1 && i === 0)) {
+                    ymStpStokKodu = existingStokKodu;
+                  }
+                }
               } else {
-                console.warn(`⚠️ YM STP search returned empty, using generated stok_kodu: ${existingStokKodu}`);
-                ymStpStokKodu = existingStokKodu;
+                console.error(`❌ YM STP creation failed for ${ymStpData.stok_kodu}: status ${ymStpResponse?.status}`);
               }
-            } else {
-              console.warn(`⚠️ Failed to fetch existing YM STP, using generated stok_kodu: ${existingStokKodu}`);
-              ymStpStokKodu = existingStokKodu;
+            } catch (error) {
+              console.error(`YM STP creation error for ${ymStpData.stok_kodu}:`, error);
+              toast.error(`YM STP oluşturma hatası (${ymSt.stok_kodu}): ${error.message}`);
             }
           } else {
-            console.error(`❌ YM STP creation failed with status: ${ymStpResponse?.status}`);
+            console.log(`⏭️  Skipping YM STP for ${ymSt.stok_kodu} (cap ${ymStCapValue}mm < 1.8mm)`);
           }
-        } catch (error) {
-          console.error('YM STP creation error:', error);
-          toast.error('YM STP oluşturma hatası: ' + error.message);
         }
+
+        console.log(`✅ YM STP creation complete. Main YM STP for YM TT: ${ymStpStokKodu || 'none'}\n`);
       }
 
       // STEP 2: Create YM TT (always) - source is either YM STP (if pressed) or YM ST
