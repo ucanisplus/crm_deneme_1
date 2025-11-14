@@ -867,7 +867,7 @@ const GalvanizliTelNetsis = () => {
     }
   }, [mmGtData.cap, mmGtData.kod_2, mmGtData.kaplama, mmGtData.min_mukavemet, mmGtData.max_mukavemet, mmGtData.kg, mmGtData.ic_cap, mmGtData.dis_cap, mmGtData.tolerans_plus, mmGtData.tolerans_minus]);
 
-  // Calculate YM ST diameter for UI conditional rendering
+  // Calculate YM ST diameter for UI conditional rendering (round up if odd)
   useEffect(() => {
     if (mmGtData.cap && mmGtData.kaplama && mmGtData.tolerans_minus) {
       const cap = parseFloat(mmGtData.cap) || 0;
@@ -882,7 +882,16 @@ const GalvanizliTelNetsis = () => {
       const coatingReduction = (kaplama / 35) * 0.01;
 
       const baseAdjustedCap = cap + signedToleranceMinus - coatingReduction + 0.02;
-      const ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
+      let ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
+
+      // Round up to next even diameter if result is odd (in 0.01mm units)
+      // Example: 2.47mm (247) is odd → round up to 2.48mm (248)
+      const diameterIn100ths = Math.round(ymStDiameter * 100);
+      if (diameterIn100ths % 2 !== 0) {
+        // Odd diameter - round up to next even
+        ymStDiameter = (diameterIn100ths + 1) / 100;
+        console.log(`⚠️ Galvanizli: Rounded up odd diameter ${(diameterIn100ths / 100).toFixed(2)}mm to even ${ymStDiameter.toFixed(2)}mm`);
+      }
 
       setCalculatedYmStDiameter(ymStDiameter);
       // Don't auto-fill the input - let user enter manually
@@ -3773,6 +3782,17 @@ const GalvanizliTelNetsis = () => {
     const existingProducts = []; // Collect all existing products
 
     console.log(`🔧 Creating YM ST products for diameter: ${ymStDiameter}mm`);
+
+    // ✅ VALIDATION: YM ST products (COIL and regular) MUST have even diameter
+    // Check if diameter has odd last digit (in 0.01mm units)
+    // Example: 1.97mm = 197 (odd) ✗ | 1.96mm = 196 (even) ✓
+    const diameterIn100ths = Math.round(ymStDiameter * 100);
+    if (diameterIn100ths % 2 !== 0) {
+      const errorMsg = `❌ YM ST products cannot have odd diameter! ${ymStDiameter.toFixed(2)}mm (${diameterIn100ths}) is odd. Please use an even diameter (e.g., ${((diameterIn100ths + 1) / 100).toFixed(2)}mm).`;
+      console.error(errorMsg);
+      toast.error(errorMsg);
+      throw new Error(errorMsg);
+    }
 
     if (ymStDiameter < 1.5) {
       // ========== CASE 1: < 1.5mm → Only .ST products ==========
