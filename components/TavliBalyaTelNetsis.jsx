@@ -1011,11 +1011,21 @@ const TavliBalyaTelNetsis = () => {
     }
   }, [mmData.cap]);
 
-  // Calculate suggested YM.ST diameter (final diameter - 0.04mm)
+  // Calculate suggested YM.ST diameter (final diameter - 0.04mm, round up if odd)
   useEffect(() => {
     if (mmData.cap && parseFloat(mmData.cap) > 0) {
       const finalDiameter = parseFloat(mmData.cap);
-      const suggestedYmStDiameter = finalDiameter - 0.04;
+      let suggestedYmStDiameter = finalDiameter - 0.04;
+
+      // Round up to next even diameter if result is odd (in 0.01mm units)
+      // Example: 2.47mm (247) is odd → round up to 2.48mm (248)
+      const diameterIn100ths = Math.round(suggestedYmStDiameter * 100);
+      if (diameterIn100ths % 2 !== 0) {
+        // Odd diameter - round up to next even
+        suggestedYmStDiameter = (diameterIn100ths + 1) / 100;
+        console.log(`⚠️ Rounded up odd diameter ${(diameterIn100ths / 100).toFixed(2)}mm to even ${suggestedYmStDiameter.toFixed(2)}mm`);
+      }
+
       setCalculatedYmStDiameter(suggestedYmStDiameter);
       console.log(`💡 Suggested YM.ST diameter for ${finalDiameter}mm Tavli/Balya: ${suggestedYmStDiameter.toFixed(2)}mm`);
     } else {
@@ -1580,6 +1590,67 @@ const TavliBalyaTelNetsis = () => {
               mm = await mmResponse.json();
             }
 
+            // Step 1: Delete YM TT products and recipes
+            if (mm && mm.stok_kodu) {
+              // Find YM TT products by searching for stok_kodu containing MM TT code
+              // YM TT format: YM.TT.{mm_code}.{quality} where mm_code matches MM TT's cap
+              const ymTtPattern = mm.stok_kodu.split('.')[2]; // Extract cap from MM.TT.XXXX
+              console.log(`Searching for YM TT products with pattern: ${ymTtPattern}`);
+
+              try {
+                const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=1000`);
+                if (ymTtResponse && ymTtResponse.ok) {
+                  const ymTtProducts = await ymTtResponse.json();
+                  const relatedYmTt = ymTtProducts.filter(ym =>
+                    ym.stok_kodu && ym.stok_kodu.includes(ymTtPattern)
+                  );
+
+                  console.log(`Found ${relatedYmTt.length} related YM TT products to delete`);
+
+                  for (const ymTt of relatedYmTt) {
+                    // Delete YM TT recipes first
+                    const ymTtReceteResponse = await fetchWithAuth(
+                      `${API_URLS.tavliNetsisYmTtRecete}?stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`
+                    );
+                    if (ymTtReceteResponse && ymTtReceteResponse.ok) {
+                      const ymTtRecetes = await ymTtReceteResponse.json();
+                      for (const recete of ymTtRecetes) {
+                        await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}/${recete.id}`, {
+                          method: 'DELETE'
+                        });
+                      }
+                      console.log(`Deleted ${ymTtRecetes.length} YM TT recipes for ${ymTt.stok_kodu}`);
+                    }
+
+                    // Delete YM TT product
+                    await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}/${ymTt.id}`, {
+                      method: 'DELETE'
+                    });
+                    console.log(`Deleted YM TT product: ${ymTt.stok_kodu}`);
+                  }
+                }
+              } catch (error) {
+                console.error('Error deleting YM TT cascade:', error);
+              }
+            }
+
+            // Step 2: Delete MM TT recipes
+            try {
+              const mmReceteResponse = await fetchWithAuth(
+                `${API_URLS.tavliBalyaMmRecete}?stok_kodu=${encodeURIComponent(mm?.stok_kodu || '')}`
+              );
+              if (mmReceteResponse && mmReceteResponse.ok) {
+                const mmRecetes = await mmReceteResponse.json();
+                for (const recete of mmRecetes) {
+                  await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}/${recete.id}`, {
+                    method: 'DELETE'
+                  });
+                }
+                console.log(`Deleted ${mmRecetes.length} MM TT recipes`);
+              }
+            } catch (error) {
+              console.error('Error deleting MM TT recipes:', error);
+            }
 
             // Step 3: Delete the MM TT itself
             const deleteResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}/${itemId}`, {
@@ -1605,14 +1676,79 @@ const TavliBalyaTelNetsis = () => {
           }
         }
       } else {
-        // For YM ST, simple deletion (no cascade needed)
+        // For YM ST, cascade deletion including YM STP (pressed versions with .P suffix)
         for (let i = 0; i < selectedDbItems.length; i++) {
           const itemId = selectedDbItems[i];
           try {
+            console.log(`Deleting YM ST ${i + 1}/${selectedDbItems.length} with cascade:`, itemId);
+
+            // Get YM ST data before deletion
+            const ymStResponse = await fetchWithAuth(`${API_URLS.galYmSt}/${itemId}`);
+            let ymSt = null;
+            if (ymStResponse && ymStResponse.ok) {
+              ymSt = await ymStResponse.json();
+            }
+
+            // Step 1: Delete YM STP products and recipes (pressed versions with .P suffix)
+            if (ymSt && ymSt.stok_kodu) {
+              // YM STP format: YM.ST.XXXX.YYYY.ZZZZ.P (adds .P suffix to YM ST code)
+              const ymStpStokKodu = ymSt.stok_kodu + '.P';
+              console.log(`Searching for YM STP product: ${ymStpStokKodu}`);
+
+              try {
+                const ymStpResponse = await fetchWithAuth(
+                  `${API_URLS.tavliNetsisYmStp}?stok_kodu=${encodeURIComponent(ymStpStokKodu)}`
+                );
+                if (ymStpResponse && ymStpResponse.ok) {
+                  const ymStpProducts = await ymStpResponse.json();
+
+                  for (const ymStp of ymStpProducts) {
+                    // Delete YM STP recipes first
+                    const ymStpReceteResponse = await fetchWithAuth(
+                      `${API_URLS.tavliNetsisYmStpRecete}?stok_kodu=${encodeURIComponent(ymStp.stok_kodu)}`
+                    );
+                    if (ymStpReceteResponse && ymStpReceteResponse.ok) {
+                      const ymStpRecetes = await ymStpReceteResponse.json();
+                      for (const recete of ymStpRecetes) {
+                        await fetchWithAuth(`${API_URLS.tavliNetsisYmStpRecete}/${recete.id}`, {
+                          method: 'DELETE'
+                        });
+                      }
+                      console.log(`Deleted ${ymStpRecetes.length} YM STP recipes for ${ymStp.stok_kodu}`);
+                    }
+
+                    // Delete YM STP product
+                    await fetchWithAuth(`${API_URLS.tavliNetsisYmStp}/${ymStp.id}`, {
+                      method: 'DELETE'
+                    });
+                    console.log(`Deleted YM STP product: ${ymStp.stok_kodu}`);
+                  }
+                }
+              } catch (error) {
+                console.error('Error deleting YM STP cascade:', error);
+              }
+            }
+
+            // Step 2: Delete YM ST recipes
+            try {
+              const ymStReceteResponse = await fetchWithAuth(
+                `${API_URLS.galYmStRecete}?stok_kodu=${encodeURIComponent(ymSt?.stok_kodu || '')}`
+              );
+              if (ymStReceteResponse && ymStReceteResponse.ok) {
+                const ymStRecetes = await ymStReceteResponse.json();
+                for (const recete of ymStRecetes) {
+                  await fetchWithAuth(`${API_URLS.galYmStRecete}/${recete.id}`, {
+                    method: 'DELETE'
+                  });
+                }
+                console.log(`Deleted ${ymStRecetes.length} YM ST recipes`);
+              }
+            } catch (error) {
+              console.error('Error deleting YM ST recipes:', error);
+            }
+
+            // Step 3: Delete the YM ST itself
             const deleteUrl = `${API_URLS.galYmSt}/${itemId}`;
-
-            console.log(`Deleting YM ST ${i + 1}/${selectedDbItems.length}:`, itemId, 'URL:', deleteUrl);
-
             const response = await fetchWithAuth(deleteUrl, {
               method: 'DELETE'
             });
@@ -3356,6 +3492,17 @@ const TavliBalyaTelNetsis = () => {
     console.log(`🔧 Creating YM ST product for Tavli/Balya - diameter: ${ymStDiameter}mm`);
     console.log(`📍 YM.ST products are intermediate products made FROM filmaşin`);
     console.log(`📍 Will create ONLY the MAIN (priority 0) YM.ST product`);
+
+    // ✅ VALIDATION: YM ST products (COIL, regular, and pressed) MUST have even diameter
+    // Check if diameter has odd last digit (in 0.01mm units)
+    // Example: 1.97mm = 197 (odd) ✗ | 1.96mm = 196 (even) ✓
+    const diameterIn100ths = Math.round(ymStDiameter * 100);
+    if (diameterIn100ths % 2 !== 0) {
+      const errorMsg = `❌ YM ST products cannot have odd diameter! ${ymStDiameter.toFixed(2)}mm (${diameterIn100ths}) is odd. Please use an even diameter (e.g., ${((diameterIn100ths + 1) / 100).toFixed(2)}mm).`;
+      console.error(errorMsg);
+      toast.error(errorMsg);
+      throw new Error(errorMsg);
+    }
 
     // Get kaplama from mmData (needed for YM.ST products)
     const kaplama = parseInt(mmData.kaplama) || 0;
@@ -5979,6 +6126,13 @@ const TavliBalyaTelNetsis = () => {
         for (let i = 0; i < allYmSts.length; i++) {
           const ymSt = allYmSts[i];
           const ymStCapValue = parseFloat(ymSt.cap);
+
+          // ✅ VALIDATION: YM STP (pressed) products MUST have even diameter (same as YM ST)
+          const ymStpDiameterIn100ths = Math.round(ymStCapValue * 100);
+          if (ymStpDiameterIn100ths % 2 !== 0) {
+            console.error(`❌ Skipping YM STP creation - odd diameter: ${ymStCapValue.toFixed(2)}mm (${ymStpDiameterIn100ths})`);
+            continue; // Skip this product but continue with others
+          }
 
           // Only create YM STP if this specific YM ST has cap >= 1.8
           if (ymStCapValue >= 1.8) {
