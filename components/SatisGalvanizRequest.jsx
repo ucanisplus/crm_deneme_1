@@ -471,54 +471,20 @@ const SatisGalvanizRequest = () => {
     });
   };
   
-  // Cap input change also updates dis_cap automatically
+  // ✅ UPDATED: Cap input change - no longer auto-calculates dis_cap
+  // User now enters both IC and DIS manually via combined selector
   const handleCapChange = (e) => {
     const value = normalizeInputValue(e.target.value);
-    
-    setRequestData(prev => {
-      const icCap = prev.ic_cap || 45;
-      let disCap;
-      
-      // Try to calculate dis_cap, but use safe default if cap is not a valid number
-      let capValue;
-      try {
-        capValue = parseFloat(value);
-        if (isNaN(capValue)) capValue = 0;
-      } catch (e) {
-        capValue = 0;
-      }
-      
-      if (icCap === 45) disCap = 75;
-      else if (icCap === 50) disCap = 90;
-      else if (icCap === 55) disCap = 105;
-      else disCap = icCap + (capValue * 10); // General calculation
-      
-      return {
-        ...prev,
-        cap: value,
-        dis_cap: disCap
-      };
-    });
+
+    setRequestData(prev => ({
+      ...prev,
+      cap: value
+    }));
   };
   
-  // Handle internal diameter change
-  const handleIcCapChange = (e) => {
-    const value = parseInt(e.target.value);
-    setRequestData(prev => {
-      let disCap;
-      
-      if (value === 45) disCap = 75;
-      else if (value === 50) disCap = 90;
-      else if (value === 55) disCap = 105;
-      else disCap = value + (parseFloat(prev.cap) * 10); // General calculation
-      
-      return {
-        ...prev,
-        ic_cap: value,
-        dis_cap: disCap
-      };
-    });
-  };
+  // ✅ REMOVED: handleIcCapChange
+  // User now enters both IC and DIS manually via combined selector
+  // No need for separate IC CAP handler with auto-calculation
 
   // Comma to point conversion handler for onKeyDown
   const handleCommaToPoint = (e, field) => {
@@ -1778,28 +1744,58 @@ const SatisGalvanizRequest = () => {
             {/* Right column - Additional details */}
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">İç Çap (cm)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bobin Boyutu (İç Çap - Dış Çap)
+                </label>
                 <select
-                  name="ic_cap"
-                  value={requestData.ic_cap}
-                  onChange={handleIcCapChange}
+                  value={`${requestData.ic_cap}-${requestData.dis_cap}`}
+                  onChange={(e) => {
+                    if (e.target.value === 'custom') {
+                      // Custom entry selected - show input fields
+                      const customIc = prompt('İç Çap (cm) girin:');
+                      const customDis = prompt('Dış Çap (cm) girin:');
+                      if (customIc && customDis) {
+                        setRequestData(prev => ({
+                          ...prev,
+                          ic_cap: parseInt(customIc),
+                          dis_cap: parseInt(customDis)
+                        }));
+                      }
+                    } else {
+                      const [ic, dis] = e.target.value.split('-').map(v => parseInt(v));
+                      setRequestData(prev => ({
+                        ...prev,
+                        ic_cap: ic,
+                        dis_cap: dis
+                      }));
+                    }
+                  }}
                   className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value={45}>45 cm</option>
-                  <option value={50}>50 cm</option>
-                  <option value={55}>55 cm</option>
+                  <option value="45-75">ID: 45 cm - OD: 75 cm</option>
+                  <option value="50-90">ID: 50 cm - OD: 90 cm</option>
+                  <option value="55-105">ID: 55 cm - OD: 105 cm</option>
+                  <option value="custom" style={{ borderTop: '2px solid #ddd', marginTop: '8px' }}>
+                    ⚠️ Özel Boyut Gir (Önerilmez)
+                  </option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dış Çap (cm)</label>
-                <input
-                  type="text"
-                  name="dis_cap"
-                  value={requestData.dis_cap}
-                  disabled
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-gray-100"
-                />
-                <p className="text-xs text-gray-500 mt-1">Dış çap, iç çap ve tel çapına göre otomatik hesaplanır.</p>
+                {(() => {
+                  const standardOptions = ['45-75', '50-90', '55-105'];
+                  const currentValue = `${requestData.ic_cap}-${requestData.dis_cap}`;
+                  const isCustom = !standardOptions.includes(currentValue);
+
+                  if (isCustom && requestData.ic_cap && requestData.dis_cap) {
+                    return (
+                      <p className="text-xs text-orange-600 bg-orange-50 px-3 py-2 rounded-lg mt-2 flex items-start gap-2">
+                        <span className="text-base">⚠️</span>
+                        <span>
+                          <strong>Özel boyut kullanılıyor:</strong> IC {requestData.ic_cap} cm - OD {requestData.dis_cap} cm
+                        </span>
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
               <div className="space-y-4">
                 <div>
