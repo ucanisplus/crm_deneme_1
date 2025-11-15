@@ -723,24 +723,11 @@ const GalvanizliTelNetsis = () => {
     fetchUserInputValues();
     fetchUsers(); // Kullanici adi arama icin kullanicilari getir
   }, []);
-  
-  // Cap değeri değiştiğinde Dış Çap'ı otomatik hesapla
-  useEffect(() => {
-    if (mmGtData.cap && mmGtData.ic_cap) {
-      const cap = parseFloat(mmGtData.cap) || 0;
-      const icCap = parseInt(mmGtData.ic_cap) || 45;
-      let disCap;
-      
-      // Çap ve iç çapa göre dış çap hesaplama
-      if (icCap === 45) disCap = 75;
-      else if (icCap === 50) disCap = 90;
-      else if (icCap === 55) disCap = 105;
-      else disCap = icCap + (cap * 10); // Genel hesaplama
-      
-      setMmGtData(prev => ({ ...prev, dis_cap: disCap }));
-    }
-  }, [mmGtData.cap, mmGtData.ic_cap]);
-  
+
+  // ✅ REMOVED: DIS CAP auto-calculation
+  // User now enters both IC and DIS manually via combined selector or custom entry
+  // No need to auto-calculate DIS CAP anymore
+
   // Task Queue Functions
   const addToTaskQueue = (taskName, saveFunction, taskId = null) => {
     const newTask = {
@@ -5611,13 +5598,38 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Shrink kodu belirle (tam kod ile)
+  // ✅ UPDATED: Round up to nearest standard IC size for custom values
   const getShrinkCode = (icCap) => {
-    switch (parseInt(icCap)) {
-      case 45: return 'AMB.SHRİNK.200*140CM';
-      case 50: return 'AMB.SHRİNK.200*160CM';
-      case 55: return 'AMB.SHRİNK.200*190CM';
-      default: return 'AMB.SHRİNK.200*140CM';
+    const icCapValue = parseInt(icCap);
+
+    // Standard IC sizes and their shrink codes
+    const standardSizes = [
+      { ic: 45, shrink: 'AMB.SHRİNK.200*140CM' },
+      { ic: 50, shrink: 'AMB.SHRİNK.200*160CM' },
+      { ic: 55, shrink: 'AMB.SHRİNK.200*190CM' }
+    ];
+
+    // Find the closest standard size by rounding UP
+    // Example: IC 35 → use 45, IC 48 → use 50, IC 56 → use 55 (or next available)
+    let selectedShrink = standardSizes[0].shrink; // Default to smallest (45)
+
+    for (let i = 0; i < standardSizes.length; i++) {
+      if (icCapValue <= standardSizes[i].ic) {
+        selectedShrink = standardSizes[i].shrink;
+        if (icCapValue !== standardSizes[i].ic) {
+          console.log(`⚠️ Custom IC ${icCapValue}cm → Using shrink for IC ${standardSizes[i].ic}cm: ${selectedShrink}`);
+        }
+        break;
+      }
     }
+
+    // If IC is larger than all standards, use the largest
+    if (icCapValue > standardSizes[standardSizes.length - 1].ic) {
+      selectedShrink = standardSizes[standardSizes.length - 1].shrink;
+      console.log(`⚠️ Custom IC ${icCapValue}cm exceeds standards → Using largest shrink (IC 55): ${selectedShrink}`);
+    }
+
+    return selectedShrink;
   };
 
   // Gümrük Tarife Kodu belirle
@@ -15359,31 +15371,52 @@ const GalvanizliTelNetsis = () => {
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
-                İç Çap (cm)
+                Bobin Boyutu (İç Çap - Dış Çap)
               </label>
               <select
-                value={mmGtData.ic_cap}
-                onChange={(e) => handleInputChange('ic_cap', parseInt(e.target.value))}
+                value={`${mmGtData.ic_cap}-${mmGtData.dis_cap}`}
+                onChange={(e) => {
+                  if (e.target.value === 'custom') {
+                    // Custom entry selected - show input fields
+                    const customIc = prompt('İç Çap (cm) girin:');
+                    const customDis = prompt('Dış Çap (cm) girin:');
+                    if (customIc && customDis) {
+                      handleInputChange('ic_cap', parseInt(customIc));
+                      handleInputChange('dis_cap', parseInt(customDis));
+                    }
+                  } else {
+                    const [ic, dis] = e.target.value.split('-').map(v => parseInt(v));
+                    handleInputChange('ic_cap', ic);
+                    handleInputChange('dis_cap', dis);
+                  }
+                }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
               >
-                <option value={45}>45</option>
-                <option value={50}>50</option>
-                <option value={55}>55</option>
+                <option value="45-75">ID: 45 cm - OD: 75 cm</option>
+                <option value="50-90">ID: 50 cm - OD: 90 cm</option>
+                <option value="55-105">ID: 55 cm - OD: 105 cm</option>
+                <option value="custom" style={{ borderTop: '2px solid #ddd', marginTop: '8px' }}>
+                  ⚠️ Özel Boyut Gir (Önerilmez)
+                </option>
               </select>
-            </div>
+              {(() => {
+                const standardOptions = ['45-75', '50-90', '55-105'];
+                const currentValue = `${mmGtData.ic_cap}-${mmGtData.dis_cap}`;
+                const isCustom = !standardOptions.includes(currentValue);
 
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Dış Çap (cm)
-              </label>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={normalizeDecimalDisplay(mmGtData.dis_cap || '')}
-                onChange={(e) => handleInputChange('dis_cap', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 transition-all bg-gray-50"
-                readOnly
-              />
+                if (isCustom && mmGtData.ic_cap && mmGtData.dis_cap) {
+                  return (
+                    <p className="text-xs text-orange-600 bg-orange-50 px-3 py-2 rounded-lg flex items-start gap-2">
+                      <span className="text-base">⚠️</span>
+                      <span>
+                        <strong>Özel boyut kullanılıyor:</strong> IC {mmGtData.ic_cap} cm - OD {mmGtData.dis_cap} cm
+                        <br />Shrink ambalaj otomatik olarak en yakın standart boyuta göre seçilecektir.
+                      </span>
+                    </p>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             <div className="space-y-2">
