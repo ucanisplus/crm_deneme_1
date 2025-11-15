@@ -1775,27 +1775,25 @@ const SatisGalvanizRequest = () => {
                   <option value="45-75">ID: 45 cm - OD: 75 cm</option>
                   <option value="50-90">ID: 50 cm - OD: 90 cm</option>
                   <option value="55-105">ID: 55 cm - OD: 105 cm</option>
+                  {(() => {
+                    // Show custom option if current values are not standard
+                    const standardOptions = ['45-75', '50-90', '55-105'];
+                    const currentValue = `${requestData.ic_cap}-${requestData.dis_cap}`;
+                    const isCustom = !standardOptions.includes(currentValue);
+
+                    if (isCustom && requestData.ic_cap && requestData.dis_cap) {
+                      return (
+                        <option value={currentValue} style={{ backgroundColor: '#FFF4E6', color: '#D97706' }}>
+                          ID: {requestData.ic_cap} cm - OD: {requestData.dis_cap} cm ⚠️ Özel
+                        </option>
+                      );
+                    }
+                    return null;
+                  })()}
                   <option value="custom" style={{ borderTop: '2px solid #ddd', marginTop: '8px' }}>
-                    ⚠️ Özel Boyut Gir (Önerilmez)
+                    ⚠️ Yeni Özel Boyut Gir
                   </option>
                 </select>
-                {(() => {
-                  const standardOptions = ['45-75', '50-90', '55-105'];
-                  const currentValue = `${requestData.ic_cap}-${requestData.dis_cap}`;
-                  const isCustom = !standardOptions.includes(currentValue);
-
-                  if (isCustom && requestData.ic_cap && requestData.dis_cap) {
-                    return (
-                      <p className="text-xs text-orange-600 bg-orange-50 px-3 py-2 rounded-lg mt-2 flex items-start gap-2">
-                        <span className="text-base">⚠️</span>
-                        <span>
-                          <strong>Özel boyut kullanılıyor:</strong> IC {requestData.ic_cap} cm - OD {requestData.dis_cap} cm
-                        </span>
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
               </div>
               <div className="space-y-4">
                 <div>
