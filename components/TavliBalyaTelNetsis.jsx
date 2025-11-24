@@ -8151,14 +8151,14 @@ const TavliBalyaTelNetsis = () => {
       // mmRecipe keys: YM.TT.0161.00 (no product type)
       // sourceStokKodu: YM.TT.BALYA.0161.00 (with product type)
       // Extract diameter: YM.TT.BALYA.0161.00 → 0161
-      const diameterMatch = sourceStokKodu.match(/YM\.TT\.(?:BALYA|BAG)?\.?(\d{4})\./);
+      const diameterMatch = sourceStokKodu ? sourceStokKodu.match(/YM\.TT\.(?:BALYA|BAG)?\.?(\d{4})\./) : null;
       const sourceEntry = diameterMatch
         ? recipeEntries.find(([key]) => {
             // Match by diameter: YM.TT.0161.XX or YM.TT.BALYA.0161.XX or YM.TT.BAG.0161.XX
             const keyDiameterMatch = key.match(/YM\.TT\.(?:BALYA|BAG)?\.?(\d{4})\./);
             return keyDiameterMatch && keyDiameterMatch[1] === diameterMatch[1];
           })
-        : recipeEntries.find(([key]) => key === sourceStokKodu);
+        : (sourceStokKodu ? recipeEntries.find(([key]) => key === sourceStokKodu) : null);
       const packagingEntry = recipeEntries.find(([key]) => key === 'TVPKT01' || key === 'BAL01');
       const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL'); // Optional (oiled only)
       const shrinkEntry = recipeEntries.find(([key]) => key === shrinkCode);
