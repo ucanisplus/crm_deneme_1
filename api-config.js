@@ -36,7 +36,7 @@ export const API_URLS = {
   tavliBalyaSalRequests: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_sal_requests',
   tavliBalyaSequence: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_sequence',
   // Tavlı Netsis - Intermediates (YM YB removed - both TAVLI and BALYA use YM TT)
-  tavliNetsisYmTt: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_v2',
+  tavliNetsisYmTt: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt',
   tavliNetsisYmTtRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_recete',
   tavliNetsisYmStp: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp',
   tavliNetsisYmStpRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp_recete',
@@ -73,7 +73,7 @@ export const API_URLS = {
   // Tavli/Balya Tel Bulk endpoints for Excel generation - NEW
   getAllTavliBalyaMm: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_mm/bulk-all',
   getAllTavliBalyaMmRecetes: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_mm_recete/bulk-all',
-  getAllYmTt: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_v2/bulk-all',
+  getAllYmTt: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt/bulk-all',
   getAllYmTtRecetes: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_recete/bulk-all',
   getAllYmStp: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp/bulk-all',
   getAllYmStpRecetes: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp_recete/bulk-all',

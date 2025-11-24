@@ -1592,13 +1592,18 @@ const TavliBalyaTelNetsis = () => {
 
             // Step 1: Delete YM TT products and recipes
             if (mm && mm.stok_kodu) {
-              // Find YM TT products that reference this MM via source_mm_stok_kodu
-              console.log(`Searching for YM TT products with source_mm_stok_kodu: ${mm.stok_kodu}`);
+              // Find YM TT products by searching for stok_kodu containing MM TT code
+              // YM TT format: YM.TT.{mm_code}.{quality} where mm_code matches MM TT's cap
+              const ymTtPattern = mm.stok_kodu.split('.')[2]; // Extract cap from MM.TT.XXXX
+              console.log(`Searching for YM TT products with pattern: ${ymTtPattern}`);
 
               try {
-                const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?source_mm_stok_kodu=${encodeURIComponent(mm.stok_kodu)}`);
+                const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=1000`);
                 if (ymTtResponse && ymTtResponse.ok) {
-                  const relatedYmTt = await ymTtResponse.json();
+                  const ymTtProducts = await ymTtResponse.json();
+                  const relatedYmTt = ymTtProducts.filter(ym =>
+                    ym.stok_kodu && ym.stok_kodu.includes(ymTtPattern)
+                  );
 
                   console.log(`Found ${relatedYmTt.length} related YM TT products to delete`);
 
@@ -8151,14 +8156,14 @@ const TavliBalyaTelNetsis = () => {
       // mmRecipe keys: YM.TT.0161.00 (no product type)
       // sourceStokKodu: YM.TT.BALYA.0161.00 (with product type)
       // Extract diameter: YM.TT.BALYA.0161.00 → 0161
-      const diameterMatch = sourceStokKodu ? sourceStokKodu.match(/YM\.TT\.(?:BALYA|BAG)?\.?(\d{4})\./) : null;
+      const diameterMatch = sourceStokKodu.match(/YM\.TT\.(?:BALYA|BAG)?\.?(\d{4})\./);
       const sourceEntry = diameterMatch
         ? recipeEntries.find(([key]) => {
             // Match by diameter: YM.TT.0161.XX or YM.TT.BALYA.0161.XX or YM.TT.BAG.0161.XX
             const keyDiameterMatch = key.match(/YM\.TT\.(?:BALYA|BAG)?\.?(\d{4})\./);
             return keyDiameterMatch && keyDiameterMatch[1] === diameterMatch[1];
           })
-        : (sourceStokKodu ? recipeEntries.find(([key]) => key === sourceStokKodu) : null);
+        : recipeEntries.find(([key]) => key === sourceStokKodu);
       const packagingEntry = recipeEntries.find(([key]) => key === 'TVPKT01' || key === 'BAL01');
       const kartonEntry = recipeEntries.find(([key]) => key === 'AMB.ÇEM.KARTON.GAL'); // Optional (oiled only)
       const shrinkEntry = recipeEntries.find(([key]) => key === shrinkCode);
