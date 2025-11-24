@@ -73,7 +73,7 @@ export const API_URLS = {
   // Tavli/Balya Tel Bulk endpoints for Excel generation - NEW
   getAllTavliBalyaMm: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_mm/bulk-all',
   getAllTavliBalyaMmRecetes: 'https://crm-deneme-backend.vercel.app/api/tavli_balya_tel_mm_recete/bulk-all',
-  getAllYmTt: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt/bulk-all',
+  getAllYmTt: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_v2/bulk-all',
   getAllYmTtRecetes: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_recete/bulk-all',
   getAllYmStp: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp/bulk-all',
   getAllYmStpRecetes: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp_recete/bulk-all',
