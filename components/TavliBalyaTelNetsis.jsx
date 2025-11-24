@@ -2268,11 +2268,16 @@ const TavliBalyaTelNetsis = () => {
 
       // Step 2.5: Delete YM TT products and recipes (CASCADE from MM deletion)
       try {
-        // Find YM TT products that reference this MM
-        const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?source_mm_stok_kodu=${encodeURIComponent(mmStokKodu)}`);
+        // Construct YM TT stok_kodu directly from MM pattern
+        // TT.BAG.0120.00 -> YM.TT.BAG.0120.00
+        const ymTtStokKodu = `YM.${mmStokKodu}`;
+        console.log(`Looking for YM TT product: ${ymTtStokKodu}`);
+
+        // Find YM TT product by exact stok_kodu match
+        const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?stok_kodu=${encodeURIComponent(ymTtStokKodu)}`);
         if (ymTtResponse && ymTtResponse.ok) {
           const ymTtProducts = await ymTtResponse.json();
-          console.log(`Found ${ymTtProducts.length} YM TT products referencing ${mmStokKodu}`);
+          console.log(`Found ${ymTtProducts.length} YM TT products with stok_kodu ${ymTtStokKodu}`);
 
           for (const ymTt of ymTtProducts) {
             // Delete YM TT recipes first
