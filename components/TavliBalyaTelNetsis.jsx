@@ -1592,20 +1592,17 @@ const TavliBalyaTelNetsis = () => {
 
             // Step 1: Delete YM TT products and recipes
             if (mm && mm.stok_kodu) {
-              // Find YM TT products by searching for stok_kodu containing MM TT code
-              // YM TT format: YM.TT.{mm_code}.{quality} where mm_code matches MM TT's cap
-              const ymTtPattern = mm.stok_kodu.split('.')[2]; // Extract cap from MM.TT.XXXX
-              console.log(`Searching for YM TT products with pattern: ${ymTtPattern}`);
+              // Construct YM TT stok_kodu directly from MM pattern
+              // TT.BAG.0120.00 -> YM.TT.BAG.0120.00
+              const ymTtStokKodu = `YM.${mm.stok_kodu}`;
+              console.log(`Bulk: Looking for YM TT product: ${ymTtStokKodu}`);
 
               try {
-                const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?limit=1000`);
+                const ymTtResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTt}?stok_kodu=${encodeURIComponent(ymTtStokKodu)}`);
                 if (ymTtResponse && ymTtResponse.ok) {
-                  const ymTtProducts = await ymTtResponse.json();
-                  const relatedYmTt = ymTtProducts.filter(ym =>
-                    ym.stok_kodu && ym.stok_kodu.includes(ymTtPattern)
-                  );
+                  const relatedYmTt = await ymTtResponse.json();
 
-                  console.log(`Found ${relatedYmTt.length} related YM TT products to delete`);
+                  console.log(`Bulk: Found ${relatedYmTt.length} YM TT product(s) with stok_kodu ${ymTtStokKodu}`);
 
                   for (const ymTt of relatedYmTt) {
                     // Delete YM TT recipes first
