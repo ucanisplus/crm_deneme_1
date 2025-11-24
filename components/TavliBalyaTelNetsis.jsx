@@ -1631,22 +1631,26 @@ const TavliBalyaTelNetsis = () => {
               }
             }
 
-            // Step 2: Delete MM TT recipes
-            try {
-              const mmReceteResponse = await fetchWithAuth(
-                `${API_URLS.tavliBalyaMmRecete}?stok_kodu=${encodeURIComponent(mm?.stok_kodu || '')}`
-              );
-              if (mmReceteResponse && mmReceteResponse.ok) {
-                const mmRecetes = await mmReceteResponse.json();
-                for (const recete of mmRecetes) {
-                  await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}/${recete.id}`, {
-                    method: 'DELETE'
-                  });
+            // Step 2: Delete MM TT recipes (only if mm exists)
+            if (mm && mm.stok_kodu) {
+              try {
+                const mmReceteResponse = await fetchWithAuth(
+                  `${API_URLS.tavliBalyaMmRecete}?stok_kodu=${encodeURIComponent(mm.stok_kodu)}`
+                );
+                if (mmReceteResponse && mmReceteResponse.ok) {
+                  const mmRecetes = await mmReceteResponse.json();
+                  for (const recete of mmRecetes) {
+                    await fetchWithAuth(`${API_URLS.tavliBalyaMmRecete}/${recete.id}`, {
+                      method: 'DELETE'
+                    });
+                  }
+                  console.log(`Deleted ${mmRecetes.length} MM TT recipes`);
                 }
-                console.log(`Deleted ${mmRecetes.length} MM TT recipes`);
+              } catch (error) {
+                console.error('Error deleting MM TT recipes:', error);
               }
-            } catch (error) {
-              console.error('Error deleting MM TT recipes:', error);
+            } else {
+              console.log(`Bulk: Skipping recipe deletion for itemId ${itemId} - product not found or no stok_kodu`);
             }
 
             // Step 3: Delete the MM TT itself
