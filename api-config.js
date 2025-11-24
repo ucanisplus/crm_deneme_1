@@ -38,6 +38,7 @@ export const API_URLS = {
   // Tavlı Netsis - Intermediates (YM YB removed - both TAVLI and BALYA use YM TT)
   tavliNetsisYmTt: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt',
   tavliNetsisYmTtRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_recete',
+  tavliNetsisYmTtReceteV2: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_tt_recete_v2',
   tavliNetsisYmStp: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp',
   tavliNetsisYmStpRecete: 'https://crm-deneme-backend.vercel.app/api/tavli_netsis_ym_stp_recete',
 
