@@ -1605,19 +1605,18 @@ const TavliBalyaTelNetsis = () => {
                   console.log(`Bulk: Found ${relatedYmTt.length} YM TT product(s) with stok_kodu ${ymTtStokKodu}`);
 
                   for (const ymTt of relatedYmTt) {
-                    // Delete YM TT recipes first
-                    const ymTtReceteResponse = await fetchWithAuth(
-                      `${API_URLS.tavliNetsisYmTtRecete}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`
-                    );
-                    if (ymTtReceteResponse && ymTtReceteResponse.ok) {
-                      const ymTtRecetes = await ymTtReceteResponse.json();
-                      console.log(`Bulk: Found ${ymTtRecetes.length} YM TT recipes for ${ymTt.stok_kodu}`);
-                      for (const recete of ymTtRecetes) {
-                        await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}/${recete.id}`, {
-                          method: 'DELETE'
-                        });
+                    // Delete YM TT recipes using bulk endpoint (avoids Vercel GET cache issues)
+                    try {
+                      const bulkDeleteResponse = await fetchWithAuth(
+                        `${API_URLS.tavliNetsisYmTtRecete}/bulk/${encodeURIComponent(ymTt.stok_kodu)}`,
+                        { method: 'DELETE' }
+                      );
+                      if (bulkDeleteResponse && bulkDeleteResponse.ok) {
+                        const result = await bulkDeleteResponse.json();
+                        console.log(`Bulk: Deleted ${result.count} YM TT recipes for ${ymTt.stok_kodu}`);
                       }
-                      console.log(`Bulk: Deleted ${ymTtRecetes.length} YM TT recipes for ${ymTt.stok_kodu}`);
+                    } catch (error) {
+                      console.error(`Bulk: Error deleting YM TT recipes for ${ymTt.stok_kodu}:`, error);
                     }
 
                     // Delete YM TT product
@@ -2282,16 +2281,15 @@ const TavliBalyaTelNetsis = () => {
           console.log(`Found ${ymTtProducts.length} YM TT products with stok_kodu ${ymTtStokKodu}`);
 
           for (const ymTt of ymTtProducts) {
-            // Delete YM TT recipes first
+            // Delete YM TT recipes using bulk endpoint (avoids Vercel GET cache issues)
             try {
-              const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
-              if (ymTtRecipeResponse && ymTtRecipeResponse.ok) {
-                const ymTtRecipes = await ymTtRecipeResponse.json();
-                console.log(`Found ${ymTtRecipes.length} YM TT recipes for ${ymTt.stok_kodu}`);
-                for (const recipe of ymTtRecipes) {
-                  await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}/${recipe.id}`, { method: 'DELETE' });
-                }
-                console.log(`Deleted ${ymTtRecipes.length} YM TT recipes for ${ymTt.stok_kodu}`);
+              const bulkDeleteResponse = await fetchWithAuth(
+                `${API_URLS.tavliNetsisYmTtRecete}/bulk/${encodeURIComponent(ymTt.stok_kodu)}`,
+                { method: 'DELETE' }
+              );
+              if (bulkDeleteResponse && bulkDeleteResponse.ok) {
+                const result = await bulkDeleteResponse.json();
+                console.log(`Deleted ${result.count} YM TT recipes for ${ymTt.stok_kodu}`);
               }
             } catch (error) {
               console.error(`Error deleting YM TT recipes for ${ymTt.stok_kodu}:`, error);
@@ -2316,6 +2314,7 @@ const TavliBalyaTelNetsis = () => {
       if (deleteResponse.ok) {
         toast.success(`${mmStokKodu} başarıyla silindi`);
         await fetchRequests();
+        handleDeleteCancel(); // Close the modal after successful deletion
       } else {
         throw new Error('MM silme başarısız');
       }
