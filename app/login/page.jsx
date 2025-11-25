@@ -19,7 +19,7 @@ export default function LoginPage() {
       router.push('/');
     }
 
-    // Progressive warmup of Render backend - start immediately on login page load
+    // Progressive warmup of Render backend - start immediately on login page Yükle
     const warmupSequence = async () => {
       console.log('🔥 Starting progressive Render server warmup...');
 
