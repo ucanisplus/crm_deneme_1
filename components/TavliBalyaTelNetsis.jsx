@@ -1605,9 +1605,9 @@ const TavliBalyaTelNetsis = () => {
                   console.log(`Bulk: Found ${relatedYmTt.length} YM TT product(s) with stok_kodu ${ymTtStokKodu}`);
 
                   for (const ymTt of relatedYmTt) {
-                    // Delete YM TT recipes first (using V2 endpoint to bypass Vercel cache)
+                    // Delete YM TT recipes first
                     const ymTtReceteResponse = await fetchWithAuth(
-                      `${API_URLS.tavliNetsisYmTtReceteV2}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`
+                      `${API_URLS.tavliNetsisYmTtRecete}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`
                     );
                     if (ymTtReceteResponse && ymTtReceteResponse.ok) {
                       const ymTtRecetes = await ymTtReceteResponse.json();
@@ -2282,9 +2282,9 @@ const TavliBalyaTelNetsis = () => {
           console.log(`Found ${ymTtProducts.length} YM TT products with stok_kodu ${ymTtStokKodu}`);
 
           for (const ymTt of ymTtProducts) {
-            // Delete YM TT recipes first (using V2 endpoint to bypass Vercel cache)
+            // Delete YM TT recipes first
             try {
-              const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtReceteV2}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
+              const ymTtRecipeResponse = await fetchWithAuth(`${API_URLS.tavliNetsisYmTtRecete}?ym_tt_stok_kodu=${encodeURIComponent(ymTt.stok_kodu)}`);
               if (ymTtRecipeResponse && ymTtRecipeResponse.ok) {
                 const ymTtRecipes = await ymTtRecipeResponse.json();
                 console.log(`Found ${ymTtRecipes.length} YM TT recipes for ${ymTt.stok_kodu}`);
