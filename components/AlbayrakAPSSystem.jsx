@@ -15,12 +15,12 @@ import { toast } from 'react-toastify';
 export default function AlbayrakAPSSystem() {
   const { user } = useAuth();
   
-  // State management
+  // State yönetimi
   const [activeTab, setActiveTab] = useState('calculator');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  // Production Time Calculator State
+
+  // Üretim Süresi Hesaplayıcı State
   const [calculator, setCalculator] = useState({
     product: '',
     quantity: '',
@@ -35,7 +35,7 @@ export default function AlbayrakAPSSystem() {
     result: null
   });
   
-  // Schedule Optimizer State
+  // Çizelge Optimize Edici State
   const [optimizer, setOptimizer] = useState({
     orders: [
       {
@@ -51,15 +51,15 @@ export default function AlbayrakAPSSystem() {
     result: null
   });
   
-  // Factory Status State
+  // Fabrika Durum State
   const [factoryStatus, setFactoryStatus] = useState(null);
   const [capacityData, setCapacityData] = useState(null);
-  
-  // Saved Schedules State
+
+  // Kaydedilmiş Çizelgeler State
   const [savedSchedules, setSavedSchedules] = useState([]);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
 
-  // Product types based on actual factory products
+  // Gerçek fabrika ürünlerine dayalı ürün tipleri
   const productTypes = [
     { value: 'galvanizli_tel', label: 'Galvanizli Tel', routing: ['tel_cekme', 'galvaniz'] },
     { value: 'panel_cit_yesil', label: 'Panel Çit Yeşil', routing: ['tel_cekme', 'galvaniz', 'panel_cit'] },
@@ -78,7 +78,7 @@ export default function AlbayrakAPSSystem() {
     { value: 4, label: 'Patron Önceliği', color: 'bg-red-100 text-red-800' }
   ];
 
-  // API Configuration - Use Render backend for APS
+  // API Konfigürasyonu - APS için Render backend kullan
   const API_BASE = 'https://crm-factory-backend.onrender.com/api/aps';
   
   const makeAPICall = async (endpoint, options = {}) => {
@@ -103,7 +103,7 @@ export default function AlbayrakAPSSystem() {
     }
   };
 
-  // Load factory status and capacity data on mount
+  // Mount sırasında fabrika durumu ve kapasite verilerini yükle
   useEffect(() => {
     loadFactoryStatus();
     loadCapacityData();
@@ -139,7 +139,7 @@ export default function AlbayrakAPSSystem() {
     }
   };
 
-  // Production Time Calculator Functions
+  // Üretim Süresi Hesaplayıcı Fonksiyonları
   const calculateProductionTime = async () => {
     if (!calculator.product || !calculator.quantity) {
       setError('Ürün tipi ve miktar gereklidir');
@@ -195,7 +195,7 @@ export default function AlbayrakAPSSystem() {
     }
   };
 
-  // Schedule Optimizer Functions
+  // Çizelge Optimize Edici Fonksiyonları
   const addOrder = () => {
     const newOrder = {
       id: Date.now(),
@@ -291,7 +291,7 @@ export default function AlbayrakAPSSystem() {
     }
   };
 
-  // Utility Functions
+  // Yardımcı Fonksiyonlar
   const formatDuration = (hours) => {
     if (hours < 1) {
       return `${Math.round(hours * 60)} dakika`;

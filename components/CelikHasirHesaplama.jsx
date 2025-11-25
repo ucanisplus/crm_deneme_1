@@ -34,16 +34,16 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 
-// FuzzySearch for better column matching
+// FuzzySearch için better column matching
 import Fuse from 'fuse.js';
 
-// Import the rod production schedule component
+// Import the rod Üretim schedule Bileşen
 import CubukUretimCizelgesi from './CubukUretimCizelgesi';
 
-// Import the Çelik Hasır Netsis component
+// Import the Çelik Hasır Netsis Bileşen
 import CelikHasirNetsis from './CelikHasirNetsis';
 
-// Import the Unknown Mesh Type Modal
+// Import the Unknown Mesh Tip Modal
 import UnknownMeshTypeModal from './UnknownMeshTypeModal';
 
 // Import mesh configuration service
@@ -100,7 +100,7 @@ const findColumnsByHeaderText = (headers, sheetData) => {
       colIndex >= range.start && colIndex <= range.end
     );
     
-    // İlk satır (headers) - birleştirilmiş hücre varsa onu kullan
+    // İlk satır (Başlıklar) - birleştirilmiş hücre varsa onu kullan
     if (mergedRange) {
       combinedHeader += String(mergedRange.value).trim() + ' ';
     } else if (headers[colIndex]) {
@@ -379,9 +379,9 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
   const sampleRows = sampleSheet?.data.slice(0, 20) || [];  // Show 20 samples
   const totalProductCount = sampleSheet?.data.length || 0;
   
-  // Auto-detect columns for Kaynak Programı using exact column positions
+  // Auto-detect columns için Kaynak Programı using exact column positions
   const autoDetectKaynakProgramiColumns = () => {
-    // Use exact user-specified column positions (1-based converted to 0-based)
+    // Use exact user-specified column positions (1-based converted a 0-based)
     return {
       hasirTipi: 4,          // Column 5: Hasır Tipi
       boyCap: 8,             // Column 9: Boy Çap (mm)
@@ -404,7 +404,7 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
   
   const [mapping, setMapping] = useState(() => autoDetectKaynakProgramiColumns());
   
-  // Reset mapping when sheet data changes
+  // Sıfırla mapping zaman sheet Veri changes
   useEffect(() => {
     if (isOpen && sampleSheet) {
       const newMapping = autoDetectKaynakProgramiColumns();
@@ -420,7 +420,7 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
   };
   
   const handleConfirm = () => {
-    // Check required fields
+    // Kontrol et Gerekli fields
     if (mapping.hasirTipi === -1 || mapping.uzunlukBoy === -1 || mapping.uzunlukEn === -1 || mapping.hasirSayisi === -1) {
       alert('Lütfen en az Hasır Tipi, Uzunluk Boy, Uzunluk En ve Hasır Sayısı sütunlarını seçin.');
       return;
@@ -431,7 +431,7 @@ const KaynakProgramiColumnMappingModal = ({ isOpen, onClose, sheetData, onConfir
   
   if (!isOpen || !sampleSheet) return null;
   
-  // Helper function to check if column is automatically selected
+  // Helper function a Kontrol et if column is automatically selected
   const isAutoSelected = (field, index) => {
     const autoMapping = autoDetectKaynakProgramiColumns();
     return autoMapping[field] === index;
@@ -873,16 +873,16 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
   const sampleRows = sampleSheet?.data.slice(0, 20) || [];  // Show 20 samples instead of 7
   const totalProductCount = sampleSheet?.data.length || 0;
   
-  // Auto-detect columns on mount
+  // Auto-detect columns mount sırasında
   const autoDetectColumns = () => {
     const detected = findColumnsByHeaderText(headers, sheetData);
     
-    // If hasirTipi not found in headers, use the pre-detected column
+    // If hasirTipi not found in Başlıklar, use the pre-detected column
     if (detected.hasirTipi === undefined && sampleSheet?.hasirTipiCol !== undefined) {
       detected.hasirTipi = sampleSheet.hasirTipiCol;
     }
     
-    // Convert undefined to -1 for undetected columns
+    // Çevir undefined a -1 için undetected columns
     return {
       hasirTipi: detected.hasirTipi !== undefined ? detected.hasirTipi : -1,
       uzunlukBoy: detected.uzunlukBoy !== undefined ? detected.uzunlukBoy : -1,
@@ -893,7 +893,7 @@ const ColumnMappingModal = ({ isOpen, onClose, sheetData, onConfirmMapping }) =>
   
   const [mapping, setMapping] = useState(() => autoDetectColumns());
   
-  // Reset mapping when sheet data changes
+  // Sıfırla mapping zaman sheet Veri changes
   useEffect(() => {
     if (isOpen && sampleSheet) {
       const newMapping = autoDetectColumns();
@@ -1086,12 +1086,12 @@ const CelikHasirHesaplama = () => {
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [columnMapping, setColumnMapping] = useState(null);
   
-  // Kaynak Programı modal states
+  // Kaynak Programı Modal states
   const [showKaynakProgramiModal, setShowKaynakProgramiModal] = useState(false);
   const [kaynakProgramiSheetData, setKaynakProgramiSheetData] = useState([]);
   const [kaynakProgramiColumnMapping, setKaynakProgramiColumnMapping] = useState(null);
   
-  // Unknown mesh type modal states
+  // Unknown mesh Tip Modal states
   const [showUnknownMeshModal, setShowUnknownMeshModal] = useState(false);
   const [unknownMeshTypes, setUnknownMeshTypes] = useState([]);
   const [currentUnknownType, setCurrentUnknownType] = useState(''); // For modal title
@@ -1099,13 +1099,13 @@ const CelikHasirHesaplama = () => {
   // Database mesh configurations
   const [meshConfigs, setMeshConfigs] = useState(new Map());
   
-  // Preview modal state
+  // Preview Modal State
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   
-  // Flag to prevent duplicate processing
+  // Flag a prevent duplicate İşleniyor
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
 
-  // Load mesh configurations on component mount
+  // Yükle mesh configurations on Bileşen mount
   useEffect(() => {
     const loadMeshConfigs = async () => {
       try {
@@ -1120,28 +1120,28 @@ const CelikHasirHesaplama = () => {
     loadMeshConfigs();
   }, []);
 
-  // Handle unknown mesh type (legacy function - keeping for compatibility)
+  // İşle unknown mesh Tip (legacy function - keeping için compatibility)
   const handleUnknownMeshType = (meshType, rowIndex) => {
-    // This function is called from getMeshConfig but we handle unknown types differently now
-    // Just log for debugging
+    // This function is called den getMeshConfig but we İşle unknown types differently Şimdi
+    // Just log için debugging
     console.log(`Unknown mesh type detected: ${meshType} at row ${rowIndex}`);
   };
 
-  // Save unknown mesh type specifications (called for each type saved)
+  // Kaydet unknown mesh Tip specifications (called için each Tip saved)
   const handleSaveUnknownMeshType = async (meshConfig) => {
     try {
       console.log('Saving mesh config:', meshConfig);
 
       await meshConfigService.saveMeshConfig(meshConfig);
 
-      // Update local configs immediately
+      // Güncelle local configs immediately
       const updatedConfigs = await meshConfigService.loadMeshConfigs();
       setMeshConfigs(updatedConfigs);
 
       console.log(`Saved new mesh configuration: ${meshConfig.hasirTipi}`);
 
-      // CRITICAL: Remove ALL instances of this saved type from unknownMeshTypes
-      // This prevents asking for the same type multiple times
+      // CRITICAL: Kaldır ALL instances of this saved Tip den unknownMeshTypes
+      // This prevents asking için the same Tip multiple times
       const savedType = meshConfig.hasirTipi;
       setUnknownMeshTypes(prev => {
         const filtered = prev.filter(type => type !== savedType);
@@ -1149,7 +1149,7 @@ const CelikHasirHesaplama = () => {
         return filtered;
       });
 
-      // Update currentUnknownType to the next type if available
+      // Güncelle currentUnknownType a the İleri Tip if Mevcut
       setCurrentUnknownType(prev => {
         const remaining = unknownMeshTypes.filter(type => type !== savedType);
         return remaining.length > 0 ? remaining[0] : '';
@@ -1161,16 +1161,16 @@ const CelikHasirHesaplama = () => {
     }
   };
 
-  // Handle when all unknown mesh types are saved and modal closes
+  // İşle zaman all unknown mesh types are saved and Modal closes
   const handleUnknownMeshModalClose = () => {
     console.log('All unknown mesh types processed, showing preview');
     setShowUnknownMeshModal(false);
     setUnknownMeshTypes([]);
     
-    // Get the pending preview data
+    // Al the Beklemede preview Veri
     const pendingData = window.pendingPreviewData;
     if (pendingData && pendingData.length > 0) {
-      // Show preview table instead of directly transferring
+      // Göster preview table instead of directly transferring
       const previewItems = pendingData.map((rowData, index) => ({
         id: index,
         hasirTipi: rowData.hasirTipi || '',
@@ -1183,14 +1183,14 @@ const CelikHasirHesaplama = () => {
       setPreviewData(previewItems);
       setBulkInputVisible(true);
       
-      // Clear the pending data
+      // Temizle the Beklemede Veri
       window.pendingPreviewData = null;
     }
   };
 
-  // Recalculate all rows and transfer to main table after unknown types are resolved
+  // Recalculate all rows and transfer a main table after unknown types are resolved
   const recalculateAndTransferRows = () => {
-    // Get current preview data (either from state or pending data)
+    // Al current preview Veri (either den State or Beklemede Veri)
     const currentPreview = window.pendingPreviewData || previewData;
     
     if (currentPreview && currentPreview.length > 0) {
@@ -1202,14 +1202,14 @@ const CelikHasirHesaplama = () => {
     }
   };
 
-  // Get mesh config from database, fallback to hardcoded, or trigger unknown popup
+  // Al mesh config den database, fallback a hardcoded, or trigger unknown Popup
   const getMeshConfig = async (hasirTipi) => {
-    // First check database
+    // First Kontrol et database
     if (meshConfigs.has(hasirTipi)) {
       return meshConfigs.get(hasirTipi);
     }
     
-    // Check for Q-type combinations using the mesh config service
+    // Kontrol et için Q-Tip combinations using the mesh config service
     if (hasirTipi.match(/^Q\d+\/\d+$/)) {
       try {
         const combinationConfig = await meshConfigService.getCombinationQConfig(hasirTipi);
@@ -1222,7 +1222,7 @@ const CelikHasirHesaplama = () => {
       }
     }
     
-    // Check for Q-type same-number combinations (Q106/106 -> Q106)
+    // Kontrol et için Q-Tip same-Sayı combinations (Q106/106 -> Q106)
     if (hasirTipi.includes('/')) {
       const parts = hasirTipi.split('/');
       if (parts.length === 2) {
@@ -1230,17 +1230,17 @@ const CelikHasirHesaplama = () => {
         const firstType = first.match(/^[A-Z]+\d+/)?.[0];
         const secondType = second.match(/^\d+/)?.[0];
         
-        // Handle Q106/106 -> Q106 case (same number)
+        // İşle Q106/106 -> Q106 case (same Sayı)
         if (firstType && secondType && first.includes(secondType)) {
           return getMeshConfig(firstType);
         }
       }
     }
     
-    // If not found, just return null - let the caller handle unknown types
+    // değilse found, just return null - let the caller İşle unknown types
     console.log(`Mesh config not found for: ${hasirTipi}`);
     
-    // Return null - calculations should handle this gracefully
+    // Return null - calculations should İşle this gracefully
     return null;
   };
 
@@ -1255,7 +1255,7 @@ const handleConfirmMapping = (mapping) => {
 
 // Kullanıcı onaylı eşleştirmeyle Excel verilerini işle
 const processExcelWithMapping = (sheets, mapping) => {
-  // Prevent duplicate processing if already completed via unknown type handling
+  // Prevent duplicate İşleniyor if already Tamamlandı via unknown Tip handling
   if (isProcessingComplete) {
     console.log('Processing already completed via unknown type handling, skipping duplicate processing');
     return;
@@ -1337,7 +1337,7 @@ const processExcelWithMapping = (sheets, mapping) => {
     return;
   }
   
-  // Immediately show preview table without checking for unknown mesh types
+  // Immediately Göster preview table without checking için unknown mesh types
   console.log(`Processed ${allValidRows.length} rows from Excel, showing preview immediately`);
   
   // Önizleme verilerini ayarla
@@ -1353,27 +1353,27 @@ const processExcelWithMapping = (sheets, mapping) => {
   setPreviewData(previewItems);
   setBulkInputVisible(true);
   
-  // Reset modal states to allow subsequent Excel uploads
+  // Sıfırla Modal states a allow subsequent Excel uploads
   setSheetData([]);
   setColumnMapping(null);
 };
 
-  // REMOVED: Old hardcoded mesh configurations have been replaced with unified mesh_type_configs database system
-  // All mesh configurations are now loaded from the database via meshConfigService and meshConfigs Map
+  // REMOVED: Old hardcoded mesh configurations have been replaced ile unified mesh_type_configs database system
+  // All mesh configurations are Şimdi loaded den the database via meshConfigService and meshConfigs Map et
 
-  // REMOVED: Old hardcoded Q-type reference map replaced with unified mesh_type_configs database system
-  // Q-type cap values are now retrieved from the database via getMeshConfig function
+  // REMOVED: Old hardcoded Q-Tip reference Map et replaced ile unified mesh_type_configs database system
+  // Q-Tip cap values are Şimdi retrieved den the database via getMeshConfig function
 
   // Satırlar için durum
   const [rows, setRows] = useState(() => {
-    // Check for returning optimized data from advanced optimization
+    // Kontrol et için returning optimized Veri den advanced optimization
     if (typeof window !== 'undefined') {
-      // First check sessionStorage
+      // First Kontrol et sessionStorage
       const sessionData = sessionStorage.getItem('celikHasirOptimizedData');
       if (sessionData) {
         try {
           const parsedData = JSON.parse(sessionData);
-          // Clear the data from sessionStorage after loading
+          // Temizle the Veri den sessionStorage after Yükleniyor
           sessionStorage.removeItem('celikHasirOptimizedData');
           return parsedData;
         } catch (error) {
@@ -1381,7 +1381,7 @@ const processExcelWithMapping = (sheets, mapping) => {
         }
       }
 
-      // Fallback to URL parameters for backward compatibility
+      // Fallback a URL parameters için backward compatibility
       const urlParams = new URLSearchParams(window.location.search);
       const optimizedData = urlParams.get('optimizedData');
       
@@ -1422,7 +1422,7 @@ const processExcelWithMapping = (sheets, mapping) => {
   const [processingRowIndex, setProcessingRowIndex] = useState(null);
   const [batchProcessing, setBatchProcessing] = useState(false);
   
-  // Çubuk üretim çizelgesi modal durumu
+  // Çubuk üretim çizelgesi Modal durumu
   const [showCubukCizelgesi, setShowCubukCizelgesi] = useState(false);
 
   // Veritabanı işlemleri için durum
@@ -1433,18 +1433,18 @@ const processExcelWithMapping = (sheets, mapping) => {
   // Sticky header için durum - Geliştirildi
   const [stickyHeaderOffset, setStickyHeaderOffset] = useState(0);
 
-  // Interactive rows mode toggle - for Kaynak Programı feature
+  // Interactive rows mode Değiştir - için Kaynak Programı feature
   const [isInteractiveMode, setIsInteractiveMode] = useState(true);
 
-  // Set referrer based on current page context
+  // Ayarla referrer based on current page Context
   useEffect(() => {
-    // Check current URL to determine if we're on maliyet or ürün page
+    // Kontrol et current URL a determine if we're on maliyet or ürün page
     const currentPath = window.location.pathname;
     if (currentPath.includes('/maliyet')) {
-      // Already handled in the button click, but ensure it's set
+      // Already handled in the button click, but ensure it's Ayarla
       sessionStorage.setItem('celikHasirReferrer', 'maliyet');
     } else if (currentPath.includes('/urun')) {
-      // Set referrer for ürün page
+      // Ayarla referrer için ürün page
       sessionStorage.setItem('celikHasirReferrer', 'urun');
     }
   }, []);
@@ -1591,7 +1591,7 @@ const processExcelWithMapping = (sheets, mapping) => {
       return stringValue;
   };
 
-  // Helper function to normalize hasir tipi for mesh config storage
+  // Helper function a normalize hasir tipi için mesh config storage
   // Q692/692 -> Q692, Q257/443 -> Q257/443 (keeps different combinations)
   const normalizeHasirTipiForConfig = (tipi) => {
     if (!tipi) return '';
@@ -1599,20 +1599,20 @@ const processExcelWithMapping = (sheets, mapping) => {
     let cleanTipi = tipi.toString().trim().toUpperCase();
     cleanTipi = cleanTipi.replace(/\s+/g, '');
 
-    // Extract base format: Q692/692 -> Q692, Q257/443 -> Q257/443 (preserve if different)
+    // Extract base Formatla: Q692/692 -> Q692, Q257/443 -> Q257/443 (preserve if different)
     const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
     if (combinationMatch) {
       const first = combinationMatch[1];
       const second = combinationMatch[2];
-      // If same numbers (Q692/692), convert to single format (Q692)
+      // If same numbers (Q692/692), Çevir a single Formatla (Q692)
       if (first === second) {
         return `Q${first}`;
       }
-      // If different numbers (Q257/443), keep as-is
+      // If different numbers (Q257/443), keep olarak-is
       return `Q${first}/${second}`;
     }
 
-    // Handle R and TR types normally
+    // İşle R and TR types normally
     const match = cleanTipi.match(/^(Q|R|TR)(\d+)(?:\/\d+)?/);
     if (!match) return cleanTipi;
 
@@ -1622,18 +1622,18 @@ const processExcelWithMapping = (sheets, mapping) => {
     return `${prefix}${number}`;
   };
 
-  // Check if mesh type exists and prompt for data if not
+  // Kontrol et if mesh Tip exists and prompt için Veri değilse
   const checkMeshTypeExists = async (hasirTipi, rowIndex) => {
     if (!hasirTipi) return;
 
     try {
-      // Check if it's a Q combination (Q212/245)
+      // Kontrol et if it's a Q combination (Q212/245)
       const combinationMatch = hasirTipi.match(/^Q(\d+)\/(\d+)$/);
       if (combinationMatch) {
         const firstNum = combinationMatch[1];
         const secondNum = combinationMatch[2];
 
-        // If same numbers (Q221/221), only check Q221 once
+        // If same numbers (Q221/221), only Kontrol et Q221 once
         if (firstNum === secondNum) {
           const singleType = `Q${firstNum}`;
           const exists = await meshConfigService.meshTypeExists(singleType);
@@ -1643,14 +1643,14 @@ const processExcelWithMapping = (sheets, mapping) => {
             setShowUnknownMeshModal(true);
           }
         } else {
-          // Different numbers (Q212/245), check both base types
+          // Different numbers (Q212/245), Kontrol et both base types
           const firstType = `Q${firstNum}`;
           const secondType = `Q${secondNum}`;
 
           const firstExists = await meshConfigService.meshTypeExists(firstType);
           const secondExists = await meshConfigService.meshTypeExists(secondType);
 
-          // Add missing base types to unknown list
+          // Ekle missing base types a unknown Liste
           const missingTypes = [];
           if (!firstExists && !unknownMeshTypes.includes(firstType)) {
             missingTypes.push(firstType);
@@ -1660,7 +1660,7 @@ const processExcelWithMapping = (sheets, mapping) => {
           }
 
           if (missingTypes.length > 0) {
-            // Add all missing types and show modal for the first one
+            // Ekle all missing types and Göster Modal için the first one
             setUnknownMeshTypes(prev => [...prev, ...missingTypes]);
             setCurrentUnknownType(missingTypes[0]);
             setShowUnknownMeshModal(true);
@@ -1670,7 +1670,7 @@ const processExcelWithMapping = (sheets, mapping) => {
           }
         }
       } else {
-        // For non-combination types, use regular exists check
+        // için non-combination types, use regular exists Kontrol et
         const exists = await meshConfigService.meshTypeExists(hasirTipi);
         if (!exists && !unknownMeshTypes.includes(hasirTipi)) {
           setUnknownMeshTypes(prev => [...prev, hasirTipi]);
@@ -1683,18 +1683,18 @@ const processExcelWithMapping = (sheets, mapping) => {
     }
   };
 
-  // Check if all 4 key fields are complete and trigger mesh type check
+  // Kontrol et if all 4 key fields are Tamamlandı and trigger mesh Tip Kontrol et
   const checkIfKeyFieldsComplete = (rowIndex) => {
     const row = rows[rowIndex];
     if (row && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn && row.hasirSayisi) {
-      // All 4 key fields are complete, check mesh type
+      // All 4 key fields are Tamamlandı, Kontrol et mesh Tip
       const normalizedType = normalizeHasirTipiForConfig(row.hasirTipi);
       checkMeshTypeExists(normalizedType, rowIndex);
     }
   };
 
-  // Hasır tipini standartlaştırma - Updated to handle combination Q-types
-  // Note: cleanHasirTipiFromExcel is now defined at file scope (line ~5578)
+  // Hasır tipini standartlaştırma - Updated a İşle combination Q-types
+  // Note: cleanHasirTipiFromExcel is Şimdi defined at file scope (line ~5578)
 
   const standardizeHasirTipi = (value) => {
     console.log(`[DEBUG] standardizeHasirTipi INPUT: "${value}"`);
@@ -1710,7 +1710,7 @@ const processExcelWithMapping = (sheets, mapping) => {
       return value;
     }
 
-    // For Q-types with slash format, preserve exactly as-is (both Q221/443 and Q221/221)
+    // için Q-types ile slash Formatla, preserve exactly olarak-is (both Q221/443 and Q221/221)
     const qTypeMatch = standardized.match(/^Q(\d+)\/(\d+)$/);
     if (qTypeMatch) {
       const first = qTypeMatch[1];
@@ -1720,7 +1720,7 @@ const processExcelWithMapping = (sheets, mapping) => {
       return result;  // Always preserve full format
     }
 
-    // KRİTİK FIX: For single Q-types like "Q221", expand to "Q221/Q221" format
+    // KRİTİK FIX: için single Q-types like "Q221", expand a "Q221/Q221" Formatla
     // This means Q221 (same mesh on both directions)
     const singleQMatch = standardized.match(/^Q(\d+)$/);
     if (singleQMatch) {
@@ -1730,7 +1730,7 @@ const processExcelWithMapping = (sheets, mapping) => {
       return result;
     }
 
-    // For R and TR types, still simplify duplicate suffixes: TR257/257 -> TR257
+    // için R and TR types, still simplify duplicate suffixes: TR257/257 -> TR257
     const nonQDuplicateMatch = standardized.match(/^(R|TR)(\d+)\/\2$/);
     if (nonQDuplicateMatch) {
       standardized = nonQDuplicateMatch[1] + nonQDuplicateMatch[2]; // R + 257
@@ -1762,51 +1762,51 @@ const processExcelWithMapping = (sheets, mapping) => {
     }
   };
 
-  // Handle removing unknown mesh type from preview
+  // İşle removing unknown mesh Tip den preview
   const handleRemoveUnknownType = (meshTypeToRemove) => {
     console.log(`Removing rows for mesh type: ${meshTypeToRemove}`);
 
-    // Get current pending preview data or previewData
+    // Al current Beklemede preview Veri or previewData
     const currentPreviewData = window.pendingPreviewData || previewData;
 
-    // Filter out rows based on the mesh type to remove
-    // For Q combinations, we need to check if the row's hasirTipi contains this base type
+    // Filtrele out rows based on the mesh Tip a Kaldır
+    // için Q combinations, we need a Kontrol et if the row's hasirTipi contains this base Tip
     const updatedPreviewData = currentPreviewData.filter(row => {
       const standardized = standardizeHasirTipi(row.hasirTipi);
 
-      // Check if it's a Q combination
+      // Kontrol et if it's a Q combination
       const combinationMatch = standardized.match(/^Q(\d+)\/(\d+)$/);
       if (combinationMatch) {
         const firstNum = combinationMatch[1];
         const secondNum = combinationMatch[2];
 
-        // If removing a base type that's part of this combination, remove the row
+        // If removing a base Tip that's part of this combination, Kaldır the row
         if (meshTypeToRemove === `Q${firstNum}` || meshTypeToRemove === `Q${secondNum}`) {
           console.log(`Removing row with combination ${standardized} because it contains ${meshTypeToRemove}`);
           return false;
         }
       }
 
-      // For regular types, direct comparison
+      // için regular types, direct comparison
       return standardized !== meshTypeToRemove;
     });
 
-    // Update the pending preview data
+    // Güncelle the Beklemede preview Veri
     window.pendingPreviewData = updatedPreviewData;
     setPreviewData(updatedPreviewData);
 
-    // Remove this mesh type from unknown types list
+    // Kaldır this mesh Tip den unknown types Liste
     const updatedUnknownTypes = unknownMeshTypes.filter(type => type !== meshTypeToRemove);
     setUnknownMeshTypes(updatedUnknownTypes);
 
     console.log(`Removed ${currentPreviewData.length - updatedPreviewData.length} rows with mesh type: ${meshTypeToRemove}`);
 
-    // If no more unknown types, close modal but DON'T transfer to main table
+    // If no more unknown types, Kapat Modal but DON'T transfer a main table
     if (updatedUnknownTypes.length === 0) {
       setShowUnknownMeshModal(false);
       setCurrentUnknownType('');
 
-      // Only keep the preview visible with remaining data
+      // Only keep the preview visible ile remaining Veri
       if (updatedPreviewData.length > 0) {
         console.log(`${updatedPreviewData.length} rows remain in preview after removal`);
         setBulkInputVisible(true);
@@ -1815,7 +1815,7 @@ const processExcelWithMapping = (sheets, mapping) => {
         setBulkInputVisible(false);
       }
     } else {
-      // Move to next unknown type
+      // Move a İleri unknown Tip
       setCurrentUnknownType(updatedUnknownTypes[0]);
     }
   };
@@ -2262,7 +2262,7 @@ const processExcelWithMapping = (sheets, mapping) => {
   
   // Belge sayı formatını tespit et (Türkçe/İngilizce)
   const detectNumberFormat = (rows) => {
-    // Varsayılan format "english" (nokta ondalık, virgül binlik ayırıcı)
+    // Varsayılan Formatla "english" (nokta ondalık, virgül binlik ayırıcı)
     let format = "english";
     let commaDecimalCount = 0;
     let dotDecimalCount = 0;
@@ -2283,7 +2283,7 @@ const processExcelWithMapping = (sheets, mapping) => {
       }
     }
     
-    // Eğer virgül kullanımı daha yaygınsa, Türkçe format olarak belirle
+    // Eğer virgül kullanımı daha yaygınsa, Türkçe Formatla olarak belirle
     if (commaDecimalCount > dotDecimalCount) {
       format = "turkish"; // Virgül ondalık, nokta binlik ayırıcı
     }
@@ -2297,25 +2297,25 @@ const normalizeNumber = (value, format = "auto") => {
   
   const stringValue = String(value).trim();
   
-  // Auto-detect format when needed
+  // Auto-detect Formatla zaman needed
   if (format === "auto") {
-    // If it has comma as decimal (1,23)
+    // If it has comma olarak decimal (1,23)
     if (/\d,\d/.test(stringValue) && !/\d\.\d/.test(stringValue)) {
       format = "turkish";
     }
-    // If it has period as decimal (1.23)
+    // If it has Periyot olarak decimal (1.23)
     else if (!/\d,\d/.test(stringValue) && /\d\.\d/.test(stringValue)) {
       format = "english";
     }
     // If it has both (1,234.56)
     else if (/\d,\d/.test(stringValue) && /\d\.\d/.test(stringValue)) {
-      // Check which one is likely the decimal separator
+      // Kontrol et which one is likely the decimal separator
       const lastCommaPos = stringValue.lastIndexOf(',');
       const lastPeriodPos = stringValue.lastIndexOf('.');
       format = lastPeriodPos > lastCommaPos ? "english" : "turkish";
     }
     else {
-      // Default to english
+      // Default a english
       format = "english";
     }
   }
@@ -2342,24 +2342,24 @@ const handleCellChange = (rowIndex, field, value) => {
   
   // Özel durumlar için kontrol - Cubuk sayıları için özel işlem
   if (field === 'cubukSayisiBoy' || field === 'cubukSayisiEn') {
-    // Store the raw string value to allow proper editing
+    // Store the raw String Değer a allow proper editing
     row[field] = value;
     
     // Çubuk sayısı değiştirildi, işaretle
     row.modified[field] = true;
     
-    // Mark that user is manually editing to prevent auto-adjustment
+    // Mark that user is manually editing a prevent auto-adjustment
     row.userEditingCubuk = true;
     
-    // Parse the value for calculations
+    // Parse et the Değer için calculations
     const numericValue = value === '' ? 0 : parseFloat(value);
     
-    // Only recalculate filiz if we have a valid complete number
+    // Only recalculate filiz if we have a Geçerli Tamamlandı Sayı
     if (!isNaN(numericValue) && numericValue > 0 && row.hasirTipi && row.uzunlukBoy && row.uzunlukEn) {
-        // Create a temporary copy to calculate filiz without modifying cubuk values
+        // Oluştur a temporary copy a Hesapla filiz without modifying cubuk values
         const tempRow = { ...row };
         
-        // Calculate filiz values manually without auto-adjustment
+        // Hesapla filiz values manually without auto-adjustment
         const uzunlukBoy = parseFloat(tempRow.uzunlukBoy) || 0;
         const uzunlukEn = parseFloat(tempRow.uzunlukEn) || 0;
         const cubukSayisiBoy = field === 'cubukSayisiBoy' ? numericValue : (parseInt(tempRow.cubukSayisiBoy) || 0);
@@ -2367,24 +2367,24 @@ const handleCellChange = (rowIndex, field, value) => {
         const boyAraligi = parseFloat(tempRow.boyAraligi) || 0;
         const enAraligi = parseFloat(tempRow.enAraligi) || 0;
         
-        // Calculate filiz values directly
+        // Hesapla filiz values directly
         if (cubukSayisiBoy >= 2 && cubukSayisiEn >= 2 && boyAraligi > 0 && enAraligi > 0) {
             const solFiliz = (uzunlukEn - ((cubukSayisiBoy - 1) * boyAraligi)) / 2;
             const onFiliz = (uzunlukBoy - ((cubukSayisiEn - 1) * enAraligi)) / 2;
             
-            // Update filiz values without modifying cubuk counts
+            // Güncelle filiz values without modifying cubuk counts
             row.solFiliz = parseFloat(solFiliz.toFixed(5));
             row.sagFiliz = parseFloat(solFiliz.toFixed(5));
             row.onFiliz = parseFloat(onFiliz.toFixed(5));
             row.arkaFiliz = parseFloat(onFiliz.toFixed(5));
             
-            // Clear modified flags for filiz
+            // Temizle modified flags için filiz
             row.modified.solFiliz = false;
             row.modified.sagFiliz = false;
             row.modified.onFiliz = false;
             row.modified.arkaFiliz = false;
             
-            // Calculate weight
+            // Hesapla Ağırlık
             calculateWeight(row);
         }
     }
@@ -2400,15 +2400,15 @@ const handleCellChange = (rowIndex, field, value) => {
   
   if (field === 'hasirTipi') {
     value = standardizeHasirTipi(value);
-    // Note: Mesh type existence checking moved to onBlur event
+    // Note: Mesh Tip existence checking moved a onBlur event
   }
 
   // Değeri güncelle
   row[field] = value;
 
-  // Check if all 4 key fields are complete after updating any of them
+  // Kontrol et if all 4 key fields are Tamamlandı after updating any of them
   if (field === 'hasirTipi' || field === 'uzunlukBoy' || field === 'uzunlukEn' || field === 'hasirSayisi') {
-    // Small delay to ensure state is updated
+    // Small delay a ensure State is updated
     setTimeout(() => checkIfKeyFieldsComplete(rowIndex), 100);
   }
 
@@ -2473,7 +2473,7 @@ if (row.modified && row.modified[field] &&
       calculateWeight(row);
     }
   } else {
-    // In non-interactive mode, only basic weight calculation
+    // In non-interactive mode, only basic Ağırlık calculation
     if (field === 'adetKg' && row.hasirSayisi && row.adetKg) {
       row.toplamKg = parseFloat((parseFloat(row.hasirSayisi) * parseFloat(row.adetKg)).toFixed(3));
     } else if (field === 'hasirSayisi' && row.hasirSayisi && row.adetKg) {
@@ -2535,7 +2535,7 @@ const updateRowFromHasirTipi = async (rows, rowIndex, fromExcel = false) => {
     // Q257/131 gibi kombinasyonları işleme (standardize edilmiş versiyonu kullan)
     await processComplexHasirType(row, standardizedHasirTipi);
   } else {
-    // Use database lookup with unknown mesh type detection (standardize edilmiş versiyonu kullan)
+    // Use database lookup ile unknown mesh Tip detection (standardize edilmiş versiyonu kullan)
     const meshConfig = await getMeshConfig(standardizedHasirTipi);
     if (meshConfig) {
       row.boyCap = meshConfig.boyCap;
@@ -2544,7 +2544,7 @@ const updateRowFromHasirTipi = async (rows, rowIndex, fromExcel = false) => {
       row.enAraligi = meshConfig.enAralik;
       console.log(`Applied database config for ${standardizedHasirTipi}:`, meshConfig);
     } else {
-      // Unknown mesh type - set default values (0) to allow processing to continue
+      // Unknown mesh Tip - Ayarla default values (0) a allow İşleniyor a continue
       console.log(`Unknown mesh type detected: ${standardizedHasirTipi} - using default values (0)`);
       row.boyCap = 0;
       row.enCap = 0;
@@ -2613,13 +2613,13 @@ const updateRowFromHasirTipi = async (rows, rowIndex, fromExcel = false) => {
       const firstConfig = await getMeshConfig(firstType);
       const secondConfig = await getMeshConfig(secondType);
       if (firstConfig && secondConfig) {
-        // CRITICAL FIX: For Q combinations, each type provides its own diameter AND spacing
-        // Q424 provides boy direction: diameter (boyCap) AND spacing (boyAralik)
-        // Q271 provides en direction: diameter (boyCap since Q has single value) AND spacing (boyAralik since Q has single value)
+        // CRITICAL FIX: için Q combinations, each Tip provides its own Çap AND spacing
+        // Q424 provides boy direction: Çap (boyCap) AND spacing (boyAralik)
+        // Q271 provides en direction: Çap (boyCap since Q has single Değer) AND spacing (boyAralik since Q has single Değer)
         row.boyCap = firstConfig.boyCap;
         row.enCap = secondConfig.boyCap;  // Use secondConfig's boyCap (Q types have single diameter)
 
-        // Each Q type provides its own spacing
+        // Each Q Tip provides its own spacing
         row.boyAraligi = firstConfig.boyAralik;
         row.enAraligi = secondConfig.boyAralik;  // Use secondConfig's boyAralik (Q types have single spacing)
         return;
@@ -2811,7 +2811,7 @@ const updateRowFromHasirTipi = async (rows, rowIndex, fromExcel = false) => {
     row.cubukSayisiEn = cubukSayisiEn;
   };
         
-// Update the calculateFilizValues function to better handle minimum filiz values
+// Güncelle the calculateFilizValues function a better İşle minimum filiz values
 const calculateFilizValues = (row) => {
   const uzunlukBoy = parseFloat(row.uzunlukBoy) || 0;
   const uzunlukEn = parseFloat(row.uzunlukEn) || 0;
@@ -2820,7 +2820,7 @@ const calculateFilizValues = (row) => {
   const boyAraligi = parseFloat(row.boyAraligi) || 0;
   const enAraligi = parseFloat(row.enAraligi) || 0;
   
-  // Check if user is manually editing cubuk values
+  // Kontrol et if user is manually editing cubuk values
   const isUserEditing = row.userEditingCubuk;
   
   // Değerlerin geçerli olup olmadığını kontrol et
@@ -2910,7 +2910,7 @@ const calculateFilizValues = (row) => {
         let bestFilizValue = baseFiliz;
         let bestDistance = Math.abs(baseFiliz - IDEAL_DOSEME_FILIZ);
         
-        // -10 to +10 aralığında çubuk sayılarını dene
+        // -10 a +10 aralığında çubuk sayılarını dene
         const minEnCount = Math.max(2, cubukSayisiEn - 10);
         const maxEnCount = cubukSayisiEn + 10;
         
@@ -3078,7 +3078,7 @@ const iyilestir = async (rowIndex) => {
     const updatedRows = JSON.parse(JSON.stringify(rows));
     const row = updatedRows[rowIndex];
     
-    // Clear user editing flag when iyilestir is called
+    // Temizle user editing flag zaman iyilestir is called
     row.userEditingCubuk = false;
     
     // Mevcut açıklamayı sakla
@@ -4682,7 +4682,7 @@ const findBestApproximateFilizValues = (row, filizLimits) => {
     }
   };
 
-// OCR.space'den gelen metni özel olarak işleme 
+// OCR.space'den gelen metni özel olarak işleme
 const processExtractedTextFromOCR = (extractedText) => {
   try {
     // İlk olarak satırlara böl
@@ -4880,7 +4880,7 @@ const processExtractedTextFromOCR = (extractedText) => {
     const uploadedFile = event.target.files[0];
     if (uploadedFile) {
       setFile(uploadedFile);
-      // Reset processing flag for new file
+      // Sıfırla İşleniyor flag için new file
       setIsProcessingComplete(false);
       const reader = new FileReader();
       
@@ -4970,7 +4970,7 @@ const processExtractedTextFromOCR = (extractedText) => {
       const row2 = jsonData[1] || []; // Second header row
       const dataRows = jsonData.slice(2); // Skip first 2 rows
       
-      // Create proper headers based on reference table - show ALL columns
+      // Oluştur proper Başlıklar based on reference table - Göster ALL columns
       const getColumnDisplayName = (index) => {
         const columnNames = {
           4: "Hasır Tipi",                    // Column 5
@@ -4994,20 +4994,20 @@ const processExtractedTextFromOCR = (extractedText) => {
         return columnNames[index] || `Sütun ${index + 1}`;
       };
       
-      // Determine the maximum number of columns from the data
+      // Determine the maximum Sayı of columns den the Veri
       const maxColumns = Math.max(
         row1.length,
         row2.length,
         ...dataRows.map(row => row.length)
       );
       
-      // Create headers for ALL columns (up to max columns found)
+      // Oluştur Başlıklar için ALL columns (up a max columns found)
       const headers = [];
       for (let i = 0; i < maxColumns; i++) {
         headers.push(getColumnDisplayName(i));
       }
       
-      // Prepare sheet data for modal
+      // Prepare sheet Veri için Modal
       const sheetData = [{
         headers: headers,
         data: dataRows,
@@ -5028,7 +5028,7 @@ const processExtractedTextFromOCR = (extractedText) => {
       const lines = csvText.split('\n');
       const allRows = [];
       
-      // Tüm satırları parse et
+      // Tüm satırları Parse et et
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (line) {
@@ -5048,7 +5048,7 @@ const processExtractedTextFromOCR = (extractedText) => {
       const row2 = allRows[1] || []; // Second header row
       const dataRows = allRows.slice(2); // Skip first 2 rows
       
-      // Create proper headers based on reference table - show ALL columns
+      // Oluştur proper Başlıklar based on reference table - Göster ALL columns
       const getColumnDisplayName = (index) => {
         const columnNames = {
           4: "Hasır Tipi",                    // Column 5
@@ -5072,20 +5072,20 @@ const processExtractedTextFromOCR = (extractedText) => {
         return columnNames[index] || `Sütun ${index + 1}`;
       };
       
-      // Determine the maximum number of columns from the data
+      // Determine the maximum Sayı of columns den the Veri
       const maxColumns = Math.max(
         row1.length,
         row2.length,
         ...dataRows.map(row => row.length)
       );
       
-      // Create headers for ALL columns (up to max columns found)
+      // Oluştur Başlıklar için ALL columns (up a max columns found)
       const headers = [];
       for (let i = 0; i < maxColumns; i++) {
         headers.push(getColumnDisplayName(i));
       }
       
-      // Prepare sheet data for modal
+      // Prepare sheet Veri için Modal
       const sheetData = [{
         headers: headers,
         data: dataRows,
@@ -5105,7 +5105,7 @@ const processExtractedTextFromOCR = (extractedText) => {
     setKaynakProgramiColumnMapping(mapping);
     setShowKaynakProgramiModal(false);
     
-    // Process the data with the confirmed mapping
+    // İşlem the Veri ile the confirmed mapping
     const sampleSheet = kaynakProgramiSheetData[0];
     if (sampleSheet) {
       processKaynakProgramiDataWithMapping(sampleSheet.data, sampleSheet.fileName, mapping);
@@ -5122,7 +5122,7 @@ const processExtractedTextFromOCR = (extractedText) => {
         
         const newRow = createEmptyRow(newRows.length);
         
-        // Map data based on user-selected columns
+        // Map et Veri based on user-selected columns
         if (mapping.stokKodu >= 0 && row[mapping.stokKodu] !== undefined) {
           newRow.stokKodu = String(row[mapping.stokKodu] || '');
         }
@@ -5175,7 +5175,7 @@ const processExtractedTextFromOCR = (extractedText) => {
           newRow.toplamKg = parseFloat(row[mapping.toplamKg]) || 0;
         }
         
-        // Calculate adetKg if toplamKg and hasirSayisi are available
+        // Hesapla adetKg if toplamKg and hasirSayisi are Mevcut
         if (newRow.toplamKg > 0 && newRow.hasirSayisi > 0) {
           newRow.adetKg = parseFloat((newRow.toplamKg / newRow.hasirSayisi).toFixed(3));
         }
@@ -5185,7 +5185,7 @@ const processExtractedTextFromOCR = (extractedText) => {
           newRow.hasirTuru = determineHasirTuru(newRow.hasirTipi, newRow.uzunlukBoy);
         }
         
-        // Add import note
+        // Ekle import note
         const timestamp = new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
         newRow.aciklama = `[${timestamp}] Kaynak Programı'ndan aktarıldı: ${fileName}`;
         
@@ -5197,10 +5197,10 @@ const processExtractedTextFromOCR = (extractedText) => {
         return;
       }
       
-      // Replace existing rows with imported data
+      // Replace existing rows ile imported Veri
       setRows(newRows);
       
-      // Show success message
+      // Göster Başarılı Mesaj
       alert(`${newRows.length} satır başarıyla Kaynak Programı'ndan aktarıldı.\n\nİnteraktif mod kapalı - veriler Excel'den alındığı gibi kullanılacak.`);
       
       console.log(`Kaynak Programı imported: ${newRows.length} rows from ${fileName}`);
@@ -5243,7 +5243,7 @@ const processExtractedTextFromOCR = (extractedText) => {
 
 // Hasır Sayısı sütununu belirleme - Tamamen yenilenmiş versiyon
 function findHasirSayisiColumn(jsonData, dataStartRow, headerRowIndex, boyCol, enCol, hasirTipiCol) {
-  // ÖNCELİKLİ KONTROL: HASIR SAYISI için kesin başlık kontrolü 
+  // ÖNCELİKLİ KONTROL: HASIR SAYISI için kesin başlık kontrolü
   // DOĞRUDAN HASIR SAYISI/HASIR ADEDİ başlığı kontrolü - En yüksek öncelik
   if (headerRowIndex >= 0) {
     const headerRow = jsonData[headerRowIndex];
@@ -6261,7 +6261,7 @@ const parseCsvData = (data) => {
 
   // CSV sayı formatını tespit et
   const detectCsvNumberFormat = (data) => {
-    // Varsayılan format "english" (nokta ondalık, virgül binlik ayırıcı)
+    // Varsayılan Formatla "english" (nokta ondalık, virgül binlik ayırıcı)
     let format = "english";
     
     // Örnek satırları kontrol et
@@ -6284,7 +6284,7 @@ const parseCsvData = (data) => {
       }
     }
     
-    // Eğer virgül kullanımı daha yaygınsa, Türkçe format olarak belirle
+    // Eğer virgül kullanımı daha yaygınsa, Türkçe Formatla olarak belirle
     if (commaDecimalCount > dotDecimalCount) {
       format = "turkish"; // Virgül ondalık, nokta binlik ayırıcı
     }
@@ -6420,7 +6420,7 @@ const parseCsvData = (data) => {
           }
         }
         
-        // HasirTipi bulunamadıysa bu satırı atla 
+        // HasirTipi bulunamadıysa bu satırı atla
         // (çok yaygın bir sorun - neredeyse her kirli Excel'de hasır tipi olmayan satırlar var)
         if (!hasirTipi) continue;
         
@@ -6662,7 +6662,7 @@ const isValidHeaderCombination = (headers, dataRow) => {
   const targetKeywords = [
     // Boy ile ilgili
     'boy', 'uzunluk boy', 'boy uzunluk', 'hasır boy', 'uzunluk',
-    // En ile ilgili  
+    // En ile ilgili
     'en', 'uzunluk en', 'en uzunluk', 'hasır en', 'genişlik',
     // Hasır tipi ile ilgili
     'hasır tip', 'tip', 'cins', 'tür', 'çelik hasır',
@@ -6848,7 +6848,7 @@ const processPreviewData = async () => {
   
   console.log(`[DEBUG] processPreviewData AFTER FILTERING: ${validPreviewData.length} valid rows`);
   
-  // Log each valid preview row
+  // Log each Geçerli preview row
   validPreviewData.forEach((row, index) => {
     console.log(`[DEBUG] processPreviewData Valid Row ${index}: hasirTipi="${row.hasirTipi}"`);
   });
@@ -6858,11 +6858,11 @@ const processPreviewData = async () => {
     return;
   }
   
-  // Store preview data in sessionStorage for skip functionality  
+  // Store preview Veri in sessionStorage için skip functionality
   sessionStorage.setItem('pendingPreviewData', JSON.stringify(validPreviewData));
   console.log(`[DEBUG] processPreviewData STORED in sessionStorage:`, JSON.stringify(validPreviewData.map(r => r.hasirTipi)));
   
-  // Check for unknown mesh types and show modal if any found
+  // Kontrol et için unknown mesh types and Göster Modal if any found
   console.log('Checking for unknown mesh types in preview data...');
   console.log('Current meshConfigs size:', meshConfigs.size);
   
@@ -6871,13 +6871,13 @@ const processPreviewData = async () => {
     const originalType = row.hasirTipi;
     const hasirTipi = standardizeHasirTipi(row.hasirTipi);
 
-    // Check if it's a Q combination (Q221/667 or Q221/221)
+    // Kontrol et if it's a Q combination (Q221/667 or Q221/221)
     const combinationMatch = hasirTipi.match(/^Q(\d+)\/(\d+)$/);
     if (combinationMatch) {
       const firstNum = combinationMatch[1];
       const secondNum = combinationMatch[2];
 
-      // If same numbers (Q221/221), only check Q221 (the base type)
+      // If same numbers (Q221/221), only Kontrol et Q221 (the base Tip)
       if (firstNum === secondNum) {
         const singleType = `Q${firstNum}`;
         const exists = meshConfigs.has(singleType);
@@ -6888,7 +6888,7 @@ const processPreviewData = async () => {
           console.log(`Unknown base type found: ${singleType} (from ${hasirTipi})`);
         }
       } else {
-        // Different numbers (Q221/667), check both base types
+        // Different numbers (Q221/667), Kontrol et both base types
         const firstType = `Q${firstNum}`;
         const secondType = `Q${secondNum}`;
 
@@ -6904,7 +6904,7 @@ const processPreviewData = async () => {
         }
       }
     } else {
-      // For non-combination types, check normally
+      // için non-combination types, Kontrol et normally
       const exists = meshConfigs.has(hasirTipi);
       console.log(`[DEBUG] processPreviewData MESH TYPE CHECK: "${originalType}" -> standardized: "${hasirTipi}" -> exists in DB: ${exists}`);
 
@@ -6917,18 +6917,18 @@ const processPreviewData = async () => {
   
   if (unknownTypes.length > 0) {
     console.log(`Found ${unknownTypes.length} unknown mesh types, showing modal:`, unknownTypes);
-    // Show modal for unknown mesh types
+    // Göster Modal için unknown mesh types
     setUnknownMeshTypes(unknownTypes);
     setCurrentUnknownType(unknownTypes[0]); // Set first unknown type for title
     setShowUnknownMeshModal(true);
     return; // Stop processing until unknown types are resolved
   }
   
-  // If no unknown types, proceed with normal processing
+  // If no unknown types, proceed ile normal İşleniyor
   processValidPreviewData(validPreviewData);
 };
 
-// Separate function for processing valid preview data (called after unknown types are resolved)
+// Separate function için İşleniyor Geçerli preview Veri (called after unknown types are resolved)
 const processValidPreviewData = (validData) => {
   console.log('Processing valid preview data:', validData);
   
@@ -6979,12 +6979,12 @@ const processValidPreviewData = (validData) => {
     celikHasirNetsisRef.current.fetchSavedProducts();
   }
   
-  // Ensure all modal states are reset to allow new Excel uploads
+  // Ensure all Modal states are Sıfırla a allow new Excel uploads
   setSheetData([]);
   setColumnMapping(null);
   setShowMappingModal(false);
   
-  // Clear the global pending data
+  // Temizle the global Beklemede Veri
   delete window.pendingPreviewData;
 };
   
@@ -7274,7 +7274,7 @@ const processValidPreviewData = (validData) => {
       // Sadece geçerli ve üretilebilir satırları al
       const validRows = rows.filter(row => !row.uretilemez && isRowFilled(row));
       
-      // API endpoint
+      // API Endpoint
       const apiUrl = 'https://alb-stackblitz-1.vercel.app/api/hasir_cost_cal_hasir_list';
       
       // Her satır için mevcut kayıt var mı kontrol et ve gerekirse yeni kayıt ekle
@@ -7375,7 +7375,7 @@ const processValidPreviewData = (validData) => {
       // Stok kodu olan satırları al
       const rowsWithStockCode = rows.filter(row => row.stokKodu);
       
-      // API endpoint
+      // API Endpoint
       const apiUrl = 'https://alb-stackblitz-1.vercel.app/api/hasir_cost_cal_hasir_list/recipes';
       
       // Reçete verilerini al
@@ -8031,8 +8031,8 @@ useEffect(() => {
                         value={row.hasirTipi}
                         onChange={(e) => handleCellChange(rowIndex, 'hasirTipi', e.target.value)}
                         onBlur={(e) => {
-                          // Check mesh type existence when user finishes typing
-                          // Only check if it looks like a complete hasir tipi (Q/R/TR followed by numbers)
+                          // Kontrol et mesh Tip existence zaman user finishes typing
+                          // Only Kontrol et if it looks like a Tamamlandı hasir tipi (Q/R/TR followed ile numbers)
                           const value = e.target.value.trim();
                           if (value && /^(Q|R|TR)\d+/.test(value.toUpperCase())) {
                             const normalizedType = normalizeHasirTipiForConfig(value);
@@ -8301,14 +8301,14 @@ useEffect(() => {
               {/* Advanced Optimization Button */}
               <button 
                 onClick={() => {
-                  // Check if there are unoptimized products
+                  // Kontrol et if there are unoptimized products
                   const hasUnoptimized = rows.some(row => !row.isOptimized);
                   
                   if (hasUnoptimized) {
                     if (window.confirm('Listede optimize edilmemiş ürünler bulunmaktadır. İleri optimizasyon işlemine devam etmek istiyor musunuz?')) {
-                      // Store data in sessionStorage instead of URL
+                      // Store Veri in sessionStorage instead of URL
                       sessionStorage.setItem('celikHasirOptimizasyonData', JSON.stringify(rows));
-                      // Set referrer based on current page
+                      // Ayarla referrer based on current page
                       const currentPath = window.location.pathname;
                       if (currentPath.includes('/maliyet')) {
                         sessionStorage.setItem('celikHasirReferrer', 'maliyet');
@@ -8320,9 +8320,9 @@ useEffect(() => {
                       window.location.href = '/satis/celikHasirOptimizasyon';
                     }
                   } else {
-                    // Store data in sessionStorage instead of URL
+                    // Store Veri in sessionStorage instead of URL
                     sessionStorage.setItem('celikHasirOptimizasyonData', JSON.stringify(rows));
-                    // Set referrer based on current page
+                    // Ayarla referrer based on current page
                     const currentPath = window.location.pathname;
                     if (currentPath.includes('/maliyet')) {
                       sessionStorage.setItem('celikHasirReferrer', 'maliyet');

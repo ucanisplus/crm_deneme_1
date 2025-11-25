@@ -1,4 +1,4 @@
-// Production Time Calculator Component - Uses hybrid API for OR-Tools calculations
+// Üretim Zaman Calculator Bileşen - Uses hybrid API için OR-Tools calculations
 'use client';
 
 import { useState } from 'react';
@@ -68,7 +68,7 @@ export default function ProductionTimeCalculator() {
     try {
       console.log('🔄 Calculating production time...', formData);
       
-      // Show user we might be waking up server
+      // Göster user we might be waking up server
       if (!result) {
         setError('Sunucu başlatılıyor, lütfen 15-20 saniye bekleyin...');
       }

@@ -15,7 +15,7 @@ import { CSS } from '@dnd-kit/utilities';
 import * as XLSX from 'xlsx';
 import { flmMappings } from '../lib/flmMappings';
 
-// Sortable row component
+// Sortable row Bileşen
 const SortableRow = ({ id, rod, index, onFlmChange }) => {
   const {
     attributes,
@@ -96,7 +96,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
     })
   );
 
-  // Calculate aggregated rods from main table data
+  // Hesapla aggregated rods den main table Veri
   useEffect(() => {
     if (isOpen && mainTableData && mainTableData.length > 0) {
       console.log('=== ÇUBUK CALCULATION DEBUG ===');
@@ -116,7 +116,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
       const rodMap = new Map();
       
       mainTableData.forEach((row, rowIndex) => {
-        // Skip empty or invalid rows
+        // Skip empty or Geçersiz rows
         if (!row.uzunlukBoy || !row.uzunlukEn || !row.boyCap || !row.enCap) {
           console.log(`Row ${rowIndex} skipped - missing dimensions:`, {
             uzunlukBoy: row.uzunlukBoy,
@@ -127,7 +127,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
           return;
         }
 
-        // Additional validation - skip rows with zero or invalid rod counts
+        // Additional validation - skip rows ile zero or Geçersiz rod counts
         if ((!row.cubukSayisiBoy || parseInt(row.cubukSayisiBoy) <= 0) && 
             (!row.cubukSayisiEn || parseInt(row.cubukSayisiEn) <= 0)) {
           console.log(`Row ${rowIndex} skipped - no valid rod counts:`, {
@@ -137,10 +137,10 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
           return;
         }
         
-        // Create product info for tracking
+        // Oluştur Ürün info için tracking
         const hasirSayisi = parseInt(row.hasirSayisi) || 1;
         
-        // Validate hasirSayisi - should be reasonable positive number
+        // Doğrula hasirSayisi - should be reasonable positive Sayı
         if (hasirSayisi <= 0 || hasirSayisi > 1000) {
           console.warn(`Row ${rowIndex} has suspicious hasirSayisi: ${hasirSayisi}, using 1`);
         }
@@ -165,7 +165,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
           rowId: row.id || `row-${rowIndex}`
         });
         
-        // Process Boy rods
+        // İşlem Boy rods
         const cubukSayisiBoy = parseInt(row.cubukSayisiBoy) || 0;
         if (cubukSayisiBoy > 0) {
           const key = `${row.boyCap}-${row.uzunlukBoy}`;
@@ -185,7 +185,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
             const existingRod = rodMap.get(key);
             const oldQuantity = existingRod.quantity;
             
-            // CRITICAL: Ensure numeric addition, not string concatenation
+            // CRITICAL: Ensure numeric addition, not String concatenation
             console.log(`BEFORE addition - oldQuantity: ${oldQuantity} (type: ${typeof oldQuantity}), boyQuantity: ${boyQuantity} (type: ${typeof boyQuantity})`);
             
             existingRod.quantity = Number(existingRod.quantity) + Number(boyQuantity);
@@ -207,7 +207,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
           }
         }
         
-        // Process En rods
+        // İşlem En rods
         const cubukSayisiEn = parseInt(row.cubukSayisiEn) || 0;
         if (cubukSayisiEn > 0) {
           const key = `${row.enCap}-${row.uzunlukEn}`;
@@ -227,7 +227,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
             const existingRod = rodMap.get(key);
             const oldQuantity = existingRod.quantity;
             
-            // CRITICAL: Ensure numeric addition, not string concatenation
+            // CRITICAL: Ensure numeric addition, not String concatenation
             console.log(`BEFORE addition - oldQuantity: ${oldQuantity} (type: ${typeof oldQuantity}), enQuantity: ${enQuantity} (type: ${typeof enQuantity})`);
             
             existingRod.quantity = Number(existingRod.quantity) + Number(enQuantity);
@@ -250,7 +250,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
         }
       });
       
-      // Convert to array and sort by diameter (smallest first), then by length
+      // Çevir a Dizi and Sırala ile Çap (smallest first), then ile Uzunluk
       const sortedRods = Array.from(rodMap.values()).sort((a, b) => {
         if (a.diameter !== b.diameter) {
           return a.diameter - b.diameter;
@@ -265,7 +265,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
       rodMap.forEach((rod, key) => {
         totalCalculatedRods += rod.quantity;
         
-        // Check for potential duplicate products (same mesh type with same dimensions)
+        // Kontrol et için potential duplicate products (same mesh Tip ile same dimensions)
         const productKeys = new Set();
         rod.usedInProducts.forEach(p => {
           const productKey = `${p.hasirTipi}-${p.uzunlukBoy}-${p.uzunlukEn}`;
@@ -341,13 +341,13 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Çubuk Üretim');
     
-    // Add title with date in the first row
+    // Ekle title ile Tarih in the first row
     XLSX.utils.sheet_add_aoa(ws, [[`ÇELİK HASIR ÇUBUK ÜRETİM ÇİZELGESİ - ${date}`]], { origin: 'A1' });
     
-    // Merge cells for the title
+    // Merge cells için the title
     ws['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: 6, r: 0 } }];
     
-    // Enable text wrapping and set row heights for proper display
+    // Enable text wrapping and Ayarla row heights için proper display
     const range = XLSX.utils.decode_range(ws['!ref']);
     for (let row = 2; row <= range.e.r; row++) {
       const cellAddress = XLSX.utils.encode_cell({ r: row, c: 6 }); // Column G (Kullanılacak Ürünler)
@@ -361,7 +361,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
       }
     }
     
-    // Set row heights for better display
+    // Ayarla row heights için better display
     ws['!rows'] = [];
     for (let i = 0; i <= range.e.r; i++) {
       if (i === 0) {
@@ -369,7 +369,7 @@ const CubukUretimCizelgesi = ({ isOpen, onClose, mainTableData }) => {
       } else if (i === 1) {
         ws['!rows'][i] = { hpt: 20 }; // Header row
       } else {
-        // Calculate height based on number of products
+        // Hesapla Yükseklik based on Sayı of products
         const dataIndex = i - 2;
         const productCount = rods[dataIndex]?.usedInProducts?.length || 1;
         ws['!rows'][i] = { hpt: Math.max(20, productCount * 15 + 10) }; // Dynamic height

@@ -180,7 +180,7 @@ const ProfilHesaplama = ({
           value.replace(',', '.') : 
           value;
         
-        // Boolean değerler için doğru parse
+        // Boolean değerler için doğru Parse et
         const parsedValue = field === 'galvanizli' || field === 'flansli' ? 
           (formattedValue === 'true' || formattedValue === true) : 
           formattedValue;
@@ -295,9 +295,9 @@ const ProfilHesaplama = ({
         const kapakAdet = safeParseFloat(profil.kapak_adet, 0);
 
         // Profil ağırlık hesaplaması
-        // Formül: Weight = Cross-sectional area × length × density / 1000
-        // Standard hollow rectangular tube formula with corner radius correction
-        // Corner radius typically = 1.5 × thickness (reduces weight by ~3%)
+        // Formül: Ağırlık = Cross-sectional area × Uzunluk × density / 1000
+        // Standard hollow rectangular tube formula ile corner radius correction
+        // Corner radius typically = 1.5 × Kalınlık (reduces Ağırlık ile ~3%)
         const lengthInMm = yukseklik * 10; // cm to mm conversion
         
         // Method 1: Exact calculation (outer area - inner area)
@@ -307,7 +307,7 @@ const ProfilHesaplama = ({
         const innerArea = innerWidth * innerHeight;
         const crossSectionalArea = outerArea - innerArea;
         
-        // Apply corner radius correction factor (typically reduces weight by 1-2%)
+        // Apply corner radius correction factor (typically reduces Ağırlık ile 1-2%)
         const cornerCorrectionFactor = 0.988; // 1.2% reduction for rounded corners
         const correctedArea = crossSectionalArea * cornerCorrectionFactor;
         
@@ -316,7 +316,7 @@ const ProfilHesaplama = ({
         
         // Galvaniz kaplama ağırlığı hesaplaması
         // Tipik galvaniz kaplama: 275-600 g/m² (ortalama 400 g/m² kullanıyoruz)
-        // Yüzey alanı = perimeter × length (mm² to m² conversion: /1,000,000)
+        // Yüzey alanı = perimeter × Uzunluk (mm² a m² conversion: /1,000,000)
         let profilAgirlik = baseProfilAgirlik;
         if (galvanizli) {
           const perimeter = 2 * (profilEn1 + profilEn2); // mm
@@ -453,7 +453,7 @@ const ProfilHesaplama = ({
           toplam_aksesuar_usd: profilHammaddeToplamAd,
           toplam_aksesuar_eur: profilHammaddeToplamAd / eurUsd,
           toplam_aksesuar_try: profilHammaddeToplamAd * usdTl,
-          // Total accessory costs for all units
+          // Total accessory costs için all units
           toplam_aksesuar_adet_usd: profilHammaddeToplamAd * adet,
           toplam_aksesuar_adet_eur: (profilHammaddeToplamAd * adet) / eurUsd,
           toplam_aksesuar_adet_try: (profilHammaddeToplamAd * adet) * usdTl
@@ -486,7 +486,7 @@ const ProfilHesaplama = ({
           "Toplam Ağırlık (kg)": formatTableValue(result.toplam_agirlik, 'weight')
         };
         
-        // Only add price data if not hidden
+        // Only Ekle price Veri değilse hidden
         if (!hidePrices) {
           // Para birimi filtresine göre fiyat kolonlarını ekle
           if (resultFilter.currency === 'all' || resultFilter.currency === 'usd') {
@@ -571,7 +571,7 @@ const ProfilHesaplama = ({
       return sonuclar.map(result => ({
         ...result,
         // Seçili para birimi ile ilgili değerleri sakla, diğerlerini null yap
-        // Bu değerler render sırasında kontrol edilecek
+        // Bu değerler Render et sırasında kontrol edilecek
         currency_filter: resultFilter.currency
       }));
     }

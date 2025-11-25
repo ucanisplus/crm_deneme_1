@@ -7,8 +7,8 @@ import { toast } from 'react-toastify';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// YM ST Wire Drawing Matrix (UPDATED: 2025-10-09 from revised matrix CSV)
-// Products >= 1.50mm use TLC01 direct drawing, < 1.50mm use COTLC01 two-step method with YM.ST (not Filmaşin)
+// YM ST Wire Drawing Matrix (UPDATED: 2025-10-09 den revised matrix CSV)
+// Products >= 1.50mm use TLC01 direct drawing, < 1.50mm use COTLC01 two-step method ile YM.ST (not Filmaşin)
 // Priority: 0 = Ana (Main), 1 = ALT_1, 2 = ALT_2, etc.
 // NOTE: Each key represents a RANGE (e.g., 1.50 covers 1.50-1.59mm, 7.20 covers 7.20-7.29mm)
 // NOTE: Matrix only includes >= 1.50mm targets (< 1.50mm products use YM.ST sources, not Filmaşin)
@@ -141,17 +141,17 @@ const YM_ST_FILMASIN_PRIORITY_MAP = {
   8.10: [{ diameter: 10.0, quality: '1010' }]
 };
 
-// Helper: Floor diameter to matrix range (e.g., 7.29 → 7.20, 4.18 → 4.10)
+// Helper: Floor Çap a matrix range (e.g., 7.29 → 7.20, 4.18 → 4.10)
 // YM ST COILER (.ST) Products Alternative Matrix
-// For .ST products (COTLC01 method) that use classical YM.ST products as sources
+// için .ST products (COTLC01 method) that use classical YM.ST products olarak sources
 // Main (0) uses xxx.0600.1006, ALT 1 uses xxx.0600.1008, ALT 2 uses xxx.0550.1006
-// NOTE: Only for diameters 2.00-2.30mm (.ST product final diameters)
+// NOTE: Only için diameters 2.00-2.30mm (.ST Ürün final diameters)
 // ============================================================================
 // COILER ALTERNATIVE MATRIX - For YM ST RECETE ALT Sheets
 // Based on: C:\Users\Selman\Desktop\UBUNTU\genel_csv\COİL ALTERNATİF.csv
 // ============================================================================
 const COILER_ALTERNATIVE_MATRIX = {
-  // Category 1: 0.84mm ONLY (YM.ST.084.ST)
+  // Kategori 1: 0.84mm ONLY (YM.ST.084.ST)
   '0.84': [
     { priority: 0, cap: 2.16, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.16, filmasin: 5.5, quality: '1006' },
@@ -161,13 +161,13 @@ const COILER_ALTERNATIVE_MATRIX = {
     { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
   ],
 
-  // Category 1.5: 1.16mm ONLY (Special ZIRH TELİ product)
+  // Kategori 1.5: 1.16mm ONLY (Special ZIRH TELİ Ürün)
   '1.16': [
     { priority: 0, cap: 2.26, filmasin: 5.5, quality: '1005' },  // Main: YM.ST.0226.0550.1005
     { priority: 1, cap: 2.16, filmasin: 5.5, quality: '1005' }   // Alt 1: YM.ST.0216.0550.1005
   ],
 
-  // Category 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
+  // Kategori 2: 1.49mm and below (excluding 0.84mm and 1.16mm)
   '≤1.49': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
@@ -177,7 +177,7 @@ const COILER_ALTERNATIVE_MATRIX = {
     { priority: 5, cap: 2.36, filmasin: 6.0, quality: '1006' }
   ],
 
-  // Category 3: 1.50mm to 1.79mm
+  // Kategori 3: 1.50mm a 1.79mm
   '1.50-1.79': [
     { priority: 0, cap: 2.26, filmasin: 6.0, quality: '1006' },
     { priority: 1, cap: 2.26, filmasin: 5.5, quality: '1006' },
@@ -191,9 +191,9 @@ const COILER_ALTERNATIVE_MATRIX = {
   ]
 };
 
-// Helper: Determine which COILER category a .ST product belongs to
+// Helper: Determine which COILER Kategori a .ST Ürün belongs a
 const getCoilerCategory = (stokKodu) => {
-  // Extract diameter from YM.ST.084.ST -> 0.84mm
+  // Extract Çap den YM.ST.084.ST -> 0.84mm
   const match = stokKodu.match(/YM\.ST\.(\d{4})\.ST/);
   if (!match) return null;
 
@@ -216,10 +216,10 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
   // Structure: { 1: [...], 2: [...], ..., 8: [...] }
   const alternativesByPriority = {};
 
-  // Group recipes by product - support both mamul_kodu and ym_st_stok_kodu
+  // Group recipes ile Ürün - support both mamul_kodu and ym_st_stok_kodu
   const recipesByProduct = {};
   mainRecipes.forEach(recipe => {
-    // Support both database field names (mamul_kodu) and runtime field names (ym_st_stok_kodu)
+    // Support both database Alan names (mamul_kodu) and runtime Alan names (ym_st_stok_kodu)
     const productCode = recipe.mamul_kodu || recipe.ym_st_stok_kodu;
     if (!productCode) {
       console.warn('⚠️ Recipe missing both mamul_kodu and ym_st_stok_kodu:', recipe);
@@ -237,9 +237,9 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
 
   let stProductCount = 0;
 
-  // For each .ST product, generate alternatives
+  // için each .ST Ürün, generate alternatives
   Object.keys(recipesByProduct).forEach(stokKodu => {
-    // Check if it's a .ST product (COTLC01 method)
+    // Kontrol et if it's a .ST Ürün (COTLC01 method)
     if (!stokKodu.endsWith('.ST')) {
       return; // Skip non-.ST products silently
     }
@@ -247,7 +247,7 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
     stProductCount++;
     const productRecipes = recipesByProduct[stokKodu];
 
-    // Determine which COILER category this product belongs to
+    // Determine which COILER Kategori this Ürün belongs a
     const category = getCoilerCategory(stokKodu);
     if (!category) {
       console.log(`⚠️ ${stokKodu}: Not in COILER matrix range, skipping`);
@@ -257,38 +257,38 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
     const alternatives = COILER_ALTERNATIVE_MATRIX[category];
     console.log(`🔄 ${stokKodu}: Category ${category}, ${alternatives.length} alternatives available`);
 
-    // For each alternative priority (1-8)
+    // için each alternative priority (1-8)
     for (let priority = 1; priority <= 8; priority++) {
-      // Find the alternative definition for this priority
+      // Bul the alternative definition için this priority
       const altDef = alternatives.find(a => a.priority === priority);
       if (!altDef) {
-        // This priority doesn't exist for this category (e.g., priority 6-8 for ≤1.49mm products)
+        // This priority doesn't exist için this Kategori (e.g., priority 6-8 için ≤1.49mm products)
         continue;
       }
 
-      // Get the main bilesen (priority 0) definition
+      // Al the main bilesen (priority 0) definition
       const mainDef = alternatives.find(a => a.priority === 0);
 
-      // Calculate duration adjustment ratio
-      // Logic: Less reduction needed = Less time
-      // Thinner starting bilesen (smaller cap) → LESS reduction needed → SHORTER duration
-      // Thicker starting bilesen (larger cap) → MORE reduction needed → LONGER duration
-      // Example: To produce 0.73mm, starting from 2.16mm is faster than starting from 2.26mm
-      // Formula: (altCap/mainCap)² where altCap < mainCap gives ratio < 1 (shorter duration)
+      // Hesapla Süre adjustment ratio
+      // Logic: Less reduction needed = Less Zaman
+      // Thinner starting bilesen (smaller cap) → LESS reduction needed → SHORTER Süre
+      // Thicker starting bilesen (larger cap) → MORE reduction needed → LONGER Süre
+      // Example: a produce 0.73mm, starting den 2.16mm is faster than starting den 2.26mm
+      // Formula: (altCap/mainCap)² where altCap < mainCap gives ratio < 1 (shorter Süre)
       const durationRatio = Math.pow(altDef.cap / mainDef.cap, 2);
 
-      // Initialize priority array if needed
+      // Başlat priority Dizi if needed
       if (!alternativesByPriority[priority]) {
         alternativesByPriority[priority] = [];
       }
 
-      // Generate alternative recipes for this product at this priority
+      // Generate alternative recipes için this Ürün at this priority
       productRecipes.forEach(recipe => {
         if (recipe.operasyon_bilesen === 'B') {
           // BILESEN ROW: Replace bilesen_kodu with alternative
           const oldBilesenKodu = recipe.bilesen_kodu;
 
-          // Build new bilesen code: YM.ST.{cap}.{filmasin}.{quality}
+          // Build new bilesen code: YM.ST.{cap}.{filmasin}.{Kalite}
           const capCode = String(Math.round(altDef.cap * 100)).padStart(4, '0');
           const filmasinCode = String(Math.round(altDef.filmasin * 100)).padStart(4, '0');
           const newBilesenKodu = `YM.ST.${capCode}.${filmasinCode}.${altDef.quality}`;
@@ -301,7 +301,7 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
 
           console.log(`  ✅ ALT ${priority}: ${oldBilesenKodu} → ${newBilesenKodu} (1 kg, duration ratio: ${durationRatio.toFixed(4)})`);
         } else {
-          // OPERATION ROW: Adjust duration based on cap (wire diameter) change
+          // OPERATION ROW: Adjust Süre based on cap (wire Çap) Değiştir
           if (recipe.miktar && durationRatio !== 1.0) {
             const oldDuration = parseFloat(recipe.miktar);
             const newDuration = oldDuration * durationRatio;
@@ -326,27 +326,27 @@ const generateCoilerAlternatives = (mainRecipes, ymStProducts) => {
 };
 
 const getMatrixRangeKey = (targetDiameter) => {
-  // Matrix only for products >= 1.50mm (products < 1.50mm use COTLC01 with YM.ST, not Filmaşin)
+  // Matrix only için products >= 1.50mm (products < 1.50mm use COTLC01 ile YM.ST, not Filmaşin)
   if (targetDiameter < 1.50) return null;
 
-  // Floor to 0.10mm range: Math.floor(diameter * 10) / 10
+  // Floor a 0.10mm range: Math.floor(Çap * 10) / 10
   const rangeKey = Math.floor(targetDiameter * 10) / 10;
 
-  // Handle special cases where matrix jumps (e.g., 7.50 → 8.00)
+  // İşle special cases where matrix jumps (e.g., 7.50 → 8.00)
   if (rangeKey >= 7.60 && rangeKey < 8.00) return 7.50;
   if (rangeKey >= 8.20) return 8.10;
 
   return rangeKey;
 };
 
-// Helper: Get filmaşin by priority for YM ST
+// Helper: Al filmaşin ile priority için YM ST
 const getYmStFilmasinByPriority = (targetDiameter, priority) => {
-  // Products < 1.50mm use COTLC01 method with YM.ST (not Filmaşin from matrix)
+  // Products < 1.50mm use COTLC01 method ile YM.ST (not Filmaşin den matrix)
   if (targetDiameter < 1.50) {
     return null;
   }
 
-  // Floor diameter to matrix range key
+  // Floor Çap a matrix range key
   const rangeKey = getMatrixRangeKey(targetDiameter);
   if (!rangeKey) return null;
 
@@ -373,10 +373,10 @@ const GalvanizliTelNetsis = () => {
   // Coklu onay islemini engellemek icin ref
   const isProcessingApproval = useRef(false);
   
-  // Onay surecinde cakisan modal engellemek icin
+  // Onay surecinde cakisan Modal engellemek icin
   const [isInApprovalProcess, setIsInApprovalProcess] = useState(false);
   
-  // Ana state degiskenleri
+  // Ana State degiskenleri
   const [currentStep, setCurrentStep] = useState('input'); // input, summary, processing
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -416,7 +416,7 @@ const GalvanizliTelNetsis = () => {
   // ID yerine kullanici adlarini gostermek icin kullanici haritalama
   const [users, setUsers] = useState({}); // id -> kullanici_adi haritalamasi
   
-  // Mevcut MM GT seçimi için state'ler
+  // Mevcut MM GT seçimi için State'ler
   const [existingMmGts, setExistingMmGts] = useState([]);
   const [selectedExistingMmGt, setSelectedExistingMmGt] = useState(null);
   const [showExistingMmGtModal, setShowExistingMmGtModal] = useState(false);
@@ -429,7 +429,7 @@ const GalvanizliTelNetsis = () => {
   // Kullanici girdi degerleri icin ayarlar modali
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
-  // Coiler Recete modali icin state'ler
+  // Coiler Recete modali icin State'ler
   const [showCoilerReceteModal, setShowCoilerReceteModal] = useState(false);
   const [coilerTargetDiameter, setCoilerTargetDiameter] = useState('');
   const [coilerSourceYmSts, setCoilerSourceYmSts] = useState([]); // Multiple sources
@@ -446,11 +446,11 @@ const GalvanizliTelNetsis = () => {
   });
   const [isGeneratingYmStExcel, setIsGeneratingYmStExcel] = useState(false);
 
-  // Change preview modal for edit mode
+  // Değiştir preview Modal için edit mode
   const [showChangePreviewModal, setShowChangePreviewModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(null);
   
-  // Database detail modal for showing product details
+  // Database detail Modal için showing Ürün details
   const [showDatabaseDetailModal, setShowDatabaseDetailModal] = useState(false);
   const [selectedDatabaseProduct, setSelectedDatabaseProduct] = useState(null);
 
@@ -475,7 +475,7 @@ const GalvanizliTelNetsis = () => {
   // Veritabanı sıralama durumları
   const [dbSortField, setDbSortField] = useState('cap'); // Sıralama alanı (cap, kod_2, kaplama, created_at)
   
-  // Task Queue System için state'ler
+  // Task Queue System için State'ler
   const [taskQueue, setTaskQueue] = useState([]); // {id, name, status: 'pending'|'processing'|'completed'|'failed', timestamp}
   const [showTaskQueuePopup, setShowTaskQueuePopup] = useState(false);
   const [showQueueCompletionPopup, setShowQueueCompletionPopup] = useState(false);
@@ -484,11 +484,11 @@ const GalvanizliTelNetsis = () => {
   const taskQueueRef = useRef([]);
   const processingTaskRef = useRef(false);
   
-  // Session tracking for approvals
+  // Session tracking için approvals
   const sessionStartTime = useRef(new Date());
   const [sessionApprovals, setSessionApprovals] = useState([]);
   
-  // Bulk Excel Export için state'ler
+  // Bulk Excel Export için State'ler
   const [showBulkExcelMenu, setShowBulkExcelMenu] = useState(false);
   const [dbSortDirection, setDbSortDirection] = useState('asc'); // Sıralama yönü (asc, desc)
   
@@ -545,7 +545,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Excel icin ondalik formatla - Stok kartları için 2 ondalik basamak ile
-  // IMPORTANT: Preserves sign for tolerance values (e.g., -0.06 stays as -0,06, +0.05 stays as +0,05)
+  // IMPORTANT: Preserves sign için tolerance values (e.g., -0.06 stays olarak -0,06, +0.05 stays olarak +0,05)
   const formatDecimalForExcel = (value) => {
     if (value === null || value === undefined || value === '') {
       return '';
@@ -557,10 +557,10 @@ const GalvanizliTelNetsis = () => {
       return String(value);
     }
 
-    // Preserve sign and format with 2 decimal places
+    // Preserve sign and Formatla ile 2 decimal places
     const formatted = numValue.toFixed(2).replace('.', ',');
 
-    // Add + prefix for positive numbers (negative sign is automatic from toFixed)
+    // Ekle + prefix için positive numbers (negative sign is automatic den toFixed)
     return numValue >= 0 ? '+' + formatted : formatted;
   };
 
@@ -586,7 +586,7 @@ const GalvanizliTelNetsis = () => {
       return null;
     }
     
-    // Convert to number first, handling both comma and dot decimals
+    // Çevir a Sayı first, handling both comma and dot decimals
     const strValue = String(value);
     const normalizedValue = strValue.replace(/,/g, '.');
     const numValue = parseFloat(normalizedValue);
@@ -595,8 +595,8 @@ const GalvanizliTelNetsis = () => {
       return null;
     }
     
-    // Round to reasonable precision to avoid floating point issues and trailing zeros
-    // Use parseFloat to remove trailing zeros from the string representation
+    // Round a reasonable precision a avoid floating point issues and trailing zeros
+    // Use parseFloat a Kaldır trailing zeros den the String representation
     return parseFloat(numValue.toFixed(10));
   };
   
@@ -630,10 +630,10 @@ const GalvanizliTelNetsis = () => {
   const [toleransMaxSign, setToleransMaxSign] = useState('+'); // Max Tolerans için işaret
   const [toleransMinSign, setToleransMinSign] = useState('-'); // Min Tolerans için işaret
 
-  // Calculated YM ST diameter for conditional UI rendering
+  // Calculated YM ST Çap için conditional UI rendering
   const [calculatedYmStDiameter, setCalculatedYmStDiameter] = useState(null);
 
-  // User-editable YM ST diameter (initialized from calculated value)
+  // User-editable YM ST Çap (initialized den calculated Değer)
   const [userYmStDiameter, setUserYmStDiameter] = useState('');
 
   // Hesaplanan/oluşturulan veriler
@@ -659,13 +659,13 @@ const GalvanizliTelNetsis = () => {
   // Aktif recete sekmesi
   const [activeRecipeTab, setActiveRecipeTab] = useState(0); // Hangi YM ST'nin recetesi gosteriliyor
   
-  // Aktif sekme icin dropdown degerleri - dogru senkronizasyon icin state ile yonetiliyor
+  // Aktif sekme icin dropdown degerleri - dogru senkronizasyon icin State ile yonetiliyor
   const [activeTabDropdownValues, setActiveTabDropdownValues] = useState({
     filmasinCode: 'FLM.0600.1006',
     shrinkType: ''
   });
   
-  // Veritabanı state'leri
+  // Veritabanı State'leri
   const [savedToDatabase, setSavedToDatabase] = useState(false);
   const [databaseIds, setDatabaseIds] = useState({
     mmGtIds: [], // Çoklu MM GT ID'ler
@@ -673,11 +673,11 @@ const GalvanizliTelNetsis = () => {
     ymStIds: []
   });
   
-  // Not duzenleme modali icin state
+  // Not duzenleme modali icin State
   const [showEditNotesModal, setShowEditNotesModal] = useState(false);
   const [editNotes, setEditNotes] = useState('');
   
-  // Edit confirmation modal state
+  // Edit confirmation Modal State
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
   const [originalProductData, setOriginalProductData] = useState(null);
   const [changedFields, setChangedFields] = useState([]);
@@ -696,7 +696,7 @@ const GalvanizliTelNetsis = () => {
   // Excel generation progress tracking
   const [excelProgress, setExcelProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' });
 
-  // Dostça alan adları - UPDATED: Using database codes (Excel output format)
+  // Dostça alan adları - UPDATED: Using database codes (Excel output Formatla)
   const friendlyNames = {
     'TLC01': 'Tel Çekme Süre (TLC01)',
     'SM-KMY-000096': 'HCL Asit (SM-KMY-000096)', // Updated from 'SM.HİDROLİK.ASİT'
@@ -725,8 +725,8 @@ const GalvanizliTelNetsis = () => {
   }, []);
 
   // ✅ REMOVED: DIS CAP auto-calculation
-  // User now enters both IC and DIS manually via combined selector or custom entry
-  // No need to auto-calculate DIS CAP anymore
+  // User Şimdi enters both IC and DIS manually via combined selector or custom entry
+  // No need a auto-Hesapla DIS CAP anymore
 
   // Task Queue Functions
   const addToTaskQueue = (taskName, saveFunction, taskId = null) => {
@@ -761,17 +761,17 @@ const GalvanizliTelNetsis = () => {
     
     const pendingTasks = taskQueueRef.current.filter(t => t.status === 'pending');
     if (pendingTasks.length === 0) {
-      // Check if we just finished all tasks and should show completion popup
+      // Kontrol et if we just finished all tasks and should Göster completion Popup
       const completedTasks = taskQueueRef.current.filter(t => t.status === 'completed');
       const failedTasks = taskQueueRef.current.filter(t => t.status === 'failed');
       const processingTasks = taskQueueRef.current.filter(t => t.status === 'processing');
       const totalTasks = taskQueueRef.current.length;
       
-      // Only show popup if:
+      // Only Göster Popup if:
       // 1. There are tasks in the queue
-      // 2. No tasks are still processing (safety check)
-      // 3. All tasks are either completed or failed
-      // 4. There are some completed tasks
+      // 2. No tasks are still İşleniyor (safety Kontrol et)
+      // 3. All tasks are either Tamamlandı or Başarısız
+      // 4. There are some Tamamlandı tasks
       // 5. Popup is not already showing (prevent duplicates)
       if (totalTasks > 0 && 
           processingTasks.length === 0 && 
@@ -779,7 +779,7 @@ const GalvanizliTelNetsis = () => {
           completedTasks.length > 0 &&
           !showQueueCompletionPopup) {
         console.log('🎉 Queue completed! Showing completion popup for', completedTasks.length, 'completed tasks');
-        // Create a copy of completed tasks to avoid reference issues
+        // Oluştur a copy of Tamamlandı tasks a avoid reference issues
         setCompletedQueueTasks([...completedTasks]);
         setShowQueueCompletionPopup(true);
       }
@@ -792,11 +792,11 @@ const GalvanizliTelNetsis = () => {
     try {
       updateTaskStatus(currentTask.id, 'processing');
       
-      // Execute the actual save operation with the task's context
+      // Execute the actual Kaydet operation ile the task's Context
       if (currentTask.saveFunction) {
         const saveResult = await currentTask.saveFunction();
         if (saveResult && saveResult.success) {
-          // Store Excel data if available
+          // Store Excel Veri if Mevcut
           const excelData = saveResult.excelData || null;
           updateTaskStatus(currentTask.id, 'completed', excelData);
           toast.success(`${currentTask.name} başarıyla tamamlandı!`);
@@ -810,12 +810,12 @@ const GalvanizliTelNetsis = () => {
       toast.error(`${currentTask.name} hatası: ${error.message}`);
     } finally {
       processingTaskRef.current = false;
-      // Process next task if any
+      // İşlem İleri task if any
       setTimeout(() => processTaskQueue(), 500);
     }
   };
 
-  // Browser close prevention
+  // Browser Kapat prevention
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       const pendingCount = taskQueue.filter(t => t.status === 'pending').length;
@@ -842,7 +842,7 @@ const GalvanizliTelNetsis = () => {
   // Kod-2 değişikliğinde kaplama değerini güncelle
   useEffect(() => {
     if (mmGtData.kod_2 === 'PAD' && mmGtData.kaplama === '100') {
-      // Only auto-set if it's the default NIT value (100)
+      // Only auto-Ayarla if it's the default NIT Değer (100)
       setMmGtData(prev => ({ ...prev, kaplama: '50' }));
     }
   }, [mmGtData.kod_2]);
@@ -854,15 +854,15 @@ const GalvanizliTelNetsis = () => {
     }
   }, [mmGtData.cap, mmGtData.kod_2, mmGtData.kaplama, mmGtData.min_mukavemet, mmGtData.max_mukavemet, mmGtData.kg, mmGtData.ic_cap, mmGtData.dis_cap, mmGtData.tolerans_plus, mmGtData.tolerans_minus]);
 
-  // Calculate YM ST diameter for UI conditional rendering (round up if odd)
+  // Hesapla YM ST Çap için UI conditional rendering (round up if odd)
   useEffect(() => {
     if (mmGtData.cap && mmGtData.kaplama && mmGtData.tolerans_minus) {
       const cap = parseFloat(mmGtData.cap) || 0;
       const kaplama = parseInt(mmGtData.kaplama) || 0;
       const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
 
-      // Apply the correct sign to the tolerance based on toleransMinSign
-      // If +0.05 → add 0.05 (wire will be thicker)
+      // Apply the correct sign a the tolerance based on toleransMinSign
+      // If +0.05 → Ekle 0.05 (wire will be thicker)
       // If -0.05 → subtract 0.05 (wire will be thinner)
       const toleransMinusValue = Math.abs(toleransMinus);
       const signedToleranceMinus = toleransMinSign === '+' ? toleransMinusValue : -toleransMinusValue;
@@ -871,18 +871,18 @@ const GalvanizliTelNetsis = () => {
       const baseAdjustedCap = cap + signedToleranceMinus - coatingReduction + 0.02;
       let ymStDiameter = Math.max(Math.round(baseAdjustedCap * 100) / 100, 0.1);
 
-      // Round up to next even diameter if result is odd (in 0.01mm units)
-      // Example: 2.47mm (247) is odd → round up to 2.48mm (248)
+      // Round up a İleri even Çap if result is odd (in 0.01mm units)
+      // Example: 2.47mm (247) is odd → round up a 2.48mm (248)
       const diameterIn100ths = Math.round(ymStDiameter * 100);
       if (diameterIn100ths % 2 !== 0) {
-        // Odd diameter - round up to next even
+        // Odd Çap - round up a İleri even
         ymStDiameter = (diameterIn100ths + 1) / 100;
         console.log(`⚠️ Galvanizli: Rounded up odd diameter ${(diameterIn100ths / 100).toFixed(2)}mm to even ${ymStDiameter.toFixed(2)}mm`);
       }
 
       setCalculatedYmStDiameter(ymStDiameter);
-      // Don't auto-fill the input - let user enter manually
-      // The suggested value is shown above the input field
+      // Don't auto-fill the Girdi - let user enter manually
+      // The suggested Değer is shown above the Girdi Alan
     } else {
       setCalculatedYmStDiameter(null);
     }
@@ -893,10 +893,10 @@ const GalvanizliTelNetsis = () => {
     fetchTlcHizlarData();
   }, []);
   
-  // Component kaldirildiginda sessionStorage temizligi
+  // Bileşen kaldirildiginda sessionStorage temizligi
   useEffect(() => {
     return () => {
-      // Component kaldirildiginda sessionStorage temizle
+      // Bileşen kaldirildiginda sessionStorage temizle
       sessionStorage.removeItem('lastEditedRequestId');
     };
   }, []);
@@ -945,7 +945,7 @@ const GalvanizliTelNetsis = () => {
   // Veritabanindan kullanici girdi degerlerini getir
   const fetchUserInputValues = async () => {
     try {
-      // API endpoint URL tanimli mi kontrol et
+      // API Endpoint URL tanimli mi kontrol et
       if (!API_URLS.galUserInputValues) {
         console.warn('galUserInputValues API endpoint is not defined, using default values');
         return;
@@ -990,10 +990,10 @@ const GalvanizliTelNetsis = () => {
         paketlemeDkAdet: parseFloat(userInputValues.paketlemeDkAdet) || 10
       };
       
-      // Dogrulanan degerlerle state'i guncelle
+      // Dogrulanan degerlerle State'i guncelle
       setUserInputValues(validatedInputs);
       
-      // API endpoint tanimli mi kontrol et
+      // API Endpoint tanimli mi kontrol et
       if (API_URLS.galUserInputValues) {
         // Endpoint varsa veritabanina kaydet
         const response = await fetch(API_URLS.galUserInputValues, {
@@ -1010,7 +1010,7 @@ const GalvanizliTelNetsis = () => {
           toast.error('Hesaplama değerleri kaydedilirken bir hata oluştu.');
         }
       } else {
-        // Endpoint yoksa sadece yerel state guncelle
+        // Endpoint yoksa sadece yerel State guncelle
         toast.success('Hesaplama değerleri güncellendi.');
       }
       
@@ -1067,7 +1067,7 @@ const GalvanizliTelNetsis = () => {
         const requestsData = Array.isArray(data) ? data : [];
         setRequests(requestsData);
         
-        // Update selectedRequest if it's currently open to refresh the modal with latest data
+        // Güncelle selectedRequest if it's currently Aç a refresh the Modal ile latest Veri
         if (selectedRequest && showRequestDetailModal) {
           const updatedRequest = requestsData.find(req => req.id === selectedRequest.id);
           if (updatedRequest) {
@@ -1083,10 +1083,10 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Check if products associated with requests still exist
+  // Kontrol et if products associated ile requests still exist
   const checkForDeletedProducts = async (requestsData) => {
     try {
-      // Get MM GT products to check against (limit to recent products for performance)
+      // Al MM GT products a Kontrol et against (limit a recent products için performance)
       const response = await fetchWithAuth(`${API_URLS.galMmGt}?limit=2000&sort_by=created_at&sort_order=desc`);
       if (!response || !response.ok) {
         console.warn('Could not fetch products to check for deleted items');
@@ -1096,17 +1096,17 @@ const GalvanizliTelNetsis = () => {
       const allProducts = await response.json();
       const requestsToUpdate = [];
       
-      // Check each request to see if its associated product still exists  
+      // Kontrol et each İstek a see if its associated Ürün still exists
       for (const request of requestsData) {
-        // Skip requests that are already marked as "Silinmiş"
+        // Skip requests that are already marked olarak "Silinmiş"
         if (request.status === 'silinmis') {
           continue;
         }
         
-        // Find matching product using different matching strategies
+        // Bul matching Ürün using different matching strategies
         let productExists = false;
         
-        // Strategy 1: Try to match by final_product_key if available
+        // Strategy 1: Dene a match ile final_product_key if Mevcut
         if (request.final_product_key) {
           productExists = allProducts.some(product => {
             const productKey = generateProductKeyFromProduct(product);
@@ -1114,17 +1114,17 @@ const GalvanizliTelNetsis = () => {
           });
         }
         
-        // Strategy 2: Try to match by original stok_kodu
+        // Strategy 2: Dene a match ile original stok_kodu
         if (!productExists && request.stok_kodu) {
           productExists = allProducts.some(product => product.stok_kodu === request.stok_kodu);
         }
         
-        // Strategy 3: Try to match by final_stok_adi if available  
+        // Strategy 3: Dene a match ile final_stok_adi if Mevcut
         if (!productExists && request.final_stok_adi) {
           productExists = allProducts.some(product => product.stok_adi === request.final_stok_adi);
         }
         
-        // Strategy 4: Match by product specifications (fallback)
+        // Strategy 4: Match ile Ürün specifications (fallback)
         if (!productExists) {
           productExists = allProducts.some(product => {
             return (
@@ -1140,13 +1140,13 @@ const GalvanizliTelNetsis = () => {
           });
         }
         
-        // If product doesn't exist, mark request as "Silinmiş"
+        // If Ürün doesn't exist, mark İstek olarak "Silinmiş"
         if (!productExists) {
           requestsToUpdate.push(request.id);
         }
       }
       
-      // Update requests that have deleted products
+      // Güncelle requests that have Silindi products
       if (requestsToUpdate.length > 0) {
         console.log(`Found ${requestsToUpdate.length} requests with deleted products, updating status...`);
         
@@ -1162,7 +1162,7 @@ const GalvanizliTelNetsis = () => {
           }
         }
         
-        // Refresh requests to show updated statuses
+        // Refresh requests a Göster updated statuses
         setTimeout(() => {
           fetchRequests();
         }, 1000);
@@ -1172,14 +1172,14 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Generate product key from product data for comparison
+  // Generate Ürün key den Ürün Veri için comparison
   const generateProductKeyFromProduct = (product) => {
     if (!product) return '';
     
     return `${product.cap || ''}_${product.kod_2 || ''}_${product.kaplama || ''}_${product.min_mukavemet || ''}_${product.max_mukavemet || ''}_${product.kg || ''}_${product.ic_cap || ''}_${product.dis_cap || ''}_${product.tolerans_plus || ''}_${product.tolerans_minus || ''}_${product.shrink || ''}_${product.unwinding || ''}`;
   };
 
-  // Permanently delete "Silinmiş" request from database
+  // Permanently Sil "Silinmiş" İstek den database
   const permanentlyDeleteRequest = async (request) => {
     if (request.status !== 'silinmis') {
       toast.error('Sadece "Silinmiş" durumundaki talepler kalıcı olarak silinebilir');
@@ -1366,18 +1366,18 @@ const GalvanizliTelNetsis = () => {
     try {
       console.log('Bulk delete starting for tab:', activeDbTab, 'Items:', selectedDbItems);
 
-      // STEP 0: Identify requests related to products being deleted (BEFORE deletion)
+      // STEP 0: Identify requests related a products being Silindi (BEFORE deletion)
       const requestsToMark = [];
       if (activeDbTab === 'mmgt') {
         try {
           console.log('Bulk delete: Identifying requests for products to be deleted...');
 
-          // Get all requests
+          // Al all requests
           const allRequestsResponse = await fetchWithAuth(`${API_URLS.galSalRequests}?limit=200&sort_by=created_at&sort_order=desc`);
           if (allRequestsResponse && allRequestsResponse.ok) {
             const allRequests = await allRequestsResponse.json();
 
-            // Get products that will be deleted
+            // Al products that will be Silindi
             const productsToDelete = [];
             for (const itemId of selectedDbItems) {
               try {
@@ -1394,7 +1394,7 @@ const GalvanizliTelNetsis = () => {
             console.log(`Bulk delete: Found ${productsToDelete.length} products to delete:`, productsToDelete.map(p => ({id: p.id, stok_kodu: p.stok_kodu, stok_adi: p.stok_adi})));
             console.log(`Bulk delete: Found ${allRequests.length} total requests to check`);
 
-            // Find requests matching ONLY the products to be deleted (forward matching)
+            // Bul requests matching ONLY the products a be Silindi (forward matching)
             for (const request of allRequests) {
               if (request.status === 'silinmis') continue;
 
@@ -1402,17 +1402,17 @@ const GalvanizliTelNetsis = () => {
                 let matches = false;
                 let matchReason = '';
 
-                // Strategy 1: Match by final_stok_adi
+                // Strategy 1: Match ile final_stok_adi
                 if (request.final_stok_adi && product.stok_adi && request.final_stok_adi === product.stok_adi) {
                   matches = true;
                   matchReason = `stok_adi: ${product.stok_adi}`;
                 }
-                // Strategy 2: Match by stok_kodu
+                // Strategy 2: Match ile stok_kodu
                 else if (request.stok_kodu && product.stok_kodu && request.stok_kodu === product.stok_kodu) {
                   matches = true;
                   matchReason = `stok_kodu: ${product.stok_kodu}`;
                 }
-                // Strategy 3: Match by specifications (all must match)
+                // Strategy 3: Match ile specifications (all must match)
                 else {
                   const capMatch = Math.abs(parseFloat(product.cap || 0) - parseFloat(request.cap || 0)) < 0.01;
                   const kod2Match = product.kod_2 === request.kod_2;
@@ -1450,26 +1450,26 @@ const GalvanizliTelNetsis = () => {
       }
 
       if (activeDbTab === 'mmgt') {
-        // For MM GT, we need cascade deletion including YM GT
+        // için MM GT, we need cascade deletion including YM GT
         for (const itemId of selectedDbItems) {
           try {
             console.log('Deleting MM GT with cascade:', itemId);
             
-            // Get MM GT data before deletion
+            // Al MM GT Veri before deletion
             const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${itemId}`);
             let mmGt = null;
             if (mmGtResponse && mmGtResponse.ok) {
               mmGt = await mmGtResponse.json();
             }
             
-            // Step 1: Find and delete related YM GTs through relationship table
+            // Step 1: Bul and Sil related YM GTs through relationship table
             try {
               const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${itemId}`);
               if (relationResponse && relationResponse.ok) {
                 const relations = await relationResponse.json();
                 console.log(`Found ${relations.length} relationships for MM GT ${itemId}`);
                 
-                // Delete related YM GTs first
+                // Sil related YM GTs first
                 for (const relation of relations) {
                   if (relation.ym_gt_id) {
                     try {
@@ -1487,7 +1487,7 @@ const GalvanizliTelNetsis = () => {
                   }
                 }
                 
-                // Delete relationship records
+                // Sil relationship records
                 for (const relation of relations) {
                   try {
                     await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, {
@@ -1502,7 +1502,7 @@ const GalvanizliTelNetsis = () => {
               console.error('Bulk: Error finding related YM GTs through relationships:', relationError);
             }
             
-            // Step 2: Fallback - find orphaned YM GTs by stok_kodu pattern
+            // Step 2: Fallback - Bul orphaned YM GTs ile stok_kodu pattern
             if (mmGt && mmGt.stok_kodu && mmGt.stok_kodu.startsWith('GT.')) {
               const expectedYmGtStokKodu = mmGt.stok_kodu.replace(/^GT\./, 'YM.GT.');
               try {
@@ -1529,7 +1529,7 @@ const GalvanizliTelNetsis = () => {
               }
             }
             
-            // Step 3: Delete the MM GT itself
+            // Step 3: Sil the MM GT itself
             const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${itemId}`, {
               method: 'DELETE'
             });
@@ -1548,7 +1548,7 @@ const GalvanizliTelNetsis = () => {
           }
         }
       } else {
-        // For YM ST, simple deletion (no cascade needed)
+        // için YM ST, simple deletion (no cascade needed)
         for (const itemId of selectedDbItems) {
           try {
             const deleteUrl = `${API_URLS.galYmSt}/${itemId}`;
@@ -1581,7 +1581,7 @@ const GalvanizliTelNetsis = () => {
         toast.error(`${errorCount} ürün silinemedi`);
       }
 
-      // Mark related requests as "silinmiş" for deleted MM GT products
+      // Mark related requests olarak "silinmiş" için Silindi MM GT products
       // Uses forward matching: only marks requests identified BEFORE deletion
       console.log(`🔍 Bulk delete: Checking marking condition - requestsToMark.length=${requestsToMark.length}, successCount=${successCount}`);
 
@@ -1607,7 +1607,7 @@ const GalvanizliTelNetsis = () => {
             }
           }
 
-          // Refresh requests to show updated statuses
+          // Refresh requests a Göster updated statuses
           console.log('🔄 Refreshing requests list...');
           await fetchRequests();
           console.log('✅ Requests list refreshed');
@@ -1681,7 +1681,7 @@ const GalvanizliTelNetsis = () => {
           const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGtId); // Use == for type coercion
           console.log(`📖 Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId}`);
           
-          // Create mock response
+          // Oluştur mock Yanıt
           ymGtRecipeResponse = {
             ok: true,
             json: async () => filteredYmGtRecipes
@@ -1715,7 +1715,7 @@ const GalvanizliTelNetsis = () => {
             const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymStId); // Use == for type coercion
             console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymStId}`);
             
-            // Create mock response
+            // Oluştur mock Yanıt
             ymStRecipeResponse = {
               ok: true,
               json: async () => filteredYmStRecipes
@@ -1774,7 +1774,7 @@ const GalvanizliTelNetsis = () => {
       const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       
       
-      // Find MM GT
+      // Bul MM GT
       const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${encodeURIComponent(mmGtStokKodu)}`);
       if (mmGtResponse && mmGtResponse.ok) {
         const mmGtData = await mmGtResponse.json();
@@ -1789,7 +1789,7 @@ const GalvanizliTelNetsis = () => {
             if (relations.length > 0) {
               const ymGtId = relations[0].ym_gt_id; // All relations should have same ym_gt_id
               
-              // Load MM GT recipes
+              // Yükle MM GT recipes
               const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
               if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
                 const mmGtRecipeData = await mmGtRecipeResponse.json();
@@ -1829,7 +1829,7 @@ const GalvanizliTelNetsis = () => {
                   const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGtId); // Use == for type coercion
                   console.log(`📖 Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${ymGtId}`);
                   
-                  // Create mock response
+                  // Oluştur mock Yanıt
                   ymGtRecipeResponse = {
                     ok: true,
                     json: async () => filteredYmGtRecipes
@@ -1886,7 +1886,7 @@ const GalvanizliTelNetsis = () => {
                     const filteredYmSt = allYmSt.filter(r => r.id == ymStId); // Use == for type coercion
                     console.log(`📖 Found ${filteredYmSt.length} YM ST products for id=${ymStId}`);
                     
-                    // Create mock response - return first match or empty array
+                    // Oluştur mock Yanıt - return first match or empty Dizi
                     ymStResponse = {
                       ok: true,
                       json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
@@ -1919,7 +1919,7 @@ const GalvanizliTelNetsis = () => {
                   const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymStId); // Use == for type coercion
                   console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymStId}`);
                   
-                  // Create mock response
+                  // Oluştur mock Yanıt
                   ymStRecipeResponse = {
                     ok: true,
                     json: async () => filteredYmStRecipes
@@ -1996,7 +1996,7 @@ const GalvanizliTelNetsis = () => {
                 const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymStData.id); // Use == for type coercion
                 console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymStData.id}`);
                 
-                // Create mock response
+                // Oluştur mock Yanıt
                 ymStRecipeResponse = {
                   ok: true,
                   json: async () => filteredYmStRecipes
@@ -2089,14 +2089,14 @@ const GalvanizliTelNetsis = () => {
       const mmGtStokKodu = mmGt.stok_kodu;
       console.log(`Deleting MM GT: ${mmGtStokKodu} (ID: ${mmGtId})`);
       
-      // Step 1: Find related YM GTs through relationship table
+      // Step 1: Bul related YM GTs through relationship table
       try {
         const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGtId}`);
         if (relationResponse && relationResponse.ok) {
           const relations = await relationResponse.json();
           console.log(`Found ${relations.length} relationships for MM GT ${mmGtId}`);
           
-          // Delete relationship records first
+          // Sil relationship records first
           for (const relation of relations) {
             try {
               const relationDeleteResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, {
@@ -2110,7 +2110,7 @@ const GalvanizliTelNetsis = () => {
             }
           }
           
-          // Delete related YM GTs after relationships are removed
+          // Sil related YM GTs after relationships are removed
           for (const relation of relations) {
             if (relation.ym_gt_id) {
               try {
@@ -2132,7 +2132,7 @@ const GalvanizliTelNetsis = () => {
         console.error('Error finding related YM GTs through relationships:', relationError);
       }
       
-      // Step 2: COMPREHENSIVE FALLBACK - Multiple methods to find orphaned YMGTs
+      // Step 2: COMPREHENSIVE FALLBACK - Multiple methods a Bul orphaned YMGTs
       try {
         console.log('Starting comprehensive YMGT cleanup fallback methods...');
         
@@ -2167,8 +2167,8 @@ const GalvanizliTelNetsis = () => {
             console.log('Method 2a: API call failed or returned no data');
           }
           
-          // Method 2b: Pattern-based search (stok_kodu LIKE)
-          // Extract base pattern from MM GT stok_kodu for broader search
+          // Method 2b: Pattern-based Ara (stok_kodu LIKE)
+          // Extract base pattern den MM GT stok_kodu için broader Ara
           const mmGtParts = mmGtStokKodu.split('.');
           if (mmGtParts.length >= 4) {
             const basePattern = `YM.GT.${mmGtParts[1]}.${mmGtParts[2]}`; // e.g., "YM.GT.NIT.0250"
@@ -2182,7 +2182,7 @@ const GalvanizliTelNetsis = () => {
                   console.log(`Method 2b: Found ${ymGtPatternData.length} YM GTs matching pattern`);
                   
                   for (const patternYmGt of ymGtPatternData) {
-                    // Additional check: make sure the sequence matches too
+                    // Additional Kontrol et: make sure the sequence matches too
                     if (patternYmGt.stok_kodu.endsWith(`.${mmGtParts[3]}`)) {
                       console.log(`Method 2b: Found matching sequence YM GT: ${patternYmGt.stok_kodu} (ID: ${patternYmGt.id})`);
                       try {
@@ -2212,7 +2212,7 @@ const GalvanizliTelNetsis = () => {
             }
           }
           
-          // Method 2c: Brute force - get all YM GTs and find matches
+          // Method 2c: Brute force - Al all YM GTs and Bul matches
           console.log('Method 2c: Performing brute force search of all YM GTs...');
           try {
             const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
@@ -2249,7 +2249,7 @@ const GalvanizliTelNetsis = () => {
         console.error('Error in comprehensive YM GT fallback cleanup:', fallbackError);
       }
       
-      // Step 3: Finally delete the MM GT itself
+      // Step 3: Finally Sil the MM GT itself
       const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGtId}`, { 
         method: 'DELETE'
       });
@@ -2260,30 +2260,30 @@ const GalvanizliTelNetsis = () => {
       
       console.log('MM GT ' + mmGt.stok_kodu + ' deleted successfully with all related YM GTs');
       
-      // Step 4: Find and mark related requests as "silinmiş"
+      // Step 4: Bul and mark related requests olarak "silinmiş"
       try {
         const allRequestsResponse = await fetchWithAuth(`${API_URLS.galSalRequests}?limit=200&sort_by=created_at&sort_order=desc`);
         if (allRequestsResponse && allRequestsResponse.ok) {
           const allRequests = await allRequestsResponse.json();
           const requestsToUpdate = [];
           
-          // Find requests that match the deleted product
+          // Bul requests that match the Silindi Ürün
           for (const request of allRequests) {
             if (request.status === 'silinmis') continue; // Skip already marked
             
             let isRelatedToDeletedProduct = false;
             
-            // Strategy 1: Match by final_stok_adi
+            // Strategy 1: Match ile final_stok_adi
             if (request.final_stok_adi === mmGt.stok_adi) {
               isRelatedToDeletedProduct = true;
             }
             
-            // Strategy 2: Match by stok_kodu
+            // Strategy 2: Match ile stok_kodu
             if (!isRelatedToDeletedProduct && request.stok_kodu === mmGtStokKodu) {
               isRelatedToDeletedProduct = true;
             }
             
-            // Strategy 3: Match by product specifications
+            // Strategy 3: Match ile Ürün specifications
             if (!isRelatedToDeletedProduct) {
               const specsMatch = (
                 Math.abs(parseFloat(mmGt.cap || 0) - parseFloat(request.cap || 0)) < 0.01 &&
@@ -2306,7 +2306,7 @@ const GalvanizliTelNetsis = () => {
             }
           }
           
-          // Update related requests to "silinmiş" status
+          // Güncelle related requests a "silinmiş" Durum
           if (requestsToUpdate.length > 0) {
             console.log(`Marking ${requestsToUpdate.length} related requests as silinmiş`);
             
@@ -2328,10 +2328,10 @@ const GalvanizliTelNetsis = () => {
         // Continue without failing the deletion
       }
       
-      // Refresh the MM GT list
+      // Refresh the MM GT Liste
       await fetchExistingMmGts();
       
-      // Refresh requests to show updated statuses
+      // Refresh requests a Göster updated statuses
       await fetchRequests();
       
       setShowDeleteConfirm(false);
@@ -2415,12 +2415,12 @@ const GalvanizliTelNetsis = () => {
           try {
             console.log('Processing MM GT: ' + mmGt.stok_kodu + ' (ID: ' + mmGt.id + ')');
             
-            // Find related YM GTs from relationship table
+            // Bul related YM GTs den relationship table
             const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
             if (relationResponse && relationResponse.ok) {
               const relations = await relationResponse.json();
                   
-              // Step 1: Delete relationship records first
+              // Step 1: Sil relationship records first
               for (const relation of relations) {
                 try {
                   const relationDeleteResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}/${relation.id}`, {
@@ -2434,7 +2434,7 @@ const GalvanizliTelNetsis = () => {
                 }
               }
               
-              // Step 2: Delete related YM GTs after relationships are removed
+              // Step 2: Sil related YM GTs after relationships are removed
               for (const relation of relations) {
                 if (relation.ym_gt_id) {
                   try {
@@ -2453,7 +2453,7 @@ const GalvanizliTelNetsis = () => {
               }
             }
             
-            // FALLBACK: Check for orphaned YM GT by stok_kodu pattern
+            // FALLBACK: Kontrol et için orphaned YM GT ile stok_kodu pattern
             if (mmGt.stok_kodu && mmGt.stok_kodu.startsWith('GT.')) {
               const expectedYmGtStokKodu = mmGt.stok_kodu.replace(/^GT\./, 'YM.GT.');
               try {
@@ -2480,7 +2480,7 @@ const GalvanizliTelNetsis = () => {
               }
             }
             
-            // Step 3: Delete the MM GT
+            // Step 3: Sil the MM GT
             const deleteResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${mmGt.id}`, { 
               method: 'DELETE'
             });
@@ -2562,7 +2562,7 @@ const GalvanizliTelNetsis = () => {
   
   // Durum rozeti rengini almak icin yardimci fonksiyon
   const getStatusBadgeColor = (status, requestId = null) => {
-    // Check if request is currently in queue
+    // Kontrol et if İstek is currently in queue
     if (requestId && isRequestInQueue(requestId)) {
       return 'bg-blue-100 text-blue-800 border-blue-200';
     }
@@ -2585,7 +2585,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
   
-  // Check if request is being processed in queue
+  // Kontrol et if İstek is being processed in queue
   const isRequestInQueue = (requestId) => {
     return taskQueue.some(task => 
       task.status === 'processing' && 
@@ -2595,7 +2595,7 @@ const GalvanizliTelNetsis = () => {
 
   // Durum metnini almak icin yardimci fonksiyon
   const getStatusText = (status, requestId = null) => {
-    // Check if request is currently in queue
+    // Kontrol et if İstek is currently in queue
     if (requestId && isRequestInQueue(requestId)) {
       return 'İşleniyor';
     }
@@ -2674,12 +2674,12 @@ const GalvanizliTelNetsis = () => {
     return filteredRequests;
   };
   
-  // Talebi duzenleme - Edit reason modal aç
+  // Talebi duzenleme - Edit reason Modal aç
   const handleEditRequest = async () => {
     setShowEditReasonModal(true);
   };
   
-  // Continue with edit after reason is provided
+  // Continue ile edit after reason is provided
   const handleEditReasonConfirm = async () => {
     if (!editReason.trim()) {
       toast.error('Lütfen düzenleme nedenini girin');
@@ -2690,7 +2690,7 @@ const GalvanizliTelNetsis = () => {
       setIsLoading(true);
       setShowEditReasonModal(false);
       
-      // Update request with edit reason
+      // Güncelle İstek ile edit reason
       const updateResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
         method: 'PUT',
         headers: {
@@ -2701,7 +2701,7 @@ const GalvanizliTelNetsis = () => {
           edit_notes: editReason,
           processed_by: user?.username || user?.id || 'system',
           processed_at: new Date().toISOString(),
-          // Store original product data when editing starts
+          // Store original Ürün Veri zaman editing starts
           original_stok_adi: selectedRequest.stok_adi || '',
           original_product_key: JSON.stringify({
             stok_adi: selectedRequest.stok_adi || '',
@@ -2723,7 +2723,7 @@ const GalvanizliTelNetsis = () => {
       // Durum sifirlamalari boyunca korumak icin talep ID'sini sessionStorage'da sakla
       sessionStorage.setItem('lastEditedRequestId', selectedRequest.id);
       
-      // Set data for editing
+      // Ayarla Veri için editing
       setMmGtData({
         cap: selectedRequest.cap ? normalizeDecimalDisplay(selectedRequest.cap) : '',
         kod_2: selectedRequest.kod_2 || 'NIT',
@@ -2742,11 +2742,11 @@ const GalvanizliTelNetsis = () => {
         elongation: selectedRequest.elongation || ''
       });
       
-      // Set tolerance signs from request
+      // Ayarla tolerance signs den İstek
       setToleransMaxSign(selectedRequest.tolerans_max_sign || '+');
       setToleransMinSign(selectedRequest.tolerans_min_sign || '-');
       
-      // Parse packaging options from stok_adi
+      // Parse et packaging options den stok_adi
       if (selectedRequest.stok_adi) {
         const packaging = {
           shrink: selectedRequest.stok_adi.includes('-Shrink'),
@@ -2754,7 +2754,7 @@ const GalvanizliTelNetsis = () => {
           sepetli: selectedRequest.stok_adi.includes('-Spt')
         };
         
-        // If no packaging suffixes found, fallback to legacy shrink field
+        // If no packaging suffixes found, fallback a legacy shrink Alan
         if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {
           packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';
         }
@@ -2767,17 +2767,17 @@ const GalvanizliTelNetsis = () => {
       setIsRequestUsed(true);
       setPendingApprovalAction('edit');
       
-      // Clear edit reason  
+      // Temizle edit reason
       setEditReason('');
       
       // Modali temizle ve girdi ekranına git (kullanıcı key values'ları editleyebilsin)
       setShowRequestDetailModal(false);
       setCurrentStep('input');
       
-      // Trigger YM GT generation for the loaded data
+      // Trigger YM GT generation için the loaded Veri
       generateYmGtData();
       
-      // Populate suitable YM STs if needed  
+      // Populate suitable YM STs if needed
       await findSuitableYmSts();
       
     } catch (error) {
@@ -2793,10 +2793,10 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // Don't change status immediately - just prepare for approval
-      // The status will be changed after successful database save
+      // Don't Değiştir Durum immediately - just prepare için approval
+      // The Durum will be changed after successful database Kaydet
       
-      // Set the request as used and mark for approval
+      // Ayarla the İstek olarak used and mark için approval
       setIsRequestUsed(true);
       setPendingApprovalAction('approve');
       setIsEditingRequest(false);
@@ -2820,11 +2820,11 @@ const GalvanizliTelNetsis = () => {
         elongation: selectedRequest.elongation || ''
       });
       
-      // Set tolerance signs from request
+      // Ayarla tolerance signs den İstek
       setToleransMaxSign(selectedRequest.tolerans_max_sign || '+');
       setToleransMinSign(selectedRequest.tolerans_min_sign || '-');
       
-      // Parse packaging options from stok_adi
+      // Parse et packaging options den stok_adi
       if (selectedRequest.stok_adi) {
         const packaging = {
           shrink: selectedRequest.stok_adi.includes('-Shrink'),
@@ -2832,7 +2832,7 @@ const GalvanizliTelNetsis = () => {
           sepetli: selectedRequest.stok_adi.includes('-Spt')
         };
         
-        // If no packaging suffixes found, fallback to legacy shrink field
+        // If no packaging suffixes found, fallback a legacy shrink Alan
         if (!packaging.shrink && !packaging.paletli && !packaging.sepetli && selectedRequest.shrink) {
           packaging.shrink = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes';
         }
@@ -2870,7 +2870,7 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsLoading(true);
       
-      // Update request status to rejected with reason
+      // Güncelle İstek Durum a Reddedildi ile reason
       const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${selectedRequest.id}`, {
         method: 'PUT',
         headers: {
@@ -2881,7 +2881,7 @@ const GalvanizliTelNetsis = () => {
           rejection_reason: rejectionReason,
           processed_by: user?.username || user?.id || 'system',
           processed_at: new Date().toISOString()
-          // Do not include updated_at as it doesn't exist in the database yet
+          // Do not include updated_at olarak it doesn't exist in the database yet
         })
       });
       
@@ -2894,7 +2894,7 @@ const GalvanizliTelNetsis = () => {
       setShowRejectionModal(false);
       setShowRequestDetailModal(false);
       
-      // Refresh the requests list
+      // Refresh the requests Liste
       fetchRequests();
       
     } catch (error) {
@@ -2912,19 +2912,19 @@ const GalvanizliTelNetsis = () => {
       setSelectedExistingMmGt(mmGt);
       setIsViewingExistingProduct(true); // Mark as viewing existing product
       
-      // Store original product data for change detection (will be updated after YM STs are loaded)
+      // Store original Ürün Veri için Değiştir detection (will be updated after YM STs are loaded)
       setOriginalProductData({
         mmGt: { ...mmGt },
         ymGts: [],
         ymSts: [] // Will be updated after loading
       });
       
-      // Extract sequence from existing product's stok_kodu
+      // Extract sequence den existing Ürün's stok_kodu
       const existingSequence = mmGt.stok_kodu ? mmGt.stok_kodu.split('.').pop() : '00';
       console.log('Loading existing MM GT: ' + mmGt.stok_kodu + ' (ID: ' + mmGt.id + ', Sequence: ' + existingSequence + ')');
       setProcessSequence(existingSequence);
       
-      // Use normalized decimal display for numeric values to ensure points not commas
+      // Use normalized decimal display için numeric values a ensure points not commas
       setMmGtData({
         cap: mmGt.cap ? normalizeDecimalDisplay(mmGt.cap) : '',
         kod_2: mmGt.kod_2 || 'NIT',
@@ -2943,7 +2943,7 @@ const GalvanizliTelNetsis = () => {
         elongation: mmGt.elongation || ''
       });
       
-      // Set tolerance signs based on original values
+      // Ayarla tolerance signs based on original values
       if (mmGt.tolerans_plus !== undefined && mmGt.tolerans_plus !== null && mmGt.tolerans_plus !== '') {
         setToleransMaxSign(mmGt.tolerans_plus >= 0 ? '+' : '-');
       }
@@ -2951,13 +2951,13 @@ const GalvanizliTelNetsis = () => {
         setToleransMinSign(mmGt.tolerans_minus >= 0 ? '+' : '-');
       }
       
-      // Clear existing selections first to avoid conflicts
+      // Temizle existing selections first a avoid conflicts
       setSelectedYmSts([]);
       setAutoGeneratedYmSts([]);
       setAllRecipes({ mmGtRecipes: {}, ymGtRecipe: {}, ymStRecipes: {} });
       setRecipeStatus({ mmGtRecipes: {}, ymGtRecipe: {}, ymStRecipes: {} });
       
-      // 🔄 STEP 1: Find all related data through the enhanced relationship table
+      // 🔄 STEP 1: Bul all related Veri through the enhanced relationship table
       console.log('🔍 Step 1: Finding related YM STs and YM GT...');
       const mmGtYmStResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?mm_gt_id=${mmGt.id}`);
       
@@ -2969,13 +2969,13 @@ const GalvanizliTelNetsis = () => {
         const mmGtYmStRelations = await mmGtYmStResponse.json();
         
         if (mmGtYmStRelations.length > 0) {
-          // 🆕 NEW: Get YM GT ID from the relationship (all relations should have the same ym_gt_id)
+          // 🆕 NEW: Al YM GT ID den the relationship (all relations should have the same ym_gt_id)
           relatedYmGtId = mmGtYmStRelations[0].ym_gt_id;
           
-          // 🆕 NEW: Sort relations by sequence_index to maintain order
+          // 🆕 NEW: Sırala relations ile sequence_index a maintain Sipariş
           const sortedRelations = mmGtYmStRelations.sort((a, b) => (a.sequence_index || 0) - (b.sequence_index || 0));
           
-          // Load each related YM ST in the correct order
+          // Yükle each related YM ST in the correct Sipariş
           for (let i = 0; i < sortedRelations.length; i++) {
             const relation = sortedRelations[i];
             try {
@@ -2988,7 +2988,7 @@ const GalvanizliTelNetsis = () => {
                 const filteredYmSt = allYmSt.filter(r => r.id == relation.ym_st_id); // Use == for type coercion
                 console.log(`📖 Found ${filteredYmSt.length} YM ST products for id=${relation.ym_st_id}`);
                 
-                // Create mock response - return first match or empty array
+                // Oluştur mock Yanıt - return first match or empty Dizi
                 ymStResponse = {
                   ok: true,
                   json: async () => filteredYmSt.length > 0 ? filteredYmSt[0] : []
@@ -3019,25 +3019,25 @@ const GalvanizliTelNetsis = () => {
         console.log('No YM ST relations found or error occurred');
       }
       
-      // If no YM STs were loaded from relationships, continue without them
-      // User can still add new ones manually
+      // If no YM STs were loaded den relationships, continue without them
+      // User can still Ekle new ones manually
       if (loadedYmSts.length === 0) {
         console.log('ℹ️ No existing YM STs found. User can add new ones.');
       }
       
-      // Set the loaded YM STs and main index
+      // Ayarla the loaded YM STs and main index
       setSelectedYmSts(loadedYmSts);
       if (loadedYmSts.length > 0) {
         setMainYmStIndex(mainYmStIndex); // 🆕 NEW: Use the actual main index from database
       }
       
-      // Update original product data with loaded YM STs for change detection
+      // Güncelle original Ürün Veri ile loaded YM STs için Değiştir detection
       setOriginalProductData(prev => ({
         ...prev,
         ymSts: [...loadedYmSts]
       }));
       
-      // 🔄 STEP 2: Load all recipes
+      // 🔄 STEP 2: Yükle all recipes
       console.log('🔍 Step 2: Loading all recipes...');
       const updatedAllRecipes = { 
         mmGtRecipes: {}, 
@@ -3050,23 +3050,23 @@ const GalvanizliTelNetsis = () => {
         ymStRecipes: {} 
       };
       
-      // 2A. Load MM GT recipes
+      // 2A. Yükle MM GT recipes
       try {
         console.log('🍳 Loading MM GT recipes...');
         const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
         if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
           const mmGtRecipes = await mmGtRecipeResponse.json();
           
-          // Initialize MM GT recipes for each YM ST index (including if no YM STs yet)
+          // Başlat MM GT recipes için each YM ST index (including if no YM STs yet)
           const ymStCount = Math.max(loadedYmSts.length, 1); // At least 1 for the case where no YM STs are loaded yet
           for (let index = 0; index < ymStCount; index++) {
             updatedAllRecipes.mmGtRecipes[index] = {};
             updatedRecipeStatus.mmGtRecipes[index] = {};
             
-            // Add each recipe
+            // Ekle each Reçete
             mmGtRecipes.forEach(recipe => {
               if (recipe.bilesen_kodu && recipe.miktar !== null && recipe.miktar !== undefined) {
-                // Special handling for Çinko: database stores as '150' but we display as '150 03'
+                // Special handling için Çinko: database stores olarak '150' but we display olarak '150 03'
                 let displayCode = recipe.bilesen_kodu;
                 if (recipe.bilesen_kodu === '150' && recipe.aciklama === 'Çinko Tüketim Miktarı') {
                   displayCode = '150 03';
@@ -3084,11 +3084,11 @@ const GalvanizliTelNetsis = () => {
         console.error('Error loading MM GT recipes:', mmGtError);
       }
       
-      // 2B. Load YM GT recipes using the relationship
+      // 2B. Yükle YM GT recipes using the relationship
       if (relatedYmGtId) {
         try {
           
-          // 🆕 NEW: Use the YM GT ID from the relationship instead of searching by stok_kodu
+          // 🆕 NEW: Use the YM GT ID den the relationship instead of searching ile stok_kodu
           console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${relatedYmGtId}...`);
           const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
           let ymGtRecipeResponse = null;
@@ -3098,7 +3098,7 @@ const GalvanizliTelNetsis = () => {
             const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == relatedYmGtId); // Use == for type coercion
             console.log(`📖 Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${relatedYmGtId}`);
             
-            // Create mock response
+            // Oluştur mock Yanıt
             ymGtRecipeResponse = {
               ok: true,
               json: async () => filteredYmGtRecipes
@@ -3108,10 +3108,10 @@ const GalvanizliTelNetsis = () => {
           if (ymGtRecipeResponse && ymGtRecipeResponse.ok) {
             const ymGtRecipes = await ymGtRecipeResponse.json();
             
-            // Store YM GT recipes from database exactly as they are
+            // Store YM GT recipes den database exactly olarak they are
             ymGtRecipes.forEach(recipe => {
               if (recipe.bilesen_kodu && recipe.miktar !== null && recipe.miktar !== undefined) {
-                // Special handling for Çinko: database stores as '150' but we display as '150 03'
+                // Special handling için Çinko: database stores olarak '150' but we display olarak '150 03'
                 let displayCode = recipe.bilesen_kodu;
                 if (recipe.bilesen_kodu === '150' && recipe.aciklama === 'Çinko Tüketim Miktarı') {
                   displayCode = '150 03';
@@ -3130,19 +3130,19 @@ const GalvanizliTelNetsis = () => {
       } else {
         console.log('No related YM GT ID found, calculating YM GT recipes...');
         
-        // Generate YM GT data first
+        // Generate YM GT Veri first
         generateYmGtData();
         
-        // Only calculate YM GT recipes if NO database recipes exist
+        // Only Hesapla YM GT recipes if NO database recipes exist
         if (loadedYmSts.length > 0) {
           const mainYmSt = loadedYmSts[mainYmStIndex] || loadedYmSts[0];
           
-          // Simply set the main YM ST relationship - calculations will be done later if needed
+          // Simply Ayarla the main YM ST relationship - calculations will be done later if needed
           const ymGtRecipeValues = {
             [mainYmSt.stok_kodu]: 1 // Ana hammadde - other recipes should come from database
           };
           
-          // Set the calculated values
+          // Ayarla the calculated values
           Object.entries(ymGtRecipeValues).forEach(([code, value]) => {
             if (value > 0) {
               updatedAllRecipes.ymGtRecipe[code] = value;
@@ -3153,7 +3153,7 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // 2C. Load YM ST recipes for each loaded YM ST
+      // 2C. Yükle YM ST recipes için each loaded YM ST
       for (let i = 0; i < loadedYmSts.length; i++) {
         const ymSt = loadedYmSts[i];
         try {
@@ -3166,7 +3166,7 @@ const GalvanizliTelNetsis = () => {
             const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymSt.id); // Use == for type coercion
             console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymSt.id}`);
             
-            // Create mock response
+            // Oluştur mock Yanıt
             ymStRecipeResponse = {
               ok: true,
               json: async () => filteredYmStRecipes
@@ -3176,14 +3176,14 @@ const GalvanizliTelNetsis = () => {
           if (ymStRecipeResponse && ymStRecipeResponse.ok) {
             const ymStRecipes = await ymStRecipeResponse.json();
             
-            // Initialize recipe object for this YM ST
+            // Başlat Reçete Nesne için this YM ST
             updatedAllRecipes.ymStRecipes[i] = {};
             updatedRecipeStatus.ymStRecipes[i] = {};
             
-            // Store each recipe
+            // Store each Reçete
             ymStRecipes.forEach(recipe => {
               if (recipe.bilesen_kodu && recipe.miktar !== null && recipe.miktar !== undefined) {
-                // Special handling for Çinko: database stores as '150' but we display as '150 03'
+                // Special handling için Çinko: database stores olarak '150' but we display olarak '150 03'
                 let displayCode = recipe.bilesen_kodu;
                 if (recipe.bilesen_kodu === '150' && recipe.aciklama === 'Çinko Tüketim Miktarı') {
                   displayCode = '150 03';
@@ -3201,11 +3201,11 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // 🔄 STEP 3: Update all states
+      // 🔄 STEP 3: Güncelle all states
       setAllRecipes(updatedAllRecipes);
       setRecipeStatus(updatedRecipeStatus);
       
-      // Load existing YM GT data if available, otherwise generate it
+      // Yükle existing YM GT Veri if Mevcut, otherwise generate it
       if (relatedYmGtId) {
         try {
           const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?id=${relatedYmGtId}`);
@@ -3244,9 +3244,9 @@ const GalvanizliTelNetsis = () => {
         generateYmGtData();
       }
       
-      // Stay on input step for editing, or move to summary for viewing
+      // Stay on Girdi step için editing, or move a summary için viewing
       setShowExistingMmGtModal(false);
-      // Keep on input step when editing so user can modify basic product details
+      // Keep on Girdi step zaman editing so user can Değiştir basic Ürün details
       setCurrentStep('input');
       
       console.log('📊 Recipe data summary:', {
@@ -3256,7 +3256,7 @@ const GalvanizliTelNetsis = () => {
       });
       console.log('📊 Loaded YM STs:', loadedYmSts.map(ym => ym.stok_kodu));
       
-      // Show success message
+      // Göster Başarılı Mesaj
       toast.success(`Mevcut ürün yüklendi: ${loadedYmSts.length} YM ST ve tüm reçeteler getirildi`);
       
     } catch (error) {
@@ -3267,7 +3267,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Helper function to generate product key for tracking
+  // Helper function a generate Ürün key için tracking
   const generateProductKey = (data) => {
     return JSON.stringify({
       stok_adi: data.stok_adi || '',
@@ -3281,7 +3281,7 @@ const GalvanizliTelNetsis = () => {
     });
   };
 
-  // Helper function to generate change summary for display
+  // Helper function a generate Değiştir summary için display
   const generateChangeSummary = (changes) => {
     if (changes.length === 0) return 'Değişiklik yok';
     
@@ -3290,17 +3290,17 @@ const GalvanizliTelNetsis = () => {
     ).join('; ');
   };
 
-  // Alias for compatibility with existing code (references the existing generateStokAdi function defined later)
+  // Alias için compatibility ile existing code (references the existing generateStokAdi function defined later)
   const generateMmGtStokAdi = () => generateStokAdi();
 
-  // Detect changes between original and current data
+  // Detect changes between original and current Veri
   const detectChanges = () => {
     if (!originalProductData || !originalProductData.mmGt) return [];
     
     const changes = [];
     const original = originalProductData.mmGt;
     
-    // Check each field for changes
+    // Kontrol et each Alan için changes
     const fieldsToCheck = [
       { key: 'cap', label: 'Çap' },
       { key: 'kod_2', label: 'Kod' },
@@ -3323,7 +3323,7 @@ const GalvanizliTelNetsis = () => {
       const originalValue = original[field.key];
       const currentValue = mmGtData[field.key];
       
-      // Special handling for tolerance fields - compare with signs
+      // Special handling için tolerance fields - compare ile signs
       if (field.key === 'tolerans_plus') {
         const originalTolerance = originalValue ? parseFloat(originalValue) : 0;
         const currentTolerance = currentValue ? parseFloat(currentValue) : 0;
@@ -3349,7 +3349,7 @@ const GalvanizliTelNetsis = () => {
           });
         }
       } else {
-        // Normal field comparison
+        // Normal Alan comparison
         const normalizedOriginal = originalValue ? String(originalValue).trim() : '';
         const normalizedCurrent = currentValue ? String(currentValue).trim() : '';
         
@@ -3363,7 +3363,7 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // Check packaging options
+    // Kontrol et packaging options
     const originalPackaging = {
       shrink: original.stok_adi?.includes('-Shrink') || original.shrink === 'evet',
       paletli: original.stok_adi?.includes('-Plt'),
@@ -3380,7 +3380,7 @@ const GalvanizliTelNetsis = () => {
       });
     }
     
-    // Check YM ST changes
+    // Kontrol et YM ST changes
     const originalYmSts = originalProductData.ymSts || [];
     const currentYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
     
@@ -3537,9 +3537,9 @@ const GalvanizliTelNetsis = () => {
     const kaplama = parseInt(mmGtData.kaplama) || 0;
     const kodType = mmGtData.kod_2; // 'PAD' or 'NIT'
 
-    // ========== STEP 1: Calculate YM ST diameter with CORRECT formula ==========
+    // ========== STEP 1: Hesapla YM ST Çap ile CORRECT formula ==========
     // Formula: YM_ST_diameter = YM_GT_nominal + signed_min_tolerance - coating_reduction + 0.02
-    // If tolerance is +0.05: add 0.05 (final wire is thicker, need thicker YM ST)
+    // If tolerance is +0.05: Ekle 0.05 (final wire is thicker, need thicker YM ST)
     // If tolerance is -0.05: subtract 0.05 (final wire is thinner, need thinner YM ST)
     const toleransMinus = parseFloat(mmGtData.tolerans_minus) || 0;
     const toleransMinSign = mmGtData.tolerans_min_sign || '-';
@@ -3560,7 +3560,7 @@ const GalvanizliTelNetsis = () => {
       result: ymStDiameter
     });
 
-    // ========== STEP 2: Determine product type based on diameter ==========
+    // ========== STEP 2: Determine Ürün Tip based on Çap ==========
     const autoYmSts = [];
 
     if (ymStDiameter < 1.5) {
@@ -3570,7 +3570,7 @@ const GalvanizliTelNetsis = () => {
       const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
       const stokKodu = `YM.ST.${capStr}.ST`;
 
-      // Check if this .ST product already exists
+      // Kontrol et if this .ST Ürün already exists
       try {
         const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
         if (existing) {
@@ -3582,7 +3582,7 @@ const GalvanizliTelNetsis = () => {
         console.error('Error checking existing .ST product:', error);
       }
 
-      // Create .ST product
+      // Oluştur .ST Ürün
       autoYmSts.push({
         stok_kodu: stokKodu,
         stok_adi: `YM Siyah Tel ${ymStDiameter.toFixed(2)} mm (Coiler)`,
@@ -3599,7 +3599,7 @@ const GalvanizliTelNetsis = () => {
       // ========== CASE 2: 1.5-1.8mm → BOTH filmaşin (Ana) + .ST (ALT_1) ==========
       console.log('📍 YM ST 1.5-1.8mm: Creating filmaşin (Ana) + .ST (ALT_1)');
 
-      // Ana: Filmaşin-based from matrix priority 0
+      // Ana: Filmaşin-based den matrix priority 0
       const matrixAlts = getMatrixAlternatives(ymStDiameter);
       const anaAlt = matrixAlts && matrixAlts.length > 0 && matrixAlts[0].priority === 0
         ? matrixAlts[0]
@@ -3610,7 +3610,7 @@ const GalvanizliTelNetsis = () => {
         const filmasinStr = (anaAlt.diameter * 100).toString().padStart(4, '0');
         const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${anaAlt.quality}`;
 
-        // Check if Ana product already exists
+        // Kontrol et if Ana Ürün already exists
         try {
           const existing = await checkExistingProduct(API_URLS.galYmSt, stokKodu);
           if (!existing) {
@@ -3631,7 +3631,7 @@ const GalvanizliTelNetsis = () => {
           console.error('Error checking Ana product:', error);
         }
       } else {
-        // Fallback to FILMASIN_MAPPING if matrix not available
+        // Fallback a FILMASIN_MAPPING if matrix not Mevcut
         console.warn('⚠️ Matrix not found, using FILMASIN_MAPPING fallback');
         const filmasinCap = getFilmasinForCap(ymStDiameter);
         const quality = getQualityForCap(ymStDiameter);
@@ -3652,7 +3652,7 @@ const GalvanizliTelNetsis = () => {
         });
       }
 
-      // ALT_1: .ST product
+      // ALT_1: .ST Ürün
       const capStrAlt = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
       const stokKoduAlt = `YM.ST.${capStrAlt}.ST`;
 
@@ -3684,7 +3684,7 @@ const GalvanizliTelNetsis = () => {
       const matrixAlts = getMatrixAlternatives(ymStDiameter);
 
       if (matrixAlts && matrixAlts.length > 0) {
-        // Create products for each priority (0=Ana, 1=ALT_1, 2=ALT_2)
+        // Oluştur products için each priority (0=Ana, 1=ALT_1, 2=ALT_2)
         for (const alt of matrixAlts) {
           const capStr = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
           const filmasinStr = (alt.diameter * 100).toString().padStart(4, '0');
@@ -3711,7 +3711,7 @@ const GalvanizliTelNetsis = () => {
           }
         }
       } else {
-        // Fallback to FILMASIN_MAPPING if matrix not available
+        // Fallback a FILMASIN_MAPPING if matrix not Mevcut
         console.warn('⚠️ Matrix not found, using FILMASIN_MAPPING fallback');
         const filmasinCap = getFilmasinForCap(ymStDiameter);
         const quality = getQualityForCap(ymStDiameter);
@@ -3733,7 +3733,7 @@ const GalvanizliTelNetsis = () => {
       }
     }
 
-    // ========== STEP 3: Set state and calculate recipes ==========
+    // ========== STEP 3: Ayarla State and Hesapla recipes ==========
     if (autoYmSts.length === 0) {
       toast.warning('Otomatik YM ST oluşturulamadı - tüm ürünler zaten mevcut');
       return;
@@ -3743,19 +3743,19 @@ const GalvanizliTelNetsis = () => {
 
     setAutoGeneratedYmSts(autoYmSts);
 
-    // Set main YM ST index if this is the first selection
+    // Ayarla main YM ST index if this is the first selection
     const totalYmSts = selectedYmSts.length + autoYmSts.length;
     if (totalYmSts > 0 && selectedYmSts.length === 0 && autoYmSts.length > 0) {
       setMainYmStIndex(0);
     }
 
-    // Calculate recipes for auto-generated YM STs
+    // Hesapla recipes için auto-generated YM STs
     setTimeout(() => {
       calculateAutoRecipeValues();
     }, 100);
   };
 
-  // Simplified YM ST creation based on user-entered diameter
+  // Simplified YM ST creation based on user-entered Çap
   const handleCreateYmStFromDiameter = async () => {
     const ymStDiameter = parseFloat(userYmStDiameter);
 
@@ -3770,8 +3770,8 @@ const GalvanizliTelNetsis = () => {
 
     console.log(`🔧 Creating YM ST products for diameter: ${ymStDiameter}mm`);
 
-    // ✅ VALIDATION: YM ST products (COIL and regular) MUST have even diameter
-    // Check if diameter has odd last digit (in 0.01mm units)
+    // ✅ VALIDATION: YM ST products (COIL and regular) MUST have even Çap
+    // Kontrol et if Çap has odd last digit (in 0.01mm units)
     // Example: 1.97mm = 197 (odd) ✗ | 1.96mm = 196 (even) ✓
     const diameterIn100ths = Math.round(ymStDiameter * 100);
     if (diameterIn100ths % 2 !== 0) {
@@ -3874,7 +3874,7 @@ const GalvanizliTelNetsis = () => {
         }
       }
 
-      // ALT_1: .ST product
+      // ALT_1: .ST Ürün
       const capStrAlt = Math.round(ymStDiameter * 100).toString().padStart(4, '0');
       const stokKoduAlt = `YM.ST.${capStrAlt}.ST`;
 
@@ -3966,7 +3966,7 @@ const GalvanizliTelNetsis = () => {
       }
     }
 
-    // Check if any products already exist
+    // Kontrol et if any products already exist
     if (existingProducts.length > 0) {
       console.log(`⚠️ Found ${existingProducts.length} existing products:`, existingProducts.map(p => p.stok_kodu));
       setExistingYmStsForModal(existingProducts);
@@ -3974,7 +3974,7 @@ const GalvanizliTelNetsis = () => {
       return;
     }
 
-    // Check if we have any new products to create
+    // Kontrol et if we have any new products a Oluştur
     if (autoYmSts.length === 0) {
       toast.warning('YM ST oluşturulamadı - tüm ürünler zaten mevcut');
       return;
@@ -3995,7 +3995,7 @@ const GalvanizliTelNetsis = () => {
     toast.success(`${autoYmSts.length} YM ST ürün oluşturuldu`);
   };
 
-  // Filmaşin mapping from Excel data (Hammadde_tuketimleri.xlsx)
+  // Filmaşin mapping den Excel Veri (Hammadde_tuketimleri.xlsx)
   const FILMASIN_MAPPING = {
     4.45: [{filmasin: 5.5, quality: '1006'}, {filmasin: 5.5, quality: '1008'}, {filmasin: 6.0, quality: '1008'}],
     4.5: [{filmasin: 5.5, quality: '1006'}, {filmasin: 5.5, quality: '1008'}, {filmasin: 6.0, quality: '1008'}],
@@ -4009,8 +4009,8 @@ const GalvanizliTelNetsis = () => {
     7.5: [{filmasin: 9.0, quality: '1008'}, {filmasin: 9.0, quality: '1010'}],
     7.8: [{filmasin: 9.0, quality: '1008'}, {filmasin: 9.0, quality: '1010'}],
     8: [{filmasin: 9.0, quality: '1010'}, {filmasin: 9.0, quality: '1008'}], // Prefer 1010 for 8mm
-    // Note: 8.5mm, 8.6mm, 9.0mm theoretically need 10mm filmaşin but we only have up to 9mm
-    // These diameters are not produced in practice (max actual diameter is ~8.09mm)
+    // Note: 8.5mm, 8.6mm, 9.0mm theoretically need 10mm filmaşin but we only have up a 9mm
+    // These diameters are not produced in practice (max actual Çap is ~8.09mm)
     8.5: [{filmasin: 9.0, quality: '1010'}, {filmasin: 9.0, quality: '1008'}], // Fallback to 9mm
     8.6: [{filmasin: 9.0, quality: '1010'}, {filmasin: 9.0, quality: '1008'}], // Fallback to 9mm
     9: [{filmasin: 9.0, quality: '1010'}, {filmasin: 9.0, quality: '1008'}], // Fallback to 9mm
@@ -4026,38 +4026,38 @@ const GalvanizliTelNetsis = () => {
     12: [{filmasin: 13.0, quality: '1010'}, {filmasin: 13.0, quality: '1008'}]
   };
 
-  // Find closest diameter in mapping and get appropriate filmaşin
+  // Bul closest Çap in mapping and Al appropriate filmaşin
   const getFilmasinForCapFromMapping = (cap) => {
     const availableDiameters = Object.keys(FILMASIN_MAPPING).map(d => parseFloat(d)).sort((a, b) => a - b);
     
-    // Find exact match first
+    // Bul exact match first
     const exactMatch = availableDiameters.find(d => Math.abs(d - cap) < 0.01);
     if (exactMatch) {
       const options = FILMASIN_MAPPING[exactMatch];
       return options[0]; // Return first (preferred) option
     }
     
-    // Find closest diameter that can handle this cap (find smallest diameter >= cap)
+    // Bul closest Çap that can İşle this cap (Bul smallest Çap >= cap)
     const suitableDiameter = availableDiameters.find(d => d >= cap);
     if (suitableDiameter) {
       const options = FILMASIN_MAPPING[suitableDiameter];
       return options[0]; // Return first (preferred) option
     }
     
-    // Fallback to largest available if cap is larger than all mapped diameters
+    // Fallback a largest Mevcut if cap is larger than all mapped diameters
     const largestDiameter = availableDiameters[availableDiameters.length - 1];
     const options = FILMASIN_MAPPING[largestDiameter];
     return options[0];
   };
 
-  // Çap değerine göre filmaşin seç - Updated to use Excel data
+  // Çap değerine göre filmaşin seç - Updated a use Excel Veri
   const getFilmasinForCap = (cap) => {
     const result = getFilmasinForCapFromMapping(cap);
     const filmasinMm = result.filmasin;
     return (filmasinMm * 100).toString().padStart(4, '0'); // Convert to XXXX format (e.g., 9.0 -> "0900")
   };
 
-  // Çap değerine göre kalite seç - Updated to use Excel data
+  // Çap değerine göre kalite seç - Updated a use Excel Veri
   const getQualityForCap = (cap) => {
     const result = getFilmasinForCapFromMapping(cap);
     return result.quality;
@@ -4065,10 +4065,10 @@ const GalvanizliTelNetsis = () => {
 
   // ==================== MATRIX-BASED ALTERNATIVE SYSTEM ====================
 
-  // Hardcoded matrix data from Guncellenmis_Matris_Tel_1.csv
+  // Hardcoded matrix Veri den Guncellenmis_Matris_Tel_1.csv
   // Priority: 0=Ana, 1=ALT_1, 2=ALT_2
   const FILMASIN_MATRIX = {
-    // Each key is target diameter, value is array of {diameter, quality, priority}
+    // Each key is target Çap, Değer is Dizi of {Çap, Kalite, priority}
     // NOTE: 1.20-1.40mm removed - these are COILER range, handled by COILER_ALTERNATIVE_MATRIX
     1.50: [
       { diameter: 6.0, quality: '1006', priority: 0 },
@@ -4088,7 +4088,7 @@ const GalvanizliTelNetsis = () => {
       { diameter: 6.0, quality: '1006', priority: 0 },
       { diameter: 6.0, quality: '1008', priority: 1 }
     ],
-    // Special diameter for ZIRH TELİ (Armored wire) - YM.GT.NIT.0193.00
+    // Special Çap için ZIRH TELİ (Armored wire) - YM.GT.NIT.0193.00
     // ONLY 5.5mm 1005 filmaşin, no alternatives
     1.88: [
       { diameter: 5.5, quality: '1005', priority: 0 }
@@ -4115,7 +4115,7 @@ const GalvanizliTelNetsis = () => {
       { diameter: 6.0, quality: '1008', priority: 1 },
       { diameter: 5.5, quality: '1006', priority: 2 }
     ],
-    // Special diameter for ZIRH TELİ (Armored wire) - YM.GT.NIT.0241.00
+    // Special Çap için ZIRH TELİ (Armored wire) - YM.GT.NIT.0241.00
     // ONLY 5.5mm 1005 filmaşin, no alternatives
     2.37: [
       { diameter: 5.5, quality: '1005', priority: 0 }
@@ -4352,10 +4352,10 @@ const GalvanizliTelNetsis = () => {
    */
   const getMatrixAlternatives = (targetDiameter) => {
     try {
-      // Round target diameter to nearest matrix column
+      // Round target Çap a nearest matrix column
       const columnDiameter = roundToMatrixColumn(targetDiameter);
 
-      // Get alternatives for this diameter
+      // Al alternatives için this Çap
       const alternatives = FILMASIN_MATRIX[columnDiameter];
 
       if (!alternatives || alternatives.length === 0) {
@@ -4363,7 +4363,7 @@ const GalvanizliTelNetsis = () => {
         return null;
       }
 
-      // Return sorted by priority (already sorted in the constant)
+      // Return sorted ile priority (already sorted in the constant)
       return alternatives;
     } catch (error) {
       console.warn('Error reading matrix data:', error);
@@ -4371,22 +4371,22 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Handle YMST exists modal actions
+  // İşle YMST exists Modal actions
   const handleUseExistingYmSts = async () => {
     try {
-      // Validate special diameters before using existing YM.STs
+      // Doğrula special diameters before using existing YM.STs
       const specialDiameters = [1.88, 2.37];
       const allowedProducts = {
         1.88: 'YM.GT.NIT.0193.00',
         2.37: 'YM.GT.NIT.0241.00'
       };
 
-      // Construct current product code
+      // Construct current Ürün code
       const cap = parseFloat(mmGtData.cap) || 0;
       const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
       const currentProductBase = `YM.GT.${mmGtData.kod_2}.${capFormatted}`;
 
-      // Filter out special diameter YM.STs that are not allowed for this product
+      // Filtrele out special Çap YM.STs that are not allowed için this Ürün
       const validYmSts = [];
       const blockedYmSts = [];
 
@@ -4406,7 +4406,7 @@ const GalvanizliTelNetsis = () => {
         validYmSts.push(ymSt);
       }
 
-      // Show warning if any YM.STs were blocked
+      // Göster warning if any YM.STs were blocked
       if (blockedYmSts.length > 0) {
         const blockedCodes = blockedYmSts.map(ym => ym.stok_kodu).join(', ');
         toast.warning(`Bu çaplar zırhlı tel üretimine özeldir ve kullanılamadı: ${blockedCodes}`, {
@@ -4415,7 +4415,7 @@ const GalvanizliTelNetsis = () => {
         });
       }
 
-      // If all items were blocked, don't proceed
+      // If all Öğeler were blocked, don't proceed
       if (validYmSts.length === 0) {
         toast.info('Hiçbir mevcut YM ST kullanılamadı - seçilen tüm çaplar kısıtlı');
         setShowYmStExistsModal(false);
@@ -4423,25 +4423,25 @@ const GalvanizliTelNetsis = () => {
         return;
       }
 
-      // Use only valid existing YM STs with their saved values
+      // Use only Geçerli existing YM STs ile their saved values
       const selectedExisting = validYmSts.map(ym => ({
         ...ym,
         source: 'database'
       }));
 
-      // Clear auto-generated since we're using existing
+      // Temizle auto-generated since we're using existing
       setAutoGeneratedYmSts([]);
 
-      // Store the previous length to calculate correct indices later
+      // Store the previous Uzunluk a Hesapla correct indices later
       const prevSelectedLength = selectedYmSts.length;
       const currentAllRecipes = allRecipes;
       const currentRecipeStatus = recipeStatus;
 
-      // Add to selected YM STs
+      // Ekle a selected YM STs
       setSelectedYmSts(prev => {
         const newSelection = [...prev, ...selectedExisting];
 
-        // Set main YM ST index if this is the first selection
+        // Ayarla main YM ST index if this is the first selection
         if (prev.length === 0 && selectedExisting.length > 0) {
           setMainYmStIndex(0);
         }
@@ -4449,14 +4449,14 @@ const GalvanizliTelNetsis = () => {
         return newSelection;
       });
       
-      // Close modal immediately
+      // Kapat Modal immediately
       setShowYmStExistsModal(false);
       setExistingYmStsForModal([]);
       
-      // Wait for state to update then load recipe data properly
+      // Wait için State a Güncelle then Yükle Reçete Veri properly
       setTimeout(async () => {
-        // Now the selectedYmSts state has been updated, so we can load recipes correctly
-        // Create a modified version of loadExistingRecipeData logic that uses correct indices
+        // Şimdi the selectedYmSts State has been updated, so we can Yükle recipes correctly
+        // Oluştur a modified version of loadExistingRecipeData logic that uses correct indices
         const updatedAllRecipes = { ...currentAllRecipes };
         const updatedRecipeStatus = { ...currentRecipeStatus };
         
@@ -4466,7 +4466,7 @@ const GalvanizliTelNetsis = () => {
           
           if (ymSt.id) {
             try {
-              // Fetch existing recipes for this YM ST
+              // Getir existing recipes için this YM ST
               console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymSt.id}...`);
               const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
               let recipeResponse = null;
@@ -4476,7 +4476,7 @@ const GalvanizliTelNetsis = () => {
                 const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymSt.id); // Use == for type coercion
                 console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymSt.id}`);
                 
-                // Create mock response
+                // Oluştur mock Yanıt
                 recipeResponse = {
                   ok: true,
                   json: async () => filteredYmStRecipes
@@ -4487,7 +4487,7 @@ const GalvanizliTelNetsis = () => {
                 const recipes = await recipeResponse.json();
                 
                 if (recipes && recipes.length > 0) {
-                  // Initialize recipe object for this YM ST at the correct index
+                  // Başlat Reçete Nesne için this YM ST at the correct index
                   if (!updatedAllRecipes.ymStRecipes[correctIndex]) {
                     updatedAllRecipes.ymStRecipes[correctIndex] = {};
                   }
@@ -4497,7 +4497,7 @@ const GalvanizliTelNetsis = () => {
                   
                   recipes.forEach(recipe => {
                     if (recipe.bilesen_kodu && recipe.miktar !== null && recipe.miktar !== undefined) {
-                      // Store the recipe value
+                      // Store the Reçete Değer
                       updatedAllRecipes.ymStRecipes[correctIndex][recipe.bilesen_kodu] = parseFloat(recipe.miktar);
                       updatedRecipeStatus.ymStRecipes[correctIndex][recipe.bilesen_kodu] = 'database';
                     }
@@ -4512,23 +4512,23 @@ const GalvanizliTelNetsis = () => {
           }
         }
         
-        // Now check if these YM STs have relationships with MM GT and YM GT
-        // and load their recipes as well
+        // Şimdi Kontrol et if these YM STs have relationships ile MM GT and YM GT
+        // and Yükle their recipes olarak well
         for (let i = 0; i < selectedExisting.length; i++) {
           const ymSt = selectedExisting[i];
           if (ymSt.id) {
             try {
-              // Find relationships for this YM ST
+              // Bul relationships için this YM ST
               const relationResponse = await fetchWithAuth(`${API_URLS.galMmGtYmSt}?ym_st_id=${ymSt.id}`);
               if (relationResponse && relationResponse.ok) {
                 const relations = await relationResponse.json();
                 
                 if (relations && relations.length > 0) {
-                  // Found relationships - load MM GT and YM GT recipes
+                  // Found relationships - Yükle MM GT and YM GT recipes
                   for (const relation of relations) {
                     const ymStIndex = prevSelectedLength + i;
                     
-                    // Load MM GT recipes if relation has mm_gt_id
+                    // Yükle MM GT recipes if relation has mm_gt_id
                     if (relation.mm_gt_id) {
                       const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${relation.mm_gt_id}`);
                       if (mmGtRecipeResponse && mmGtRecipeResponse.ok) {
@@ -4551,7 +4551,7 @@ const GalvanizliTelNetsis = () => {
                       }
                     }
                     
-                    // Load YM GT recipes if relation has ym_gt_id
+                    // Yükle YM GT recipes if relation has ym_gt_id
                     if (relation.ym_gt_id) {
                       console.log(`📖 Fetching all YM GT recipes and filtering for ym_gt_id=${relation.ym_gt_id}...`);
                       const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
@@ -4562,7 +4562,7 @@ const GalvanizliTelNetsis = () => {
                         const filteredYmGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == relation.ym_gt_id); // Use == for type coercion
                         console.log(`📖 Found ${filteredYmGtRecipes.length} YM GT recipes for ym_gt_id=${relation.ym_gt_id}`);
                         
-                        // Create mock response
+                        // Oluştur mock Yanıt
                         ymGtRecipeResponse = {
                           ok: true,
                           json: async () => filteredYmGtRecipes
@@ -4589,7 +4589,7 @@ const GalvanizliTelNetsis = () => {
                       }
                     }
                     
-                    // Only process the first relationship (main relationship)
+                    // Only İşlem the first relationship (main relationship)
                     break;
                   }
                 }
@@ -4600,16 +4600,16 @@ const GalvanizliTelNetsis = () => {
           }
         }
         
-        // Update the state with loaded recipes
+        // Güncelle the State ile loaded recipes
         setAllRecipes(updatedAllRecipes);
         setRecipeStatus(updatedRecipeStatus);
         
-        // Switch to the first newly added YM ST tab
+        // Switch a the first newly added YM ST tab
         if (selectedExisting.length > 0) {
           setActiveRecipeTab(prevSelectedLength);
         }
         
-        // Trigger recipe calculation
+        // Trigger Reçete calculation
         setTimeout(() => {
           calculateAutoRecipeValues();
         }, 100);
@@ -4629,24 +4629,24 @@ const GalvanizliTelNetsis = () => {
     setShowYmStSelectionModal(true);
   };
   
-  // Load existing recipe data for selected YM STs
+  // Yükle existing Reçete Veri için selected YM STs
   const loadExistingRecipeData = async (ymSts) => {
     try {
       setIsLoadingRecipes(true); // Start loading
       const updatedAllRecipes = { ...allRecipes };
       const updatedRecipeStatus = { ...recipeStatus };
       
-      // Get the current total YM STs to find the correct indices
+      // Al the current total YM STs a Bul the correct indices
       const currentTotalYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
       
       for (let i = 0; i < ymSts.length; i++) {
         const ymSt = ymSts[i];
         
-        // Find the index of this YM ST in the combined array
+        // Bul the index of this YM ST in the combined Dizi
         const ymStIndex = currentTotalYmSts.findIndex(st => st.stok_kodu === ymSt.stok_kodu);
         
         if (ymSt.id && ymStIndex !== -1) {
-          // Fetch existing recipes for this YM ST
+          // Getir existing recipes için this YM ST
           console.log(`📖 Fetching all YM ST recipes and filtering for ym_st_id=${ymSt.id}...`);
           const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
           let recipeResponse = null;
@@ -4656,7 +4656,7 @@ const GalvanizliTelNetsis = () => {
             const filteredYmStRecipes = allYmStRecipes.filter(r => r.ym_st_id == ymSt.id); // Use == for type coercion
             console.log(`📖 Found ${filteredYmStRecipes.length} YM ST recipes for ym_st_id=${ymSt.id}`);
             
-            // Create mock response
+            // Oluştur mock Yanıt
             recipeResponse = {
               ok: true,
               json: async () => filteredYmStRecipes
@@ -4667,7 +4667,7 @@ const GalvanizliTelNetsis = () => {
             const recipes = await recipeResponse.json();
             
             if (recipes && recipes.length > 0) {
-              // Initialize recipe object for this YM ST at the correct index
+              // Başlat Reçete Nesne için this YM ST at the correct index
               if (!updatedAllRecipes.ymStRecipes[ymStIndex]) {
                 updatedAllRecipes.ymStRecipes[ymStIndex] = {};
               }
@@ -4677,7 +4677,7 @@ const GalvanizliTelNetsis = () => {
               
               recipes.forEach(recipe => {
                 if (recipe.bilesen_kodu && recipe.miktar !== null && recipe.miktar !== undefined) {
-                  // Store the recipe value
+                  // Store the Reçete Değer
                   updatedAllRecipes.ymStRecipes[ymStIndex][recipe.bilesen_kodu] = parseFloat(recipe.miktar);
                   updatedRecipeStatus.ymStRecipes[ymStIndex][recipe.bilesen_kodu] = 'database';
                 }
@@ -4689,11 +4689,11 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // Update the state with loaded recipes
+      // Güncelle the State ile loaded recipes
       setAllRecipes(updatedAllRecipes);
       setRecipeStatus(updatedRecipeStatus);
       
-      // Trigger recipe calculation to populate other fields
+      // Trigger Reçete calculation a populate other fields
       setTimeout(() => {
         calculateAutoRecipeValues();
       }, 100);
@@ -4742,11 +4742,11 @@ const GalvanizliTelNetsis = () => {
 
   // ======================= COILER RECETE FUNCTIONS =======================
 
-  // Validate Coiler target inputs
+  // Doğrula Coiler target inputs
   const validateCoilerTargetInputs = () => {
     const errors = [];
 
-    // Validate diameter
+    // Doğrula Çap
     const diameter = parseFloat(coilerTargetDiameter);
     if (!coilerTargetDiameter || isNaN(diameter)) {
       errors.push('Çap değeri gereklidir');
@@ -4766,9 +4766,9 @@ const GalvanizliTelNetsis = () => {
     };
   };
 
-  // Toggle selection of source YM ST
+  // Değiştir selection of source YM ST
   const toggleSourceYmStSelection = (ymSt) => {
-    // Validate that source diameter is greater than target
+    // Doğrula that source Çap is greater than target
     const targetDiameter = parseFloat(coilerTargetDiameter) || 0;
     const sourceDiameter = parseFloat(ymSt.cap) || 0;
 
@@ -4787,21 +4787,21 @@ const GalvanizliTelNetsis = () => {
     });
   };
 
-  // Filter and search source YM STs
+  // Filtrele and Ara source YM STs
   const getFilteredSourceYmSts = () => {
     if (!existingYmSts || existingYmSts.length === 0) return [];
 
-    // Parse target diameter for filtering
+    // Parse et target Çap için filtering
     const targetDiameter = parseFloat(coilerTargetDiameter) || 0;
 
     return existingYmSts.filter(ymSt => {
-      // Filter by diameter - source must be greater than target
+      // Filtrele ile Çap - source must be greater than target
       const sourceDiameter = parseFloat(ymSt.cap) || 0;
       if (targetDiameter > 0 && sourceDiameter <= targetDiameter) {
         return false; // Don't show YM ST with diameter <= target diameter
       }
 
-      // Filter by search term
+      // Filtrele ile Ara term
       if (!coilerSourceYmStSearch) return true;
 
       const searchLower = coilerSourceYmStSearch.toLowerCase();
@@ -4814,19 +4814,19 @@ const GalvanizliTelNetsis = () => {
     });
   };
 
-  // Calculate Coiler recipe values for multiple source YM STs
+  // Hesapla Coiler Reçete values için multiple source YM STs
   const calculateCoilerRecipeValuesForSource = (targetDiameter, sourceYmSt) => {
     if (!targetDiameter || !sourceYmSt) return null;
 
     const sourceDiameter = parseFloat(sourceYmSt.cap) || 0;
     console.log(`🔧 COILER SOURCE DEBUG: Processing source YM ST: ${sourceYmSt.stok_kodu}, diameter: ${sourceDiameter}mm`);
 
-    // CORRECT: For Coiler, use source YM ST diameter directly as giris_capi
-    // TLC_Hızlar table: giris_capi = source diameter, cikis_capi = target diameter
+    // CORRECT: için Coiler, use source YM ST Çap directly olarak giris_capi
+    // TLC_Hızlar table: giris_capi = source Çap, cikis_capi = target Çap
     const giris_capi = sourceDiameter; // Source YM ST diameter (input)
     const cikis_capi = targetDiameter; // Target YM ST diameter (output)
 
-    // Use source YM ST diameter as input to TLC_Hiz lookup
+    // Use source YM ST Çap olarak Girdi a TLC_Hiz lookup
     const tlcHiz = calculateTlcHiz(giris_capi, cikis_capi);
     console.log(`🔧 COILER TLC_HIZ DEBUG: ${giris_capi}mm → ${cikis_capi}mm = TLC_Hiz: ${tlcHiz}`);
 
@@ -4838,7 +4838,7 @@ const GalvanizliTelNetsis = () => {
       };
     }
 
-    // COTLC01 calculation using same formula as YM ST recipe
+    // COTLC01 calculation using same formula olarak YM ST Reçete
     const tlc01Raw = (1000 * 4000 / Math.PI / 7.85 / targetDiameter / targetDiameter / tlcHiz / 60);
     const operationDuration = parseFloat((tlc01Raw / 1000).toFixed(5));
 
@@ -4869,16 +4869,16 @@ const GalvanizliTelNetsis = () => {
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet('YM ST REÇETE');
 
-      // Use same headers as existing recipe Excel
+      // Use same Başlıklar olarak existing Reçete Excel
       const receteHeaders = getReceteHeaders();
       worksheet.addRow(receteHeaders);
 
-      // Generate rows for each selected source YM ST
+      // Generate rows için each selected source YM ST
       coilerSourceYmSts.forEach((sourceYmSt) => {
         const recipeCalc = calculateCoilerRecipeValuesForSource(validation.diameter, sourceYmSt);
 
         if (recipeCalc) {
-          // Material row (Bileşen) - Always Sıra No: 1
+          // Malzeme row (Bileşen) - Always Sıra No: 1
           const materialRow = [
             validation.targetStokKodu, // Mamul Kodu(*)
             '1', // Reçete Top.
@@ -4955,7 +4955,7 @@ const GalvanizliTelNetsis = () => {
 
       toast.success(`Coiler Reçete Excel dosyası oluşturuldu: ${filename}`);
 
-      // Close modal and reset form
+      // Kapat Modal and Sıfırla Form
       setShowCoilerReceteModal(false);
       setCoilerTargetDiameter('');
       setCoilerSourceYmSts([]);
@@ -4969,11 +4969,11 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // ======================= END COILER RECETE FUNCTIONS =======================
+  // ======================= Bitiş COILER RECETE FUNCTIONS =======================
 
   // ======================= YM ST RECETE (STANDALONE) FUNCTIONS =======================
 
-  // Add YM ST to list
+  // Ekle YM ST a Liste
   const addYmStToReceteList = () => {
     const capValue = parseFloat(newYmStRecete.cap);
     const filmasinValue = parseFloat(newYmStRecete.filmasin);
@@ -4998,7 +4998,7 @@ const GalvanizliTelNetsis = () => {
     const stokKodu = `YM.ST.${capStr}.${filmasinStr}.${qualityValue}`;
     const stokAdi = `YM Siyah Tel ${capValue.toFixed(2)} mm HM:${filmasinStr}.${qualityValue}`;
 
-    // Check for duplicates
+    // Kontrol et için duplicates
     if (ymStReceteList.some(item => item.stok_kodu === stokKodu)) {
       toast.warning('Bu YM ST zaten listede mevcut');
       return;
@@ -5017,7 +5017,7 @@ const GalvanizliTelNetsis = () => {
     toast.success('YM ST listeye eklendi');
   };
 
-  // Remove YM ST from list
+  // Kaldır YM ST den Liste
   const removeYmStFromReceteList = (stokKodu) => {
     setYmStReceteList(prev => prev.filter(item => item.stok_kodu !== stokKodu));
   };
@@ -5036,16 +5036,16 @@ const GalvanizliTelNetsis = () => {
       const stokWorkbook = new ExcelJS.Workbook();
       const stokSheet = stokWorkbook.addWorksheet('YM ST');
 
-      // Add headers
+      // Ekle Başlıklar
       const stokHeaders = getYmStHeaders();
       stokSheet.addRow(stokHeaders);
 
-      // Add YM ST products
+      // Ekle YM ST products
       ymStReceteList.forEach(ymSt => {
         stokSheet.addRow(generateYmStStokKartiData(ymSt));
       });
 
-      // Save Stok Kartı Excel
+      // Kaydet Stok Kartı Excel
       const stokBuffer = await stokWorkbook.xlsx.writeBuffer();
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
       const stokFilename = `YM_ST_Stok_Karti_${timestamp}.xlsx`;
@@ -5057,17 +5057,17 @@ const GalvanizliTelNetsis = () => {
       const receteWorkbook = new ExcelJS.Workbook();
       const receteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
 
-      // Add headers
+      // Ekle Başlıklar
       const receteHeaders = getReceteHeaders();
       receteSheet.addRow(receteHeaders);
 
-      // Add recipes for each YM ST using the same helper functions as main flow
+      // Ekle recipes için each YM ST using the same helper functions olarak main flow
       ymStReceteList.forEach(ymSt => {
-        // Calculate TLC01 value using the proper calculateTlcHiz function
+        // Hesapla TLC01 Değer using the proper calculateTlcHiz function
         const ymStCap = parseFloat(ymSt.cap);
         const hmCap = parseFloat(ymSt.filmasin);
 
-        // Calculate TLC_Hiz using the same function as main flow
+        // Hesapla TLC_Hiz using the same function olarak main flow
         const tlcHizValue = calculateTlcHiz(hmCap, ymStCap);
 
         // TLC01 formula
@@ -5078,7 +5078,7 @@ const GalvanizliTelNetsis = () => {
         const filmasinStr = Math.round(ymSt.filmasin * 100).toString().padStart(4, '0');
         const filmasinKodu = `FLM.${filmasinStr}.${ymSt.quality}`;
 
-        // Use the exact same helper function as main flow for YM ST recipe rows
+        // Use the exact same helper function olarak main flow için YM ST Reçete rows
         // Row 1: Filmaşin (Bileşen)
         receteSheet.addRow(generateYmStReceteRow(filmasinKodu, 1, 1, ymSt));
 
@@ -5086,7 +5086,7 @@ const GalvanizliTelNetsis = () => {
         receteSheet.addRow(generateYmStReceteRow('TLC01', tlcValue, 2, ymSt));
       });
 
-      // Save Reçete Excel
+      // Kaydet Reçete Excel
       const receteBuffer = await receteWorkbook.xlsx.writeBuffer();
       const receteFilename = `YM_ST_Recete_${timestamp}.xlsx`;
       saveAs(new Blob([receteBuffer], {
@@ -5095,7 +5095,7 @@ const GalvanizliTelNetsis = () => {
 
       toast.success(`${ymStReceteList.length} YM ST için Stok ve Reçete Excel dosyaları oluşturuldu!`);
 
-      // Close modal and reset
+      // Kapat Modal and Sıfırla
       setShowYmStReceteModal(false);
       setYmStReceteList([]);
       setNewYmStRecete({ cap: '', filmasin: '', quality: '' });
@@ -5108,12 +5108,12 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // ======================= END YM ST RECETE (STANDALONE) FUNCTIONS =======================
+  // ======================= Bitiş YM ST RECETE (STANDALONE) FUNCTIONS =======================
 
   // Otomatik reçete değerlerini hesapla - NOKTA kullan ve geliştirilmiş hata kontrolü ile
   const calculateAutoRecipeValues = () => {
-    // When viewing existing product, we still need to calculate values for newly added YM STs
-    // Remove the early return to allow calculations for new items
+    // zaman viewing existing Ürün, we still need a Hesapla values için newly added YM STs
+    // Kaldır the early return a allow calculations için new Öğeler
     
     // Giriş değerlerini doğrula
     const validationErrors = validateCalculationInputs();
@@ -5130,7 +5130,7 @@ const GalvanizliTelNetsis = () => {
     const kg = parseFloat(mmGtData.kg) || 0;
     const kaplama = parseInt(mmGtData.kaplama) || 0;
     
-    // Create copies of arrays to avoid direct state mutation
+    // Oluştur copies of arrays a avoid direct State mutation
     const updatedSelectedYmSts = [...selectedYmSts];
     const updatedAutoGeneratedYmSts = [...autoGeneratedYmSts];
     const allYmSts = [...updatedSelectedYmSts, ...updatedAutoGeneratedYmSts];
@@ -5160,29 +5160,29 @@ const GalvanizliTelNetsis = () => {
       const shrinkCode = getShrinkCode(mmGtData.ic_cap);
       const shrinkAmount = calculateShrinkAmount(kg);
       
-      // We'll calculate values without modifying the YM ST objects directly
-      // This avoids interfering with the selection functionality
+      // We'll Hesapla values without modifying the YM ST objects directly
+      // This avoids interfering ile the selection functionality
       // The original objects will be preserved, just recipes will be calculated
       
-      // Updated formulas with adjusted coefficients to match target values
+      // Updated formulas ile adjusted coefficients a match target values
       // Target analysis: 900kg coil should give ~0.0011 NAYLON, 0.0013 CEMBER, 0.0044 TOKA/HALKA, 0.0089 KARTON, 0.011 GTPKT01
       
-      // NAYLON (KG/TON): =(1*(1000/'COIL WEIGHT (KG)'))/1000 - Original formula
+      // NAYLON (KG/TON): =(1*(1000/'COIL Ağırlık (KG)'))/1000 - Original formula
       const naylonValue = parseFloat(((1 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.APEX CEMBER 38X080: =(1.2*(1000/'COIL WEIGHT (KG)'))/1000
+      // AMB.APEX CEMBER 38X080: =(1.2*(1000/'COIL Ağırlık (KG)'))/1000
       const cemberValue = parseFloat(((1.2 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/'COIL WEIGHT (KG)'))/1000
+      // AMB.TOKA.SIGNODE.114P. DKP: =(4*(1000/'COIL Ağırlık (KG)'))/1000
       const tokaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
       
-      // SM.7MMHALKA: =(4*(1000/'COIL WEIGHT (KG)'))/1000
+      // SM.7MMHALKA: =(4*(1000/'COIL Ağırlık (KG)'))/1000
       const halkaValue = parseFloat(((4.0 * (1000 / kg)) / 1000).toFixed(5));
       
-      // AMB.ÇEM.KARTON.GAL: =(8*(1000/'COIL WEIGHT (KG)'))/1000
+      // AMB.ÇEM.KARTON.GAL: =(8*(1000/'COIL Ağırlık (KG)'))/1000
       const kartonValue = parseFloat(((8.0 * (1000 / kg)) / 1000).toFixed(5));
       
-      // GTPKT01: Keep formula but coefficients should now better match target ~0.011
+      // GTPKT01: Keep formula but coefficients should Şimdi better match target ~0.011
       const gtpktValue = parseFloat(((1000 / kg * userInputValues.paketlemeDkAdet) / 1000).toFixed(5));
       
       // DÜZELTME: SM.DESİ.PAK = 0.1231* AMB.ÇEM.KARTON.GAL + 0.0154* NAYLON (referans formülüne göre)
@@ -5209,7 +5209,7 @@ const GalvanizliTelNetsis = () => {
       newMmGtRecipes[index] = {
         [correctYmGtStokKodu]: 1, // YM GT bileşeni - MMGT ile aynı sequence kullanılmalı
         'GTPKT01': parseFloat(gtpktValue.toFixed(5)),
-        // NAYLON removed - it's already represented by AMB.SHRİNK codes
+        // NAYLON removed - it's already represented ile AMB.SHRİNK codes
         'AMB.ÇEM.KARTON.GAL': parseFloat(kartonValue.toFixed(5)),
         [shrinkCode]: parseFloat(shrinkAmount.toFixed(5)), // Shrink ayrı bileşen olarak
         'SM.7MMHALKA': parseFloat(halkaValue.toFixed(5)),
@@ -5224,27 +5224,27 @@ const GalvanizliTelNetsis = () => {
         newRecipeStatus.mmGtRecipes[index][key] = 'auto';
       });
       
-      // ========== YM ST Recipe Calculation ==========
+      // ========== YM ST Reçete Calculation ==========
       const ymStCap = parseFloat(ymSt.cap); // Each YM ST must use its own cap value
 
-      // Check if this is a .ST product (COTLC01-based) or filmaşin-based (TLC01)
+      // Kontrol et if this is a .ST Ürün (COTLC01-based) or filmaşin-based (TLC01)
       const isStProduct = ymSt.isStProduct || ymSt.quality === 'ST';
 
       if (isStProduct) {
-        // ========== .ST PRODUCT: Use COTLC01 with source YM ST ==========
+        // ========== .ST Ürün: Use COTLC01 ile source YM ST ==========
         console.log(`📍 Calculating .ST recipe for ${ymSt.stok_kodu}`);
 
-        // Find suitable source YM ST from existing YM STs (larger diameter, filmaşin-based)
+        // Bul suitable source YM ST den existing YM STs (larger Çap, filmaşin-based)
         let sourceYmSt = null;
         if (existingYmSts && existingYmSts.length > 0) {
-          // Filter for filmaşin-based YM STs with larger diameter
+          // Filtrele için filmaşin-based YM STs ile larger Çap
           const suitableSources = existingYmSts.filter(ym => {
             const sourceCap = parseFloat(ym.cap) || 0;
             const isFilmasinBased = ym.quality !== 'ST' && ym.filmasin > 0;
             return sourceCap > ymStCap && isFilmasinBased;
           });
 
-          // Sort by cap (ascending) and pick the smallest suitable one
+          // Sırala ile cap (ascending) and pick the smallest suitable one
           if (suitableSources.length > 0) {
             suitableSources.sort((a, b) => parseFloat(a.cap) - parseFloat(b.cap));
             sourceYmSt = suitableSources[0];
@@ -5253,7 +5253,7 @@ const GalvanizliTelNetsis = () => {
         }
 
         if (sourceYmSt) {
-          // Calculate COTLC01 operation using coiler logic
+          // Hesapla COTLC01 operation using coiler logic
           const sourceDiameter = parseFloat(sourceYmSt.cap);
           const giris_capi = sourceDiameter;
           const cikis_capi = ymStCap;
@@ -5273,7 +5273,7 @@ const GalvanizliTelNetsis = () => {
             'COTLC01': operationDuration // Coiler operation duration
           };
         } else {
-          // No source YM ST found - create placeholder recipe
+          // No source YM ST found - Oluştur placeholder Reçete
           console.warn(`⚠️ No source YM ST found for .ST product ${ymSt.stok_kodu}`);
           newYmStRecipes[index] = {
             'NOTE': '(Hammadde YM ST seçilmeli)' // Placeholder
@@ -5281,10 +5281,10 @@ const GalvanizliTelNetsis = () => {
         }
 
       } else {
-        // ========== FILMAŞIN PRODUCT: Use TLC01 ==========
+        // ========== FILMAŞIN Ürün: Use TLC01 ==========
         const filmasinKodu = getFilmasinKodu(ymSt);
 
-        // Extract HM_Cap from filmasinKodu (e.g., "FLM.0800.1010" -> 8)
+        // Extract HM_Cap den filmasinKodu (e.g., "FLM.0800.1010" -> 8)
         const hmCapMatch = filmasinKodu.match(/FLM\.0*(\d+)\./);
         const hmCap = hmCapMatch ? parseFloat(hmCapMatch[1]) / 100 : 6; // Default to 6 if not found
 
@@ -5302,7 +5302,7 @@ const GalvanizliTelNetsis = () => {
           ymSt.autoSelected = true;
         }
 
-        // Calculate TLC_Hiz using the lookup table
+        // Hesapla TLC_Hiz using the lookup table
         const tlcHiz = calculateTlcHiz(hmCap, cap);
 
         if (!tlcHiz || tlcHiz <= 0) {
@@ -5329,15 +5329,15 @@ const GalvanizliTelNetsis = () => {
     });
     
     // YM GT Reçete (sequence 00 için)
-    // Calculate YM GT recipe fields regardless of YM ST selection
-    // This allows users to see calculated values even before selecting YM STs
+    // Hesapla YM GT Reçete fields regardless of YM ST selection
+    // This allows users a see calculated values even before selecting YM STs
     
     // Calculate DV (Durdurma Vinç) value based on Min Mukavemet
     const dvValue = calculateDV(parseInt(mmGtData.min_mukavemet));
     
     // GLV01:= =1000*4000/ Çap/ Çap /PI()/7.85/'DV'* Çap
-    // Excel shows 126.7 dk/ton, we need dk/kg so divide by 1000
-    // Original formula gives dk/ton, convert to dk/kg
+    // Excel shows 126.7 dk/ton, we need dk/kg so divide ile 1000
+    // Original formula gives dk/ton, Çevir a dk/kg
     const glvTimeRaw = (1000 * 4000 / cap / cap / Math.PI / 7.85 / dvValue * cap);
     const glvTime = parseFloat((glvTimeRaw / 1000).toFixed(5)); // Convert dk/ton to dk/kg
     
@@ -5355,7 +5355,7 @@ const GalvanizliTelNetsis = () => {
     
     
     if (allYmSts.length > 0) {
-      // If YM STs are selected, include the first YM ST stok_kodu in the recipe
+      // If YM STs are selected, include the first YM ST stok_kodu in the Reçete
       const firstYmSt = allYmSts[0];
       if (!firstYmSt || !firstYmSt.stok_kodu) {
         console.error('HATA: İlk YM ST eksik veya stok_kodu tanımsız!', firstYmSt);
@@ -5371,8 +5371,8 @@ const GalvanizliTelNetsis = () => {
         'SM.HİDROLİK.ASİT': acidConsumption // Asit tüketimi
       };
     } else {
-      // If no YM STs are selected, still calculate the other fields
-      // This allows the user to see the calculated values for GLV01, Zinc, and Acid
+      // If no YM STs are selected, still Hesapla the other fields
+      // This allows the user a see the calculated values için GLV01, Zinc, and Acid
       newYmGtRecipe = {
         'GLV01': glvTime, // Galvanizleme operasyonu
         '150 03': zincConsumption, // Çinko Tüketim Miktarı
@@ -5396,7 +5396,7 @@ const GalvanizliTelNetsis = () => {
     
     if (totalCalculations > 0) {
       setAllRecipes(prev => {
-        // Preserve existing database values and only update auto-calculated ones
+        // Preserve existing database values and only Güncelle auto-calculated ones
         const mergedMmGtRecipes = { ...prev.mmGtRecipes };
         const mergedYmGtRecipe = { ...prev.ymGtRecipe };
         const mergedYmStRecipes = { ...prev.ymStRecipes };
@@ -5407,16 +5407,16 @@ const GalvanizliTelNetsis = () => {
             mergedMmGtRecipes[index] = {};
           }
           Object.keys(newMmGtRecipes[index]).forEach(key => {
-            // Only update if not from database
+            // Only Güncelle değilse den database
             if (!recipeStatus.mmGtRecipes[index]?.[key] || recipeStatus.mmGtRecipes[index][key] !== 'database') {
               mergedMmGtRecipes[index][key] = newMmGtRecipes[index][key];
             }
           });
         });
         
-        // Merge YM GT recipe - preserve database values
+        // Merge YM GT Reçete - preserve database values
         Object.keys(newYmGtRecipe).forEach(key => {
-          // Only update if not from database
+          // Only Güncelle değilse den database
           if (!recipeStatus.ymGtRecipe[key] || recipeStatus.ymGtRecipe[key] !== 'database') {
             mergedYmGtRecipe[key] = newYmGtRecipe[key];
             if (key === '150 03') {
@@ -5431,7 +5431,7 @@ const GalvanizliTelNetsis = () => {
             mergedYmStRecipes[index] = {};
           }
           Object.keys(newYmStRecipes[index]).forEach(key => {
-            // Only update if not from database
+            // Only Güncelle değilse den database
             if (!recipeStatus.ymStRecipes[index]?.[key] || recipeStatus.ymStRecipes[index][key] !== 'database') {
               mergedYmStRecipes[index][key] = newYmStRecipes[index][key];
             }
@@ -5447,37 +5447,37 @@ const GalvanizliTelNetsis = () => {
       });
       
       setRecipeStatus(prev => {
-        // Merge status, preserving 'database' status
+        // Merge Durum, preserving 'database' Durum
         const mergedStatus = { ...prev };
         
-        // Update MM GT recipe status
+        // Güncelle MM GT Reçete Durum
         Object.keys(newRecipeStatus.mmGtRecipes).forEach(index => {
           if (!mergedStatus.mmGtRecipes[index]) {
             mergedStatus.mmGtRecipes[index] = {};
           }
           Object.keys(newRecipeStatus.mmGtRecipes[index]).forEach(key => {
-            // Only update if not from database
+            // Only Güncelle değilse den database
             if (!prev.mmGtRecipes[index]?.[key] || prev.mmGtRecipes[index][key] !== 'database') {
               mergedStatus.mmGtRecipes[index][key] = newRecipeStatus.mmGtRecipes[index][key];
             }
           });
         });
         
-        // Update YM GT recipe status
+        // Güncelle YM GT Reçete Durum
         Object.keys(newRecipeStatus.ymGtRecipe).forEach(key => {
-          // Only update if not from database
+          // Only Güncelle değilse den database
           if (!prev.ymGtRecipe[key] || prev.ymGtRecipe[key] !== 'database') {
             mergedStatus.ymGtRecipe[key] = newRecipeStatus.ymGtRecipe[key];
           }
         });
         
-        // Update YM ST recipe status
+        // Güncelle YM ST Reçete Durum
         Object.keys(newRecipeStatus.ymStRecipes).forEach(index => {
           if (!mergedStatus.ymStRecipes[index]) {
             mergedStatus.ymStRecipes[index] = {};
           }
           Object.keys(newRecipeStatus.ymStRecipes[index]).forEach(key => {
-            // Only update if not from database
+            // Only Güncelle değilse den database
             if (!prev.ymStRecipes[index]?.[key] || prev.ymStRecipes[index][key] !== 'database') {
               mergedStatus.ymStRecipes[index][key] = newRecipeStatus.ymStRecipes[index][key];
             }
@@ -5499,17 +5499,17 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Fill empty fields with auto-fill indicators for all recipe types
+  // Fill empty fields ile auto-fill indicators için all Reçete types
   const fillEmptyFieldsWithAutoFill = () => {
     
-    // Instead of using hardcoded defaults, calculate proper values
+    // Instead of using hardcoded defaults, Hesapla proper values
     calculateAutoRecipeValues(); // Calculate proper recipe values based on formulas
     
-    // Mark all filled fields as 'auto' in recipe status
+    // Mark all filled fields olarak 'auto' in Reçete Durum
     setRecipeStatus(prev => {
       const updated = { ...prev };
       
-      // Mark MM GT recipe fields as auto
+      // Mark MM GT Reçete fields olarak auto
       [...selectedYmSts, ...autoGeneratedYmSts].forEach((ymSt, index) => {
         if (!updated.mmGtRecipes[index]) {
           updated.mmGtRecipes[index] = {};
@@ -5530,7 +5530,7 @@ const GalvanizliTelNetsis = () => {
         });
       });
       
-      // Mark YM GT recipe fields as auto
+      // Mark YM GT Reçete fields olarak auto
       if (!updated.ymGtRecipe) {
         updated.ymGtRecipe = {};
       }
@@ -5541,7 +5541,7 @@ const GalvanizliTelNetsis = () => {
         }
       });
       
-      // Mark YM ST recipe fields as auto
+      // Mark YM ST Reçete fields olarak auto
       [...selectedYmSts, ...autoGeneratedYmSts].forEach((ymSt, index) => {
         if (!updated.ymStRecipes[index]) {
           updated.ymStRecipes[index] = {};
@@ -5563,8 +5563,8 @@ const GalvanizliTelNetsis = () => {
 
   // Shrink miktarı hesapla - NOKTA değer döndür with 5 decimals - Excel ile tam uyumlu
   const calculateShrinkAmount = (kg) => {
-    // Original NAYLON formula: (1*(1000/COIL WEIGHT))/1000
-    // This gives kg/kg units (amount per kg of product)
+    // Original NAYLON formula: (1*(1000/COIL Ağırlık))/1000
+    // This gives kg/kg units (amount per kg of Ürün)
     const result = (1 * (1000 / kg)) / 1000;
     return parseFloat(result.toFixed(5));
   };
@@ -5574,14 +5574,14 @@ const GalvanizliTelNetsis = () => {
     const yuzeyAlani = 1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000;
     const tuketilenAsit = 0.0647625; // kg/m2 - match Excel formula exactly
     
-    // Calculate with full precision, then format to 5 decimal places to match Excel
+    // Hesapla ile full precision, then Formatla a 5 decimal places a match Excel
     const result = (yuzeyAlani * tuketilenAsit) / 1000;
     return parseFloat(result.toFixed(5));
   };
 
   // Desi tüketimi hesapla (formüle göre) - NOKTA değer döndür with 5 decimals - Excel ile tam uyumlu
   const calculateDesiConsumption = (kg, cap) => {
-    // Return values with 5 decimal places for consistency with Excel
+    // Return values ile 5 decimal places için consistency ile Excel
     // Önce kg kategorisine göre
     if (kg >= 500 && kg < 600) return 0.00200;
     if (kg >= 600 && kg < 650) return 0.00170;
@@ -5598,7 +5598,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Shrink kodu belirle (tam kod ile)
-  // ✅ UPDATED: Round up to nearest standard IC size for custom values
+  // ✅ UPDATED: Round up a nearest standard IC size için custom values
   const getShrinkCode = (icCap) => {
     const icCapValue = parseInt(icCap);
 
@@ -5609,8 +5609,8 @@ const GalvanizliTelNetsis = () => {
       { ic: 55, shrink: 'AMB.SHRİNK.200*190CM' }
     ];
 
-    // Find the closest standard size by rounding UP
-    // Example: IC 35 → use 45, IC 48 → use 50, IC 56 → use 55 (or next available)
+    // Bul the closest standard size ile rounding UP
+    // Example: IC 35 → use 45, IC 48 → use 50, IC 56 → use 55 (or İleri Mevcut)
     let selectedShrink = standardSizes[0].shrink; // Default to smallest (45)
 
     for (let i = 0; i < standardSizes.length; i++) {
@@ -5648,91 +5648,91 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Form değişikliklerini işle - her zaman nokta formatı kullan
-  // Comma to point conversion handler for onKeyDown
+  // Comma a point conversion handler için onKeyDown
   const handleCommaToPoint = (e, field) => {
-    // Prevent +/- characters from being entered in tolerance fields
+    // Prevent +/- characters den being entered in tolerance fields
     if ((field === 'tolerans_plus' || field === 'tolerans_minus') && (e.key === '+' || e.key === '-')) {
       e.preventDefault();
       return;
     }
     
-    // Allow decimal comma input but convert to point
+    // Allow decimal comma Girdi but Çevir a point
     if (e.key === ',') {
       e.preventDefault();
-      // Get current value and caret position
+      // Al current Değer and caret position
       const input = e.target;
       const currentValue = input.value;
       const caretPos = input.selectionStart;
       
-      // Insert decimal point where the comma would have gone
+      // Ekle decimal point where the comma would have gone
       const newValue = currentValue.substring(0, caretPos) + '.' + currentValue.substring(input.selectionEnd);
       
-      // Update input value and reset caret position
+      // Güncelle Girdi Değer and Sıfırla caret position
       handleInputChange(field, newValue);
-      // Need to use setTimeout to let React update the DOM
+      // Need a use setTimeout a let React Güncelle the DOM
       setTimeout(() => {
         input.selectionStart = input.selectionEnd = caretPos + 1;
       }, 0);
     }
     
-    // Ensure periods can be entered anywhere in the input
+    // Ensure periods can be entered anywhere in the Girdi
     if (e.key === '.') {
-      // Allow periods even if the field already has one
+      // Allow periods even if the Alan already has one
       // Do nothing special, let the default behavior proceed
     }
   };
   
-  // Comma to point conversion handler for recipe inputs
+  // Comma a point conversion handler için Reçete inputs
   const handleRecipeCommaToPoint = (e, recipeType, ymStIndex, key) => {
-    // Allow decimal comma input but convert to point
+    // Allow decimal comma Girdi but Çevir a point
     if (e.key === ',') {
       e.preventDefault();
-      // Get current value and caret position
+      // Al current Değer and caret position
       const input = e.target;
       const currentValue = input.value;
       const caretPos = input.selectionStart;
       
-      // Insert decimal point where the comma would have gone
+      // Ekle decimal point where the comma would have gone
       const newValue = currentValue.substring(0, caretPos) + '.' + currentValue.substring(input.selectionEnd);
       
-      // Update recipe value and reset caret position
+      // Güncelle Reçete Değer and Sıfırla caret position
       updateRecipeValue(recipeType, ymStIndex, key, newValue);
-      // Need to use setTimeout to let React update the DOM
+      // Need a use setTimeout a let React Güncelle the DOM
       setTimeout(() => {
         input.selectionStart = input.selectionEnd = caretPos + 1;
       }, 0);
     }
     
-    // Ensure periods can be entered anywhere in the input
+    // Ensure periods can be entered anywhere in the Girdi
     if (e.key === '.') {
-      // Check if the input already contains a period
+      // Kontrol et if the Girdi already contains a Periyot
       const input = e.target;
       const currentValue = input.value;
       
-      // Allow periods even if the field already has one
+      // Allow periods even if the Alan already has one
       // This will let users enter periods anywhere, and validation will happen elsewhere
       // Do nothing special, let the default behavior proceed
     }
   };
 
   const handleInputChange = (field, value) => {
-    // Key fields that affect stock code generation
+    // Key fields that affect Stok code generation
     const keyFields = ['cap', 'kod_2', 'kaplama', 'min_mukavemet', 'max_mukavemet', 'kg'];
     
-    // If a key field is being changed and we haven't saved to database yet, reset sequence
+    // If a key Alan is being changed and we haven't saved a database yet, Sıfırla sequence
     if (keyFields.includes(field) && !savedToDatabase) {
       setProcessSequence('00');
     }
     
-    // Enforce point as decimal separator for any input value
+    // Enforce point olarak decimal separator için any Girdi Değer
     let normalizedValue;
     
-    // First ensure the value is trimmed
+    // First ensure the Değer is trimmed
     const trimmedValue = typeof value === 'string' ? value.trim() : value;
     
-    // Special case for decimal inputs - maintain exact format
+    // Special case için decimal inputs - maintain exact Formatla
     if (typeof trimmedValue === 'string' && trimmedValue.includes('.')) {
-      // If the string contains a decimal point, preserve its format exactly
+      // If the String contains a decimal point, preserve its Formatla exactly
       setMmGtData(prev => ({
         ...prev,
         [field]: trimmedValue
@@ -5741,28 +5741,28 @@ const GalvanizliTelNetsis = () => {
     }
     
     if (typeof trimmedValue === 'string' && trimmedValue.includes(',')) {
-      // If input contains comma, replace with point
+      // If Girdi contains comma, replace ile point
       normalizedValue = trimmedValue.replace(/,/g, '.');
     } else {
-      // Otherwise use the trimmed value or normalize if not a string
+      // Otherwise use the trimmed Değer or normalize değilse a String
       normalizedValue = typeof trimmedValue === 'string' ? trimmedValue : normalizeInputValue(trimmedValue);
     }
     
-    // For numeric fields, ensure we store with point decimal separator but keep as strings
+    // için numeric fields, ensure we store ile point decimal separator but keep olarak strings
     if (['cap', 'kaplama', 'min_mukavemet', 'max_mukavemet', 'kg', 'tolerans_plus', 'tolerans_minus'].includes(field)) {
       if (typeof normalizedValue === 'string' && normalizedValue !== '') {
-        // Remove any commas first and replace with points to be sure
+        // Kaldır any commas first and replace ile points a be sure
         const valueWithPoints = normalizedValue.replace(/,/g, '.');
         
-        // If it's a valid number, ensure it uses point as decimal separator
+        // If it's a Geçerli Sayı, ensure it uses point olarak decimal separator
         const num = parseFloat(valueWithPoints);
         if (!isNaN(num)) {
-          // For decimal input, keep the decimal part as-is to preserve user input exactly as entered
+          // için decimal Girdi, keep the decimal part olarak-is a preserve user Girdi exactly olarak entered
           if (valueWithPoints.includes('.')) {
-            // If user is typing a decimal number, keep their input exactly as is (with points)
+            // If user is typing a decimal Sayı, keep their Girdi exactly olarak is (ile points)
             normalizedValue = valueWithPoints;
           } else {
-            // For whole numbers, no decimal formatting needed
+            // için whole numbers, no decimal formatting needed
             normalizedValue = valueWithPoints;
           }
         }
@@ -5776,7 +5776,7 @@ const GalvanizliTelNetsis = () => {
   };
 
 
-  // Comprehensive state reset function - used when switching between requests
+  // Comprehensive State Sıfırla function - used zaman switching between requests
   const resetApplicationState = () => {
     
     setYmGtData(null);
@@ -5794,7 +5794,7 @@ const GalvanizliTelNetsis = () => {
     // Session tracking temizle
     setSessionSavedProducts({ mmGtIds: [], ymGtId: null, ymStIds: [] });
     
-    // Additional state resets
+    // Additional State resets
     setMainYmStIndex(0);
     setShowDuplicateConfirmModal(false);
     setDuplicateProducts([]);
@@ -5811,7 +5811,7 @@ const GalvanizliTelNetsis = () => {
     
   };
 
-  // Manuel girişe geri dön - tüm state'i temizle
+  // Manuel girişe geri dön - tüm State'i temizle
   const handleBackToManual = () => {
     toast.dismiss(); // Clear all toast messages when switching to manual input
     setCurrentStep('input');
@@ -5820,10 +5820,10 @@ const GalvanizliTelNetsis = () => {
     setIsRequestUsed(false); // Talep kullanım durumunu sıfırla
     setIsEditingRequest(false);
     
-    // Use the comprehensive reset function
+    // Use the comprehensive Sıfırla function
     resetApplicationState();
     
-    // Clear MM GT form data - reset to DEFAULT VALUES (same as initial page load)
+    // Temizle MM GT Form Veri - Sıfırla a DEFAULT VALUES (same olarak initial page Yükle)
     setMmGtData({
       cap: '2.50',           // Default cap value
       kod_2: 'NIT',          // Default to NIT not PAD
@@ -5844,11 +5844,11 @@ const GalvanizliTelNetsis = () => {
   };
 
   // İleri butonu
-  // Validation function for MM GT data with detailed error messages
+  // Validation function için MM GT Veri ile detailed Hata messages
   const validateMmGtData = () => {
     const errors = [];
     
-    // Check required fields
+    // Kontrol et Gerekli fields
     const requiredFields = {
       'cap': 'Çap',
       'kaplama': 'Kaplama Miktarı',
@@ -5863,7 +5863,7 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // If any required fields are missing, return early
+    // If any Gerekli fields are missing, return early
     if (errors.length > 0) {
       return errors;
     }
@@ -5912,26 +5912,26 @@ const GalvanizliTelNetsis = () => {
     
     // Mathematical tolerance validation and auto-correction
     if (toleransPlusValue !== null && toleransMinusValue !== null && !isNaN(toleransPlusValue) && !isNaN(toleransMinusValue)) {
-      // Get the actual signed values based on the sign selectors
+      // Al the actual signed values based on the sign selectors
       const actualPlusValue = toleransMaxSign === '-' ? -toleransPlusValue : toleransPlusValue;
       const actualMinusValue = toleransMinSign === '-' ? -toleransMinusValue : toleransMinusValue;
       
-      // Check mathematical correctness: max tolerance should be >= min tolerance
+      // Kontrol et mathematical correctness: max tolerance should be >= min tolerance
       if (actualPlusValue < actualMinusValue) {
-        // Auto-correct by swapping values and signs
+        // Auto-correct ile swapping values and signs
         console.log('🔧 Auto-correcting tolerance values:', {
           original: { plus: actualPlusValue, minus: actualMinusValue },
           corrected: { plus: actualMinusValue, minus: actualPlusValue }
         });
         
-        // Update the form data with corrected values
+        // Güncelle the Form Veri ile corrected values
         setMmGtData(prev => ({
           ...prev,
           tolerans_plus: Math.abs(actualMinusValue).toString(),
           tolerans_minus: Math.abs(actualPlusValue).toString()
         }));
         
-        // Update the sign selectors
+        // Güncelle the sign selectors
         setToleransMaxSign(actualMinusValue >= 0 ? '+' : '-');
         setToleransMinSign(actualPlusValue >= 0 ? '+' : '-');
         
@@ -5952,37 +5952,37 @@ const GalvanizliTelNetsis = () => {
   };
   
   const handleNext = async () => {
-    // Validate all fields before proceeding
+    // Doğrula all fields before proceeding
     const validationErrors = validateMmGtData();
     
     if (validationErrors.length > 0) {
       // Display validation errors
       setError(`Lütfen aşağıdaki hataları düzeltiniz:\n\n${validationErrors.map(err => `• ${err}`).join('\n')}`);
       
-      // Show toast notification
+      // Göster Toast Bildirim
       toast.error('Formdaki hataları düzeltiniz', { autoClose: 5000 });
       return;
     }
     
-    // Clear any existing errors
+    // Temizle any existing errors
     setError(null);
     
-    // Check for duplicate product by stok_adi (functional duplicates regardless of sequence)
+    // Kontrol et için duplicate Ürün ile stok_adi (functional duplicates regardless of sequence)
     try {
       setIsLoading(true);
       
-      // Generate the stok_adi that would be created for comparison - use the same function
+      // Generate the stok_adi that would be created için comparison - use the same function
       const mmGtStokAdi = generateStokAdi();
       
       
-      // Search ALL MM GT products to find functional duplicates by stok_adi
+      // Ara ALL MM GT products a Bul functional duplicates ile stok_adi
       const allProductsResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
       
       if (allProductsResponse && allProductsResponse.ok) {
         const allProducts = await allProductsResponse.json();
         
         if (allProducts.length > 0 && !isViewingExistingProduct) {
-          // Find products with the same stok_adi (functional duplicates)
+          // Bul products ile the same stok_adi (functional duplicates)
           
           const functionalDuplicates = allProducts.filter(product => {
             const isMatch = product.stok_adi === mmGtStokAdi;
@@ -5992,25 +5992,25 @@ const GalvanizliTelNetsis = () => {
           });
           
           if (functionalDuplicates.length > 0) {
-            // Found functional duplicate(s) with same specifications - show warning
+            // Found functional duplicate(s) ile same specifications - Göster warning
             console.log(`⚠️ Found ${functionalDuplicates.length} functional duplicate(s):`, functionalDuplicates.map(p => p.stok_kodu));
             setDuplicateProducts(functionalDuplicates);
             setShowDuplicateConfirmModal(true);
             setIsLoading(false);
             return; // Don't proceed, wait for user decision
           } else {
-            // Same stok_kodu but different stok_adi - this is allowed, continue with incremented sequence
+            // Same stok_kodu but different stok_adi - this is allowed, continue ile incremented sequence
           }
         }
       }
     } catch (error) {
       console.error('Error checking for duplicates:', error);
-      // Continue anyway if duplicate check fails
+      // Continue anyway if duplicate Kontrol et fails
     } finally {
       setIsLoading(false);
     }
     
-    // Continue to next step
+    // Continue a İleri step
     setCurrentStep('summary');
     generateYmGtData();
     findSuitableYmSts();
@@ -6021,24 +6021,24 @@ const GalvanizliTelNetsis = () => {
   const handleYmStSelection = async (ymSt) => {
     const isSelected = selectedYmSts.find(item => item.stok_kodu === ymSt.stok_kodu);
     if (isSelected) {
-      // If removing a YM ST, check if it's the main one
+      // If removing a YM ST, Kontrol et if it's the main one
       const removedIndex = selectedYmSts.findIndex(item => item.stok_kodu === ymSt.stok_kodu);
       if (removedIndex === mainYmStIndex) {
-        // If we're removing the main YMST, set a new main index
+        // If we're removing the main YMST, Ayarla a new main index
         const totalLength = selectedYmSts.length + autoGeneratedYmSts.length;
         if (totalLength > 1) {
-          // If there are still YMSTs left, select a new main YMST
-          // Prefer to keep the main YMST among selected YMSTs
+          // If there are still YMSTs left, Seç a new main YMST
+          // Prefer a keep the main YMST among selected YMSTs
           if (selectedYmSts.length > 1) {
             // If there are other selected YMSTs, choose one of them
             setMainYmStIndex(removedIndex === selectedYmSts.length - 1 ? removedIndex - 1 : 0);
           } else if (autoGeneratedYmSts.length > 0) {
-            // Fall back to the first auto-generated YMST
+            // Fall Geri a the first auto-generated YMST
             setMainYmStIndex(0);
           }
         }
       } else if (removedIndex < mainYmStIndex) {
-        // If removing an YMST with index less than main, adjust main index
+        // If removing an YMST ile index less than main, adjust main index
         setMainYmStIndex(mainYmStIndex - 1);
       }
       
@@ -6046,23 +6046,23 @@ const GalvanizliTelNetsis = () => {
     } else {
       // Adding a new YMST
 
-      // Validation: Check if this is a special diameter YM.ST (1.88mm or 2.37mm)
+      // Validation: Kontrol et if this is a special Çap YM.ST (1.88mm or 2.37mm)
       const ymStCap = parseFloat(ymSt.cap);
       const specialDiameters = [1.88, 2.37];
 
       if (specialDiameters.includes(ymStCap)) {
-        // These special diameters can only be used by specific products
+        // These special diameters can only be used ile specific products
         const allowedProducts = {
           1.88: 'YM.GT.NIT.0193.00',  // 1.88mm only for YM.GT.NIT.0193.00
           2.37: 'YM.GT.NIT.0241.00'   // 2.37mm only for YM.GT.NIT.0241.00
         };
 
-        // Construct current product code
+        // Construct current Ürün code
         const cap = parseFloat(mmGtData.cap) || 0;
         const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
         const currentProductBase = `YM.GT.${mmGtData.kod_2}.${capFormatted}`;
 
-        // Check if current product is allowed to use this special diameter
+        // Kontrol et if current Ürün is allowed a use this special Çap
         const allowedProduct = allowedProducts[ymStCap];
         const isAllowed = currentProductBase === allowedProduct.substring(0, currentProductBase.length);
 
@@ -6089,16 +6089,16 @@ const GalvanizliTelNetsis = () => {
         return newYmSts;
       });
       
-      // Load recipe data for this YMST if it exists in database and not viewing existing product
+      // Yükle Reçete Veri için this YMST if it exists in database and not viewing existing Ürün
       if (ymSt.id && !isViewingExistingProduct) {
-        // Wait for state update before loading recipes
+        // Wait için State Güncelle before Yükleniyor recipes
         setTimeout(async () => {
           await loadExistingRecipeData([newYmSt]);
         }, 100);
       }
     }
     
-    // Only recalculate auto values if not viewing existing product
+    // Only recalculate auto values değilse viewing existing Ürün
     if (!isViewingExistingProduct) {
       // Seçim değiştiğinde reçeteleri yeniden hesapla
       setTimeout(() => {
@@ -6112,23 +6112,23 @@ const GalvanizliTelNetsis = () => {
     // The auto index in the overall selection
     const autoIndex = selectedYmSts.length + index;
     
-    // If removing the main YMST, set a new main YMST
+    // If removing the main YMST, Ayarla a new main YMST
     if (autoIndex === mainYmStIndex) {
       const totalLength = selectedYmSts.length + autoGeneratedYmSts.length;
       if (totalLength > 1) {
-        // Prefer to keep the main among auto YMSTs if possible
+        // Prefer a keep the main among auto YMSTs if possible
         if (autoGeneratedYmSts.length > 1) {
           const newMainIndex = index === autoGeneratedYmSts.length - 1 
             ? autoIndex - 1 
             : autoIndex + 1 < totalLength ? autoIndex + 1 : 0;
           setMainYmStIndex(newMainIndex);
         } else if (selectedYmSts.length > 0) {
-          // Fall back to selected YMSTs
+          // Fall Geri a selected YMSTs
           setMainYmStIndex(0);
         }
       }
     } else if (autoIndex < mainYmStIndex) {
-      // If removing an YMST with index less than main, adjust main index
+      // If removing an YMST ile index less than main, adjust main index
       setMainYmStIndex(mainYmStIndex - 1);
     }
     
@@ -6140,21 +6140,21 @@ const GalvanizliTelNetsis = () => {
 
   // Seçili YM ST'yi sil
   const removeSelectedYmSt = (index) => {
-    // If removing the main YMST, set a new main YMST
+    // If removing the main YMST, Ayarla a new main YMST
     if (index === mainYmStIndex) {
       const totalLength = selectedYmSts.length + autoGeneratedYmSts.length;
       if (totalLength > 1) {
-        // Prefer to keep the main among selected YMSTs if possible
+        // Prefer a keep the main among selected YMSTs if possible
         if (selectedYmSts.length > 1) {
           const newMainIndex = index === selectedYmSts.length - 1 ? index - 1 : index + 1 < selectedYmSts.length ? index + 1 : 0;
           setMainYmStIndex(newMainIndex);
         } else if (autoGeneratedYmSts.length > 0) {
-          // Fall back to auto YMSTs, which start at index selectedYmSts.length
+          // Fall Geri a auto YMSTs, which Başlangıç at index selectedYmSts.Uzunluk
           setMainYmStIndex(selectedYmSts.length - 1); // Will be correct after removal
         }
       }
     } else if (index < mainYmStIndex) {
-      // If removing an YMST with index less than main, adjust main index
+      // If removing an YMST ile index less than main, adjust main index
       setMainYmStIndex(mainYmStIndex - 1);
     }
     
@@ -6166,30 +6166,30 @@ const GalvanizliTelNetsis = () => {
 
   // Reçete güncelleme fonksiyonu - NOKTA kullan
   const updateRecipeValue = (recipeType, ymStIndex, key, value) => {
-    // Handle comma to point conversion first (direct replacement)
+    // İşle comma a point conversion first (direct replacement)
     let inputValue = value;
     if (typeof inputValue === 'string' && inputValue.includes(',')) {
       inputValue = inputValue.replace(/,/g, '.');
     }
     
-    // Mark as unsaved when recipe values change
-    // This triggers the save process which will check if same stok_kodu/stok_adi exists
-    // and ask user if they want to update it
+    // Mark olarak unsaved zaman Reçete values Değiştir
+    // This triggers the Kaydet İşlem which will Kontrol et if same stok_kodu/stok_adi exists
+    // and ask user if they want a Güncelle it
     if (savedToDatabase) {
       setSavedToDatabase(false);
-      // Clear database IDs so the system treats this as a new save attempt
-      // and goes through the normal duplicate checking process
+      // Temizle database IDs so the system treats this olarak a new Kaydet attempt
+      // and goes through the normal duplicate checking İşlem
       setDatabaseIds({ mmGtIds: [], ymGtId: null, ymStIds: [] });
       setSessionSavedProducts({ mmGtIds: [], ymGtId: null, ymStIds: [] });
     }
     
-    // Special case handling for direct decimal input
-    // This allows decimal points to be properly entered and maintained in the field
+    // Special case handling için direct decimal Girdi
+    // This allows decimal points a be properly entered and maintained in the Alan
     if (typeof inputValue === 'string') {
-      // If we have a string with a decimal point (.5 or 3.1), preserve its exact format
-      // This handles decimal points that were just added by the user
+      // If we have a String ile a decimal point (.5 or 3.1), preserve its exact Formatla
+      // This handles decimal points that were just added ile the user
       if (inputValue.includes('.')) {
-        // Store it as is to maintain positions of digits and decimal points
+        // Store it olarak is a maintain positions of digits and decimal points
         setRecipeStatus(prev => ({
           ...prev,
           [recipeType === 'mmgt' 
@@ -6207,7 +6207,7 @@ const GalvanizliTelNetsis = () => {
                   }
         }));
         
-        // Update the appropriate recipe with the exact string value
+        // Güncelle the appropriate Reçete ile the exact String Değer
         if (recipeType === 'mmgt') {
           setAllRecipes(prev => ({
             ...prev,
@@ -6245,12 +6245,12 @@ const GalvanizliTelNetsis = () => {
       }
     }
     
-    // For other cases (non-decimal string, empty string, number, etc.)
-    // Continue with standard handling
+    // için other cases (non-decimal String, empty String, Sayı, etc.)
+    // Continue ile standard handling
     const normalizedValue = typeof inputValue === 'string' ? inputValue : normalizeInputValue(inputValue);
     
-    // Ensure we have a proper numeric value with point decimal separator
-    // Store the formatted string to maintain proper decimal display
+    // Ensure we have a proper numeric Değer ile point decimal separator
+    // Store the formatted String a maintain proper decimal display
     const numValue = parseFloat(normalizedValue) || 0;
     const formattedValue = numValue.toLocaleString('en-US', {
       minimumFractionDigits: 0,
@@ -6354,7 +6354,7 @@ const GalvanizliTelNetsis = () => {
       const mmGtBaseCode = `GT.${kod_2}.${capFormatted}`;
       const ymGtBaseCode = `YM.GT.${kod_2}.${capFormatted}`;
       
-      // Search both MMGT and YMGT to find the highest sequence
+      // Ara both MMGT and YMGT a Bul the highest sequence
       const [mmGtResponse, ymGtResponse] = await Promise.all([
         fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(mmGtBaseCode)}`),
         fetchWithAuth(`${API_URLS.galYmGt}?stok_kodu_like=${encodeURIComponent(ymGtBaseCode)}`)
@@ -6372,7 +6372,7 @@ const GalvanizliTelNetsis = () => {
         allProducts.push(...ymGtProducts);
       }
       
-      // Filter products to only include those with the exact base code pattern
+      // Filtrele products a only include those ile the exact base code pattern
       const filteredProducts = allProducts.filter(product => {
         const productBaseCode = product.stok_kodu.substring(0, product.stok_kodu.lastIndexOf('.'));
         return productBaseCode === mmGtBaseCode || productBaseCode === ymGtBaseCode;
@@ -6393,7 +6393,7 @@ const GalvanizliTelNetsis = () => {
         const existingProducts = filteredProducts;
         
         // Tamamen aynı ürün var mı kontrol et (stok_kodu və stok_adi etkileyen tüm değerler)
-        // Use the same generateStokAdi function to ensure consistent formatting
+        // Use the same generateStokAdi function a ensure consistent formatting
         const stokAdi = generateStokAdi();
         
         // Tamamen eşleşen bir ürün var mı?
@@ -6407,8 +6407,8 @@ const GalvanizliTelNetsis = () => {
         });
         
         if (exactMatch) {
-          // Use the new duplicate confirmation system instead of window.confirm
-          // This will be handled by checkForDuplicatesAndConfirm function
+          // Use the new duplicate confirmation system instead of window.Onayla
+          // This will be handled ile checkForDuplicatesAndConfirm function
           const sequencePart = exactMatch.stok_kodu.split('.').pop();
           const sequenceNum = parseInt(sequencePart);
           console.log('Found exact match, returning existing sequence:', sequenceNum);
@@ -6425,7 +6425,7 @@ const GalvanizliTelNetsis = () => {
           }
         });
         
-        // Always increment from the highest sequence found, or start with 0 if none exist
+        // Always increment den the highest sequence found, or Başlangıç ile 0 if none exist
         const nextSeq = maxSequence + 1;
         console.log('🔍 checkForExistingProducts result:');
         console.log('Found existing products with same base code:', existingProducts.length);
@@ -6555,8 +6555,8 @@ const GalvanizliTelNetsis = () => {
     return null;
   };
 
-  // Check for duplicate products and show confirmation dialog
-  // Queue-safe version that doesn't show popups but uses existing sequence logic
+  // Kontrol et için duplicate products and Göster confirmation Dialog
+  // Queue-safe version that doesn't Göster popups but uses existing sequence logic
   const checkForDuplicatesNoPopup = async () => {
     try {
       const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
@@ -6578,10 +6578,10 @@ const GalvanizliTelNetsis = () => {
       
       const sequence = nextSequence.toString().padStart(2, '0');
       
-      // Store the sequence for Excel generation
+      // Store the sequence için Excel generation
       setProcessSequence(sequence);
       
-      // Proceed with save directly using the working sequence logic
+      // Proceed ile Kaydet directly using the working sequence logic
       return await proceedWithSave(allYmSts, nextSequence);
     } catch (error) {
       console.error('No-popup save error:', error);
@@ -6601,19 +6601,19 @@ const GalvanizliTelNetsis = () => {
         return false;
       }
       
-      // First check if an exact duplicate exists (all fields match)
+      // First Kontrol et if an exact duplicate exists (all fields match)
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
       
-      // Get all existing products with same base code
+      // Al all existing products ile same base code
       const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
       if (response && response.ok) {
         const existingProducts = await response.json();
         
         if (existingProducts.length > 0) {
-          // Check each existing product for matches
+          // Kontrol et each existing Ürün için matches
           for (const existingProduct of existingProducts) {
-            // Check if ALL fields match (exact duplicate)
+            // Kontrol et if ALL fields match (exact duplicate)
             const allFieldsMatch = 
               Math.abs(parseFloat(existingProduct.cap) - parseFloat(mmGtData.cap)) < 0.001 &&
               existingProduct.kod_2 === mmGtData.kod_2 &&
@@ -6640,7 +6640,7 @@ const GalvanizliTelNetsis = () => {
               return false;
             }
             
-            // Check if only key fields match (key fields that affect stok_adi and stok_kodu)
+            // Kontrol et if only key fields match (key fields that affect stok_adi and stok_kodu)
             // Key fields: cap, kod_2, tolerans_plus/minus, kaplama, min/max_mukavemet, kg, ic_cap, dis_cap, cast_kont
             const keyFieldsMatch = 
               Math.abs(parseFloat(existingProduct.cap) - parseFloat(mmGtData.cap)) < 0.001 &&
@@ -6665,7 +6665,7 @@ const GalvanizliTelNetsis = () => {
             }
           }
           
-          // If we get here, key fields are different, so create new product with incremented sequence
+          // If we Al here, key fields are different, so Oluştur new Ürün ile incremented sequence
           const nextSequence = await checkForExistingProducts(
             mmGtData.cap,
             mmGtData.kod_2,
@@ -6676,14 +6676,14 @@ const GalvanizliTelNetsis = () => {
           );
           const sequence = nextSequence.toString().padStart(2, '0');
           
-          // Store the sequence for Excel generation
+          // Store the sequence için Excel generation
           setProcessSequence(sequence);
           
-          // Proceed with save as new product
+          // Proceed ile Kaydet olarak new Ürün
           return await proceedWithSave(allYmSts, nextSequence);
         } else {
-          // No existing products with same base code, but still need to check for proper sequence
-          // This should never happen now since checkForExistingProducts handles this
+          // No existing products ile same base code, but still need a Kontrol et için proper sequence
+          // This should never happen Şimdi since checkForExistingProducts handles this
           const nextSequence = await checkForExistingProducts(
             mmGtData.cap,
             mmGtData.kod_2, 
@@ -6706,7 +6706,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Check for duplicate stok_kodu when editing existing products
+  // Kontrol et için duplicate stok_kodu zaman editing existing products
   const checkForDuplicatesWhenEditing = async () => {
     try {
       const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
@@ -6716,24 +6716,24 @@ const GalvanizliTelNetsis = () => {
         return false;
       }
       
-      // Generate the potential new stok_kodu based on current form data
+      // Generate the potential new stok_kodu based on current Form Veri
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const baseCode = `GT.${mmGtData.kod_2}.${capFormatted}`;
       
-      // Get all existing products with same base code
+      // Al all existing products ile same base code
       const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu_like=${encodeURIComponent(baseCode)}`);
       if (response && response.ok) {
         const existingProducts = await response.json();
         
         if (existingProducts.length > 0) {
-          // Check each existing product for matches, excluding the current product being edited
+          // Kontrol et each existing Ürün için matches, excluding the current Ürün being edited
           for (const existingProduct of existingProducts) {
-            // Skip the product we're currently editing (same ID)
+            // Skip the Ürün we're currently editing (same ID)
             if (selectedExistingMmGt && existingProduct.id === selectedExistingMmGt.id) {
               continue;
             }
             
-            // Check if ALL fields match (exact duplicate with a different product)
+            // Kontrol et if ALL fields match (exact duplicate ile a different Ürün)
             const allFieldsMatch = 
               Math.abs(parseFloat(existingProduct.cap) - parseFloat(mmGtData.cap)) < 0.001 &&
               existingProduct.kod_2 === mmGtData.kod_2 &&
@@ -6752,7 +6752,7 @@ const GalvanizliTelNetsis = () => {
               (existingProduct.elongation || '') === (mmGtData.elongation || '');
             
             if (allFieldsMatch) {
-              // Exact duplicate found with a different product
+              // Exact duplicate found ile a different Ürün
               toast.error(`Bu ürün özellikleri zaten mevcut! Çakışan ürün: ${existingProduct.stok_kodu}. Lütfen değerleri gözden geçirin.`);
               return false;
             }
@@ -6768,7 +6768,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Proceed with actual save (called either directly or after confirmation)
+  // Proceed ile actual Kaydet (called either directly or after confirmation)
   const proceedWithSave = async (allYmSts, nextSequence, requestIdOverride = null) => {
     try {
       console.log('🔍 PROCEEDING WITH SAVE:');
@@ -6785,13 +6785,13 @@ const GalvanizliTelNetsis = () => {
       
       console.log('🔢 SEQUENCE DEBUG: nextSequence =', nextSequence, 'formatted sequence =', sequence);
       
-      // IMPORTANT: Set the processSequence state so Excel generation uses correct sequence
+      // IMPORTANT: Ayarla the processSequence State so Excel generation uses correct sequence
       setProcessSequence(sequence);
       
-      // Also store sequence in sessionStorage for debugging
+      // Also store sequence in sessionStorage için debugging
       sessionStorage.setItem('lastProcessSequence', sequence);
       
-      // Save YM GT - Check if existing YM GT needs to be updated or new one created
+      // Kaydet YM GT - Kontrol et if existing YM GT needs a be updated or new one created
       const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       
       console.log('🔍 DEBUGGING YMGT:');
@@ -6802,12 +6802,12 @@ const GalvanizliTelNetsis = () => {
       const ymGtData = generateYmGtDatabaseData(sequence); // Use same sequence as MMGT
       console.log('Generated YMGT data stok_kodu:', ymGtData.stok_kodu);
       
-      // Check if YM GT already exists (especially important when editing)
+      // Kontrol et if YM GT already exists (especially important zaman editing)
       const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
       let ymGtResponse;
       
       if (existingYmGt) {
-        // Update existing YM GT
+        // Güncelle existing YM GT
         console.log('🔄 Updating existing YM GT with ID:', existingYmGt.id);
         ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}/${existingYmGt.id}`, {
           method: 'PUT',
@@ -6820,7 +6820,7 @@ const GalvanizliTelNetsis = () => {
           console.log('✅ YM GT updated successfully with ID:', ymGtId);
         }
       } else {
-        // Create new YM GT
+        // Oluştur new YM GT
         console.log('🆕 Creating new YM GT');
         ymGtResponse = await fetchWithAuth(API_URLS.galYmGt, {
           method: 'POST',
@@ -6840,10 +6840,10 @@ const GalvanizliTelNetsis = () => {
         throw new Error('YM GT kaydedilemedi');
       }
       
-      // Save MM GT - Update existing if editing, create new if creating
+      // Kaydet MM GT - Güncelle existing if editing, Oluştur new if creating
       let mmGtResponse;
       if (isViewingExistingProduct && selectedExistingMmGt) {
-        // Update existing MM GT
+        // Güncelle existing MM GT
         console.log('🔄 Updating existing MM GT with ID:', selectedExistingMmGt.id);
         mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}/${selectedExistingMmGt.id}`, {
           method: 'PUT',
@@ -6856,7 +6856,7 @@ const GalvanizliTelNetsis = () => {
           console.log('✅ MM GT updated successfully');
         }
       } else {
-        // Create new MM GT
+        // Oluştur new MM GT
         console.log('🆕 Creating new MM GT');
         mmGtResponse = await fetchWithAuth(API_URLS.galMmGt, {
           method: 'POST',
@@ -6871,7 +6871,7 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // Save all YM STs
+      // Kaydet all YM STs
       for (let i = 0; i < allYmSts.length; i++) {
         const ymSt = allYmSts[i];
         
@@ -6897,7 +6897,7 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // Create relationships between ALL YM STs and MM GT, including YM GT reference
+      // Oluştur relationships between ALL YM STs and MM GT, including YM GT reference
       
       for (let i = 0; i < ymStIds.length; i++) {
         try {
@@ -6919,7 +6919,7 @@ const GalvanizliTelNetsis = () => {
           
         } catch (relationError) {
           console.error('Error creating relationship for YM ST ' + (i + 1) + ':', relationError);
-          // Continue with other relationships even if one fails
+          // Continue ile other relationships even if one fails
         }
       }
       
@@ -6938,7 +6938,7 @@ const GalvanizliTelNetsis = () => {
       
       setSessionSavedProducts(newDatabaseIds);
       
-      // Update request table with correct stok_kodu if this was from a request
+      // Güncelle İstek table ile correct stok_kodu if this was den a İstek
       const requestIdFromSession = sessionStorage.getItem('lastEditedRequestId');
       
       if (requestIdOverride || requestIdFromSession || (selectedRequest && selectedRequest.id)) {
@@ -6962,14 +6962,14 @@ const GalvanizliTelNetsis = () => {
             const updateResult = await updateResponse.json();
             toast.success('Talep stok kodu güncellendi');
             
-            // Refresh request data to show updated stok_kodu
+            // Refresh İstek Veri a Göster updated stok_kodu
             console.log('Refreshing request data after stok_kodu update...');
             await fetchRequests(); // Refresh the full requests list
             
-            // Add a small delay to ensure state updates are propagated
+            // Ekle a small delay a ensure State updates are propagated
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            // If the request detail modal is open, update the selected request data
+            // If the İstek detail Modal is Aç, Güncelle the selected İstek Veri
             if (selectedRequest && selectedRequest.id === requestId) {
               try {
                 const refreshResponse = await fetchWithAuth(`${API_URLS.galSalRequests}/${requestId}`);
@@ -6983,7 +6983,7 @@ const GalvanizliTelNetsis = () => {
               }
             }
             
-            // Clean up sessionStorage after successful update
+            // Clean up sessionStorage after successful Güncelle
             sessionStorage.removeItem('lastEditedRequestId');
           } else {
             console.error('[proceedWithSave] Failed to update request stok_kodu: ' + (updateResponse?.status || 'undefined'));
@@ -7047,10 +7047,10 @@ const GalvanizliTelNetsis = () => {
       const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
       
       // Use the passed nextSequence parameter instead of recalculating
-      // This ensures consistency with the sequence determined in checkForDuplicatesAndConfirm
+      // This ensures consistency ile the sequence determined in checkForDuplicatesAndConfirm
       const sequence = nextSequence.toString().padStart(2, '0');
       setProcessSequence(sequence);
-      // Process sequence set for both database and Excel operations
+      // İşlem sequence Ayarla için both database and Excel operations
       
       const mmGtIds = [];
       const ymStIds = [];
@@ -7060,7 +7060,7 @@ const GalvanizliTelNetsis = () => {
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       // sequence already defined above
       // MMGT ile aynı sequence'i kullan
-      // Create YM GT stock code
+      // Oluştur YM GT Stok code
       const ymGtStokKodu = `YM.GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       const existingYmGt = await checkExistingProduct(API_URLS.galYmGt, ymGtStokKodu);
       
@@ -7088,7 +7088,7 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // Create MM GT with same sequence
+      // Oluştur MM GT ile same sequence
       const mmGtStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequence}`;
       const existingMmGt = await checkExistingProduct(API_URLS.galMmGt, mmGtStokKodu);
       
@@ -7180,8 +7180,8 @@ const GalvanizliTelNetsis = () => {
       setSuccessMessage('Veriler başarıyla veritabanına kaydedildi');
       toast.success('Veriler başarıyla veritabanına kaydedildi');
       
-      // Update request table with correct stok_kodu if this was from a request
-      // Check if we're working with a request by looking for recent PUT API calls in the session
+      // Güncelle İstek table ile correct stok_kodu if this was den a İstek
+      // Kontrol et if we're working ile a İstek ile looking için recent PUT API calls in the session
       const requestIdFromSession = sessionStorage.getItem('lastEditedRequestId');
       
       if (requestIdOverride || requestIdFromSession || (selectedRequest && selectedRequest.id)) {
@@ -7205,14 +7205,14 @@ const GalvanizliTelNetsis = () => {
             const updateResult = await updateResponse.json();
             toast.success('Talep stok kodu güncellendi');
             
-            // Refresh request data to show updated stok_kodu
+            // Refresh İstek Veri a Göster updated stok_kodu
             console.log('Refreshing request data after stok_kodu update...');
             await fetchRequests(); // Refresh the full requests list
             
-            // Add a small delay to ensure state updates are propagated
+            // Ekle a small delay a ensure State updates are propagated
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Clean up sessionStorage after successful update
+            // Clean up sessionStorage after successful Güncelle
             sessionStorage.removeItem('lastEditedRequestId');
           } else {
             console.error('Failed to update request stok_kodu: ' + (updateResponse?.status || 'undefined'));
@@ -7222,7 +7222,7 @@ const GalvanizliTelNetsis = () => {
         }
       }
       
-      // Clear the success message after 5 seconds
+      // Temizle the Başarılı Mesaj after 5 seconds
       setTimeout(() => {
         setSuccessMessage('');
       }, 5000);
@@ -7307,7 +7307,7 @@ const GalvanizliTelNetsis = () => {
       return '00';
     }
     
-    // Padded 2-digit format ile dön
+    // Padded 2-digit Formatla ile dön
     return nextVal.toString().padStart(2, '0');
   };
 
@@ -7368,7 +7368,7 @@ const GalvanizliTelNetsis = () => {
       alis_doviz_tipi: 2,
       gumruk_tarife_kodu: getGumrukTarifeKodu(),
       ingilizce_isim: generateEnglishName(),
-      // Technical spec columns - match Excel format exactly
+      // Technical spec columns - match Excel Formatla exactly
       metarial: 'Low Carbon Steel Wire',
       dia_mm: capForExcel, // Use formatted string value
       dia_tol_mm_plus: adjustedPlus, 
@@ -7389,7 +7389,7 @@ const GalvanizliTelNetsis = () => {
 
   // Veritabanı için YM GT verisi oluştur - Excel formatına tam uyumlu
   const generateYmGtDatabaseData = (sequence = '00') => {
-    // YMGT should use the same sequence as MMGT for consistency
+    // YMGT should use the same sequence olarak MMGT için consistency
     const validSequence = sequence;
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
     const capValue = parseFloat(mmGtData.cap);
@@ -7547,18 +7547,18 @@ const GalvanizliTelNetsis = () => {
     }
   };
   
-  // Function to proceed directly with queue logic (no confirmation modal)
+  // Function a proceed directly ile queue logic (no confirmation Modal)
   const showApprovalConfirmation = () => {
     if (isEditingRequest && selectedRequest) {
-      // Skip modal, go directly to queue processing
+      // Skip Modal, go directly a queue İşleniyor
       approveRequestAndContinue();
     } else {
-      // If not editing a request, proceed normally
+      // değilse editing a İstek, proceed normally
       continueSaveToDatabase(databaseIds.mmGtIds, databaseIds.ymGtId, databaseIds.ymStIds);
     }
   };
   
-  // Function to approve the request and update its status through queue
+  // Function a approve the İstek and Güncelle its Durum through queue
   const approveRequestAndContinue = async () => {
     if (!selectedRequest) {
       toast.error('Seçili talep bulunamadı');
@@ -7590,14 +7590,14 @@ const GalvanizliTelNetsis = () => {
       // Talep onaylama işlemini kuyruk üzerinden yap
       console.log('Database save başarılı, request onaylama işlemi başlatılıyor...');
       
-      // Generate the actual stok_kodu that was used during database save
+      // Generate the actual stok_kodu that was used during database Kaydet
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const actualStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${processSequence}`;
       
       console.log('Updating request ' + selectedRequest.id + ' with new stok_kodu: ' + actualStokKodu + ' (sequence: ' + processSequence + ')');
       console.log('Original request stok_kodu: ' + selectedRequest.stok_kodu);
       
-      // Prepare tracking data for the request update
+      // Prepare tracking Veri için the İstek Güncelle
       const currentProductKey = generateProductKey({
         stok_adi: generateMmGtStokAdi(),
         cap: mmGtData.cap,
@@ -7618,7 +7618,7 @@ const GalvanizliTelNetsis = () => {
         processed_by: user?.username || user?.id || 'system',
         processed_at: new Date().toISOString(),
         stok_kodu: actualStokKodu, // Update with the actual stok_kodu used in database
-        // Add tracking fields
+        // Ekle tracking fields
         original_stok_adi: originalProductData?.mmGt?.stok_adi || selectedRequest.stok_adi || '',
         final_stok_adi: generateMmGtStokAdi(),
         original_product_key: originalProductData ? generateProductKey(originalProductData.mmGt) : '',
@@ -7638,7 +7638,7 @@ const GalvanizliTelNetsis = () => {
       });
       
       if (!updateResponse || !updateResponse.ok) {
-        // Kuyruk task'ını failed olarak işaretle
+        // Kuyruk task'ını Başarısız olarak işaretle
         setTaskQueue(prev => prev.map(t => 
           t.id === taskId 
             ? { ...t, status: 'failed', name: 'Talep Onaylama Hatası' }
@@ -7661,7 +7661,7 @@ const GalvanizliTelNetsis = () => {
       await generateExcelFiles();
       console.log('Excel dosyaları başarıyla oluşturuldu');
       
-      // Refresh the request data and requests list
+      // Refresh the İstek Veri and requests Liste
       console.log('Refreshing request data after approval update...');
       await fetchRequests();
       
@@ -7690,7 +7690,7 @@ const GalvanizliTelNetsis = () => {
           : t
       );
       
-      // Reset states
+      // Sıfırla states
       setIsEditingRequest(false);
       setIsInApprovalProcess(false);
       setIsRequestUsed(false);
@@ -7702,7 +7702,7 @@ const GalvanizliTelNetsis = () => {
       console.error('Talep onaylama hatası:', error);
       toast.error('Talep onaylanamadı: ' + error.message);
       
-      // Kuyruk task'ını failed olarak işaretle
+      // Kuyruk task'ını Başarısız olarak işaretle
       setTaskQueue(prev => prev.map(t => 
         t.id === taskId 
           ? { ...t, status: 'failed', name: 'İşlem Hatası' }
@@ -7716,29 +7716,29 @@ const GalvanizliTelNetsis = () => {
     }
   };
   
-  // The actual database save logic is defined below after saveRecipesToDatabase
+  // The actual database Kaydet logic is defined below after saveRecipesToDatabase
   
-  // This is the main function that gets called from UI
+  // This is the main function that gets called den UI
   const saveRecipesToDatabase = async (mmGtIds, ymGtId, ymStIds) => {
     console.log('saveRecipesToDatabase called - isEditingRequest:', isEditingRequest);
     
-    // Save the parameters to database IDs state for later use
+    // Kaydet the parameters a database IDs State için later use
     setDatabaseIds({
       mmGtIds: mmGtIds || [],
       ymGtId: ymGtId || '',
       ymStIds: ymStIds || []
     });
     
-    // Always proceed with normal save
+    // Always proceed ile normal Kaydet
     // Request approval will be handled by the calling context (either approveRequestAndContinue or Sadece Kaydet button)
     console.log('Proceeding with database save only...');
     await continueSaveToDatabase(mmGtIds, ymGtId, ymStIds);
   };
   
-  // The actual database save logic that was in the original saveRecipesToDatabase function
+  // The actual database Kaydet logic that was in the original saveRecipesToDatabase function
   const continueSaveToDatabase = async (mmGtIds, ymGtId, ymStIds) => {
     try {
-      // If we're coming from the approval process, reset the editing state
+      // If we're coming den the approval İşlem, Sıfırla the editing State
       if (isEditingRequest) {
         setIsEditingRequest(false);
       }
@@ -8001,14 +8001,14 @@ const GalvanizliTelNetsis = () => {
         for (const [key, value] of orderedEntries) {
           if (value > 0) {
             // Operasyon/Bileşen sınıflandırması düzeltmesi
-            // Excel format requires GTPKT01 to be marked as Operasyon (O), all others as Bileşen (B)
+            // Excel Formatla requires GTPKT01 a be marked olarak Operasyon (O), all others olarak Bileşen (B)
             const operasyonBilesen = key === 'GTPKT01' ? 'O' : 'B';
             
-            // We don't need isSpecialCode check anymore, all handling is in operasyonBilesen
+            // We don't need isSpecialCode Kontrol et anymore, all handling is in operasyonBilesen
             
             // Tam kod kontrolü ve log kaydı
             
-            // Format the value exactly as it would appear in Excel, using points as decimal separators
+            // Formatla the Değer exactly olarak it would appear in Excel, using points olarak decimal separators
             let formattedValue = value;
             if (typeof value === 'number') {
               formattedValue = value.toLocaleString('en-US', {
@@ -8027,19 +8027,19 @@ const GalvanizliTelNetsis = () => {
             
             // BURADA ÖNEMLİ: MMGT reçeteleri için her zaman doğru sequence'i içeren mamul_kodu kullanmak çok önemli
 
-            // Update YM.GT bilesen codes to use current sequence
+            // Güncelle YM.GT bilesen codes a use current sequence
             let bilesenKodu = key;
             if (key.includes('YM.GT.')) {
               const parts = key.split('.');
               if (parts.length >= 5) {
-                // Replace old sequence with current MM GT sequence
+                // Replace old sequence ile current MM GT sequence
                 parts[parts.length - 1] = mmGtSequence;
                 bilesenKodu = parts.join('.');
                 console.log(`Updated YM.GT bilesen sequence: ${key} → ${bilesenKodu}`);
               }
             }
 
-            // Map display codes to database codes (e.g., 'AMB.APEX CEMBER' → 'SM-AMB-000017')
+            // Map et display codes a database codes (e.g., 'AMB.APEX CEMBER' → 'SM-AMB-000017')
             const bilesenMapping = {
               'AMB.APEX CEMBER 38X080': 'SM-AMB-000017',
               'AMB.TOKA.SIGNODE.114P. DKP': 'SM-AMB-000018',
@@ -8103,7 +8103,7 @@ const GalvanizliTelNetsis = () => {
                   son_operasyon: operasyonBilesen === 'O' ? 'E' : '',
                   recete_top: 1,
                   fire_orani: 0.0004, // Match Excel format
-                  // Match Excel format EXACTLY - VARCHAR=empty string, NUMERIC/INT=null
+                  // Match Excel Formatla EXACTLY - VARCHAR=empty String, NUMERIC/INT=null
                   miktar_sabitle: '',
                   stok_maliyet: '',
                   fire_mik: null, // NUMERIC
@@ -8351,11 +8351,11 @@ const GalvanizliTelNetsis = () => {
           
           let siraNo = 1;
           
-          // YMGT reçete sıralaması - Excel formatına uygun kesin sıralama 
+          // YMGT reçete sıralaması - Excel formatına uygun kesin sıralama
           // Sıralama: 1. YM.ST (ana), 2. GLV01, 3. Çinko, 4. Asit, 5. Diğerleri
           const recipeEntries = Object.entries(allRecipes.ymGtRecipe);
           
-          // Define mainYmSt from available data
+          // Define mainYmSt den Mevcut Veri
           const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
           const mainYmSt = allYmSts[mainYmStIndex] || allYmSts[0];
           
@@ -8378,7 +8378,7 @@ const GalvanizliTelNetsis = () => {
                 ymStEntry = anyYmStEntry;
               } else {
                 console.error(`HATA: YMGT reçetesinde YM.ST bileşeni bulunamadı!`);
-                // CRITICAL FIX: Create the missing YM.ST entry
+                // CRITICAL FIX: Oluştur the missing YM.ST entry
                 if (mainYmSt && mainYmSt.stok_kodu) {
                   ymStEntry = [mainYmSt.stok_kodu, 1];
                 }
@@ -8414,7 +8414,7 @@ const GalvanizliTelNetsis = () => {
           );
           
           // Excel formatına tam uygun sırada ekle - HER ZAMAN SADECE 1 GLV01 OPERASYONu olmalı
-          // Calculate correct YM.ST miktar: 1 - Çinko Tüketim Miktarı
+          // Hesapla correct YM.ST miktar: 1 - Çinko Tüketim Miktarı
           let ymStMiktar = ymStEntry ? ymStEntry[1] : 1;
           if (ymStEntry && cinkoEntry && cinkoEntry[1]) {
             ymStMiktar = 1 - parseFloat(cinkoEntry[1]);
@@ -8430,7 +8430,7 @@ const GalvanizliTelNetsis = () => {
           
           for (const [key, value] of orderedEntries) {
             if (value > 0) {
-              // Format the value exactly as it would appear in Excel, using points as decimal separators
+              // Formatla the Değer exactly olarak it would appear in Excel, using points olarak decimal separators
               let formattedValue = value;
               if (typeof value === 'number') {
                 formattedValue = value.toLocaleString('en-US', {
@@ -8517,7 +8517,7 @@ const GalvanizliTelNetsis = () => {
                 console.warn(`UYARI: YMGT stok kaydına erişilemedi!`);
               }
               
-              // Map display codes to database codes (e.g., '150 03' → 'HM-000001')
+              // Map et display codes a database codes (e.g., '150 03' → 'HM-000001')
               const bilesenMapping = {
                 '150 03': 'HM-000001',
                 'SM.HİDROLİK.ASİT': 'SM-KMY-000096'
@@ -8576,7 +8576,7 @@ const GalvanizliTelNetsis = () => {
                     fire_orani: 0.0004, // Match Excel format
                     ua_dahil_edilsin: receteParams.operasyon_bilesen === 'O' ? 'E' : '',
                     son_operasyon: receteParams.operasyon_bilesen === 'O' ? 'E' : '',
-                    // Match Excel format EXACTLY - VARCHAR=empty string, NUMERIC/INT=null
+                    // Match Excel Formatla EXACTLY - VARCHAR=empty String, NUMERIC/INT=null
                     miktar_sabitle: '',
                     stok_maliyet: '',
                     fire_mik: null, // NUMERIC
@@ -8595,7 +8595,7 @@ const GalvanizliTelNetsis = () => {
                 });
                 
                 if (saveResponse && saveResponse.ok) {
-                  // Update allRecipes.ymGtRecipe state with the newly saved component
+                  // Güncelle allRecipes.ymGtRecipe State ile the newly saved Bileşen
                   setAllRecipes(prev => ({
                     ...prev,
                     ymGtRecipe: {
@@ -8723,7 +8723,7 @@ const GalvanizliTelNetsis = () => {
           
           let siraNo = 1;
           
-          // YMST reçete sıralaması - Excel formatına uygun kesin sıralama 
+          // YMST reçete sıralaması - Excel formatına uygun kesin sıralama
           // Sıralama: 1. FLM, 2. TLC01 (tam bu sıra)
           const recipeEntries = Object.entries(ymStRecipe);
           
@@ -8732,7 +8732,7 @@ const GalvanizliTelNetsis = () => {
           if (flmEntry) {
             // Filmaşin formatını kontrol et: FLM.XXXX.XXXX (örn. FLM.0550.1006)
             const flmKey = flmEntry[0];
-            // Doğru format: FLM.XXXX.XXXX şeklinde olmalı, nokta ile ayrılmalı
+            // Doğru Formatla: FLM.XXXX.XXXX şeklinde olmalı, nokta ile ayrılmalı
             if (!flmKey.match(/^FLM\.\d{4}\.\d{4}$/)) {
               console.warn(`FLM kodu hatalı formatta: ${flmKey}, düzeltilmeli`);
             }
@@ -8750,8 +8750,8 @@ const GalvanizliTelNetsis = () => {
             !(key.includes('YM.ST.') && key !== ymSt.stok_kodu)
           );
 
-          // ✅ FIXED: Correct order - Material first (sira_no 1), Operation second (sira_no 2)
-          // Material: FLM or YM.ST source
+          // ✅ FIXED: Correct Sipariş - Malzeme first (sira_no 1), Operation second (sira_no 2)
+          // Malzeme: FLM or YM.ST source
           // Operation: TLC01 or COTLC01
           const materialEntry = flmEntry || ymStSourceEntry;
           const operationEntry = tlc01Entry || cotlc01Entry;
@@ -8762,7 +8762,7 @@ const GalvanizliTelNetsis = () => {
           const ymStDiameter = parseFloat(ymSt?.cap || 0);
 
           if (ymStDiameter >= 1.5) {
-            // Only check for FLM/TLC01 for products >= 1.5mm
+            // Only Kontrol et için FLM/TLC01 için products >= 1.5mm
             if (!flmEntry) {
               console.error(`HATA: YMST reçetesinde FLM bileşeni bulunamadı! (çap: ${ymStDiameter}mm)`);
             }
@@ -8771,7 +8771,7 @@ const GalvanizliTelNetsis = () => {
               console.error(`HATA: YMST reçetesinde TLC01 operasyonu bulunamadı! (çap: ${ymStDiameter}mm)`);
             }
           } else {
-            // For < 1.5mm products, check for Coiler source and COTLC01
+            // için < 1.5mm products, Kontrol et için Coiler source and COTLC01
             const hasCoilerSource = recipeEntries.some(([key]) => key.includes('YM.ST.') && key.includes('.0600.') || key.includes('.0550.') || key.includes('.ST'));
             const hasCotlc01 = recipeEntries.some(([key]) => key === 'COTLC01');
 
@@ -8792,7 +8792,7 @@ const GalvanizliTelNetsis = () => {
           
           for (const [key, value] of orderedEntries) {
             if (value > 0) {
-              // Format the value exactly as it would appear in Excel, using points as decimal separators
+              // Formatla the Değer exactly olarak it would appear in Excel, using points olarak decimal separators
               let formattedValue = value;
               if (typeof value === 'number') {
                 formattedValue = value.toLocaleString('en-US', {
@@ -8827,7 +8827,7 @@ const GalvanizliTelNetsis = () => {
                 fire_orani: 0.0004, // Match Excel format
                 ua_dahil_edilsin: operasyonBilesen === 'O' ? 'E' : '',
                 son_operasyon: operasyonBilesen === 'O' ? 'E' : '',
-                // Match Excel format EXACTLY - VARCHAR=empty string, NUMERIC/INT=null
+                // Match Excel Formatla EXACTLY - VARCHAR=empty String, NUMERIC/INT=null
                 miktar_sabitle: '',
                 stok_maliyet: '',
                 fire_mik: null, // NUMERIC
@@ -9095,13 +9095,13 @@ const GalvanizliTelNetsis = () => {
 
   // Ölçü birimi alma fonksiyonu
   const getOlcuBr = (bilesen) => {
-    // For YM GT readonly component always show KG
+    // için YM GT readonly Bileşen always Göster KG
     if (bilesen === 'readonly') return 'KG';
 
-    // For process codes with 01 suffix, typically times (operations = dakika/minutes)
+    // için İşlem codes ile 01 suffix, typically times (operations = dakika/minutes)
     if (bilesen === 'GTPKT01' || bilesen === 'TLC01' || bilesen === 'COTLC01' || bilesen === 'GLV01') return 'DK';
 
-    // All other cases return KG for material weight
+    // All other cases return KG için Malzeme Ağırlık
     if (bilesen.includes('03') || bilesen.includes('ASİT')) return 'KG';
     if (bilesen.includes('KARTON') || bilesen.includes('HALKA') || bilesen.includes('TOKA') || bilesen.includes('DESİ')) return 'AD';
     if (bilesen.includes('CEMBER') || bilesen.includes('SHRİNK')) return 'KG';
@@ -9144,7 +9144,7 @@ const GalvanizliTelNetsis = () => {
 
     let explanation = '';
 
-    // Check if values are non-standard (not +0.05/-0.06 format)
+    // Kontrol et if values are non-standard (not +0.05/-0.06 Formatla)
     if ((actualPlusValue < 0 && actualMinusValue < 0) ||
         (actualPlusValue > 0 && actualMinusValue > 0) ||
         (Math.abs(actualPlusValue) !== 0.05 || Math.abs(actualMinusValue) !== 0.06)) {
@@ -9168,23 +9168,23 @@ const GalvanizliTelNetsis = () => {
     const plusValue = parseFloat(mmGtData.tolerans_plus) || 0;
     const minusValue = parseFloat(mmGtData.tolerans_minus) || 0;
 
-    // Apply signs to get the actual values
+    // Apply signs a Al the actual values
     const actualPlusValue = toleransMaxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
     const actualMinusValue = toleransMinSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
     
-    // Check if mathematical correction is needed
+    // Kontrol et if mathematical correction is needed
     let adjustedPlusValue = actualPlusValue;
     let adjustedMinusValue = actualMinusValue;
     let mathematicallySwapped = false;
 
-    // If plus value is smaller than minus value (mathematically incorrect), swap them
+    // If plus Değer is smaller than minus Değer (mathematically incorrect), swap them
     if (actualPlusValue < actualMinusValue) {
       adjustedPlusValue = actualMinusValue;
       adjustedMinusValue = actualPlusValue;
       mathematicallySwapped = true;
     }
 
-    // Return with proper formatting
+    // Return ile proper formatting
     return {
       adjustedPlus: adjustedPlusValue,
       adjustedMinus: adjustedMinusValue,
@@ -9205,7 +9205,7 @@ const GalvanizliTelNetsis = () => {
     // Values are already signed in database
     let explanation = '';
 
-    // Check if values are non-standard (not standard +0.05/-0.06 format)
+    // Kontrol et if values are non-standard (not standard +0.05/-0.06 Formatla)
     if ((plus < 0 && minus < 0) ||
         (plus > 0 && minus > 0) ||
         (Math.abs(plus) !== 0.05 || Math.abs(minus) !== 0.06)) {
@@ -9239,17 +9239,17 @@ const GalvanizliTelNetsis = () => {
   const getFilmasinKodu = (ymSt) => {
     if (!ymSt) return 'FLM.0600.1006';
     
-    // Get cap and determine appropriate filmasin type - each YM ST must use its own cap
+    // Al cap and determine appropriate filmasin Tip - each YM ST must use its own cap
     const cap = parseFloat(ymSt.cap) || 0;
     
-    // If ymSt has filmasin and quality defined, use those values
-    // If not, determine appropriate values based on cap
+    // If ymSt has filmasin and Kalite defined, use those values
+    // değilse, determine appropriate values based on cap
     let filmasin, quality;
     
-    // For diameters ≤ 2mm, use YM ST's own filmasin/quality if available, otherwise use defaults
+    // için diameters ≤ 2mm, use YM ST's own filmasin/Kalite if Mevcut, otherwise use defaults
     if (cap <= 2.00) {
       if (ymSt.filmasin && ymSt.quality) {
-        // Use YM ST's own filmasin and quality values
+        // Use YM ST's own filmasin and Kalite values
         filmasin = ymSt.filmasin.toString();
         quality = ymSt.quality;
       } else {
@@ -9257,12 +9257,12 @@ const GalvanizliTelNetsis = () => {
         filmasin = getFilmasinForCap(cap);
         quality = getQualityForCap(cap) || '1006';
         
-        // Update the YM ST object with the calculated values
+        // Güncelle the YM ST Nesne ile the calculated values
         ymSt.filmasin = parseInt(filmasin);
         ymSt.quality = quality;
       }
     } else if (ymSt.filmasin && ymSt.quality) {
-      // For diameters > 2mm, use existing values from ymSt if available
+      // için diameters > 2mm, use existing values den ymSt if Mevcut
       filmasin = ymSt.filmasin.toString();
       quality = ymSt.quality;
     } else {
@@ -9270,49 +9270,49 @@ const GalvanizliTelNetsis = () => {
       filmasin = getFilmasinForCap(cap);
       quality = getQualityForCap(cap) || '1006';
       
-      // IMPORTANT: Also update the ymSt object with the selected values
-      // This ensures dropdowns will be set to the correct values
+      // IMPORTANT: Also Güncelle the ymSt Nesne ile the selected values
+      // This ensures dropdowns will be Ayarla a the correct values
       if (ymSt.source === 'auto-generated' || ymSt.source === 'manual-added') {
-        // Only modify if it's our controlled object, not from the database
+        // Only Değiştir if it's our controlled Nesne, not den the database
         ymSt.filmasin = parseInt(filmasin);
         ymSt.quality = quality;
       }
     }
     
-    // 4 haneli format ile leading sifirlar
-    // Format: XXXX
+    // 4 haneli Formatla ile leading sifirlar
+    // Formatla: XXXX
     const filmasinNumber = parseInt(filmasin, 10);
     filmasin = filmasinNumber.toString().padStart(4, '0');
     
-    // DÜZELTME: Format kontrolü - Excel formatıyla tam uyumlu olmalı
+    // DÜZELTME: Formatla kontrolü - Excel formatıyla tam uyumlu olmalı
     const filmasinCode = `FLM.${filmasin}.${quality}`;
     
-    // Doğru format kontrolü: FLM.XXXX.XXXX (örn. FLM.0550.1006)
+    // Doğru Formatla kontrolü: FLM.XXXX.XXXX (örn. FLM.0550.1006)
     const validFormat = /^FLM\.\d{4}\.\d{4}$/.test(filmasinCode);
     
     if (!validFormat) {
       console.warn(`UYARI: Oluşturulan FLM kodu hatalı formatta: ${filmasinCode}, format düzeltilmeli`);
     }
     
-    // Return formatted code in the correct format: FLM.0800.1010
+    // Return formatted code in the correct Formatla: FLM.0800.1010
     return filmasinCode;
   };
 
   
-  // Function to fetch TLC_Hizlar data from the database
+  // Function a Getir TLC_Hizlar Veri den the database
   const fetchTlcHizlarData = async () => {
     try {
       setTlcHizlarLoading(true);
       console.log('Fetching TLC Hızlar data from database...');
       
-      // Check if API endpoint exists - should point to gal_cost_cal_user_tlc_hizlar
+      // Kontrol et if API Endpoint exists - should point a gal_cost_cal_user_tlc_hizlar
       if (!API_URLS.galTlcHizlar) {
         console.warn('galTlcHizlar API endpoint is not defined, using fallback data');
         setTlcHizlarLoading(false);
         return;
       }
       
-      // Try first with CORS proxy (works better with vercel deployments)
+      // Dene first ile CORS proxy (works better ile vercel deployments)
       try {
         console.log('Trying to fetch TLC_Hizlar data using CORS proxy...');
         const proxyResponse = await fetchWithCorsProxy(API_URLS.galTlcHizlar, {
@@ -9323,20 +9323,20 @@ const GalvanizliTelNetsis = () => {
         if (proxyResponse && proxyResponse.ok) {
           const data = await proxyResponse.json();
           
-          // Create a lookup table for DÜŞEYARA function
+          // Oluştur a lookup table için DÜŞEYARA function
           const lookupMap = {};
           if (Array.isArray(data)) {
             data.forEach(item => {
-              // Ensure consistent formatting for lookup keys
+              // Ensure consistent formatting için lookup keys
               const giris = parseFloat(item.giris_capi).toFixed(2);
               const cikis = parseFloat(item.cikis_capi).toFixed(2);
               const kod = `${giris}x${cikis}`;
               
-              // Make sure we have a valid numeric value
+              // Make sure we have a Geçerli numeric Değer
               const hiz = parseFloat(item.calisma_hizi);
               if (!isNaN(hiz) && hiz > 0) {
                 lookupMap[kod] = hiz;
-                // Also add a version without trailing zeros for more flexible matching
+                // Also Ekle a version without trailing zeros için more flexible matching
                 const cleanGiris = parseFloat(giris);
                 const cleanCikis = parseFloat(cikis);
                 const cleanKod = `${cleanGiris}x${cleanCikis}`;
@@ -9346,7 +9346,7 @@ const GalvanizliTelNetsis = () => {
               }
             });
             
-            // Add debug output for a few sample values
+            // Ekle debug output için a few sample values
             const sampleKeys = Object.keys(lookupMap).slice(0, 5);
             console.log(`Sample TLC_Hizlar values:`, sampleKeys.map(k => `${k}: ${lookupMap[k]}`));
             
@@ -9359,7 +9359,7 @@ const GalvanizliTelNetsis = () => {
         console.warn('CORS proxy fetch failed, trying direct methods:', proxyError);
       }
       
-      // Try with standard fetch as second option
+      // Dene ile standard Getir olarak second option
       try {
         console.log('Trying to fetch TLC_Hizlar data using standard fetch...');
         const directResponse = await fetch(API_URLS.galTlcHizlar, {
@@ -9371,7 +9371,7 @@ const GalvanizliTelNetsis = () => {
         if (directResponse && directResponse.ok) {
           const data = await directResponse.json();
           
-          // Create a lookup table for DÜŞEYARA function
+          // Oluştur a lookup table için DÜŞEYARA function
           const lookupMap = {};
           if (Array.isArray(data)) {
             data.forEach(item => {
@@ -9388,14 +9388,14 @@ const GalvanizliTelNetsis = () => {
         console.warn('Direct fetch failed, trying fetchWithAuth:', directFetchError);
       }
       
-      // If all previous attempts failed, try with fetchWithAuth
+      // If all previous attempts Başarısız, Dene ile fetchWithAuth
       try {
         console.log('Trying to fetch TLC_Hizlar data using fetchWithAuth...');
         const response = await fetchWithAuth(API_URLS.galTlcHizlar);
         if (response && response.ok) {
           const data = await response.json();
           
-          // Create a lookup table for DÜŞEYARA function
+          // Oluştur a lookup table için DÜŞEYARA function
           const lookupMap = {};
           if (Array.isArray(data)) {
             data.forEach(item => {
@@ -9421,9 +9421,9 @@ const GalvanizliTelNetsis = () => {
     }
   };
   
-  // Initialize fallback data in case API fails
+  // Başlat fallback Veri in case API fails
   const initializeFallbackData = () => {
-    // Static fallback data for most common sizes
+    // Static fallback Veri için most common sizes
     const fallbackData = {
       "7x5": 10.5,
       "7x5.5": 11,
@@ -9442,13 +9442,13 @@ const GalvanizliTelNetsis = () => {
     setTlcHizlarCache(fallbackData);
   };
   
-  // No fallback data - using only database table
+  // No fallback Veri - using only database table
 
-  // DÜŞEYARA (VLOOKUP) function implementation using only database data
+  // DÜŞEYARA (VLOOKUP) function implementation using only database Veri
   const duseyaraLookup = (lookupValue, rangeArray, columnIndex, exactMatch = true) => {
-    // Enhanced fallback values for common wire sizes - more comprehensive list
+    // Enhanced fallback values için common wire sizes - more comprehensive Liste
     const fallbackValues = {
-      // Format: "HM_CapxCap": Calisma_Hizi (fallback speed value)
+      // Formatla: "HM_CapxCap": Calisma_Hizi (fallback speed Değer)
       // Common filmasin 5.5mm values
       "5.5x0.8": 20,    "5.5x0.9": 20,    "5.5x1": 20,     "5.5x1.1": 19,    "5.5x1.2": 19,
       "5.5x1.3": 19,    "5.5x1.4": 18,    "5.5x1.5": 18,   "5.5x1.6": 18,    "5.5x1.7": 17,
@@ -9475,17 +9475,17 @@ const GalvanizliTelNetsis = () => {
       "10x7": 10.5,     "10x7.5": 10,     "10x8": 10
     };
     
-    // Check if we have a fallback value for this exact combination
+    // Kontrol et if we have a fallback Değer için this exact combination
     if (fallbackValues[lookupValue]) {
       return fallbackValues[lookupValue];
     }
     
-    // Try to find nearby values in fallback table if no exact match
+    // Dene a Bul nearby values in fallback table if no exact match
     try {
-      // Parse lookupValue format "7x1.25" -> [7, 1.25]
+      // Parse et lookupValue Formatla "7x1.25" -> [7, 1.25]
       const [hmCap, cap] = lookupValue.split("x").map(Number);
       
-      // Find closest keys in the fallback values dictionary
+      // Bul closest keys in the fallback values dictionary
       const fallbackKeys = Object.keys(fallbackValues);
       const closestFallbackKeys = fallbackKeys.filter(key => {
         const [fbHmCap, fbCap] = key.split("x").map(Number);
@@ -9493,14 +9493,14 @@ const GalvanizliTelNetsis = () => {
       });
       
       if (closestFallbackKeys.length > 0) {
-        // Sort by closest cap value
+        // Sırala ile closest cap Değer
         closestFallbackKeys.sort((a, b) => {
           const [, aCapValue] = a.split("x").map(Number);
           const [, bCapValue] = b.split("x").map(Number);
           return Math.abs(aCapValue - cap) - Math.abs(bCapValue - cap);
         });
         
-        // Return the closest match from fallback values
+        // Return the closest match den fallback values
         const closestKey = closestFallbackKeys[0];
         return fallbackValues[closestKey];
       }
@@ -9508,25 +9508,25 @@ const GalvanizliTelNetsis = () => {
       console.warn(`Error parsing fallback lookup: ${e.message}`);
     }
     
-    // Check if we have database data in the cache
+    // Kontrol et if we have database Veri in the cache
     if (Object.keys(tlcHizlarCache).length > 0) {
-      // Database approach: direct lookup by code (format "7x1.25")
+      // Database approach: direct lookup ile code (Formatla "7x1.25")
       if (tlcHizlarCache[lookupValue]) {
         // We have an exact match in the database
         return tlcHizlarCache[lookupValue];
       }
       
-      // No exact match in DB, try to find closest match
+      // No exact match in DB, Dene a Bul closest match
       if (!exactMatch) {
         try {
-          // Parse lookupValue format "7x1.25" -> [7, 1.25]
+          // Parse et lookupValue Formatla "7x1.25" -> [7, 1.25]
           const [hmCap, cap] = lookupValue.split("x").map(Number);
           
-          // Find all keys that match the input HM cap (or very close)
+          // Bul all keys that match the Girdi HM cap (or very Kapat)
           const matchingHmCapKeys = Object.keys(tlcHizlarCache).filter(key => {
             try {
               const [keyHmCap] = key.split("x").map(Number);
-              // Allow for small rounding differences in HM cap (±0.05)
+              // Allow için small rounding differences in HM cap (±0.05)
               return Math.abs(keyHmCap - hmCap) <= 0.05;
             } catch (e) {
               console.warn(`Invalid key format: ${key}`);
@@ -9535,7 +9535,7 @@ const GalvanizliTelNetsis = () => {
           });
           
           if (matchingHmCapKeys.length > 0) {
-            // Sort by closest cap value
+            // Sırala ile closest cap Değer
             matchingHmCapKeys.sort((a, b) => {
               const [, aCapValue] = a.split("x").map(Number);
               const [, bCapValue] = b.split("x").map(Number);
@@ -9547,16 +9547,16 @@ const GalvanizliTelNetsis = () => {
             return tlcHizlarCache[bestMatch];
           }
           
-          // If we still don't have a match, try to find closest HM cap
+          // If we still don't have a match, Dene a Bul closest HM cap
           const allKeys = Object.keys(tlcHizlarCache);
           if (allKeys.length > 0) {
-            // Sort by closest overall match using weighted scoring
+            // Sırala ile closest overall match using weighted scoring
             allKeys.sort((a, b) => {
               try {
                 const [aHmCap, aCap] = a.split("x").map(Number);
                 const [bHmCap, bCap] = b.split("x").map(Number);
                 
-                // Weight HM cap differences more heavily (3x)
+                // Ağırlık HM cap differences more heavily (3x)
                 const aScore = Math.abs(aHmCap - hmCap) * 3 + Math.abs(aCap - cap);
                 const bScore = Math.abs(bHmCap - hmCap) * 3 + Math.abs(bCap - cap);
                 
@@ -9567,12 +9567,12 @@ const GalvanizliTelNetsis = () => {
               }
             });
             
-            // Return the closest overall match but only if reasonably close
+            // Return the closest overall match but only if reasonably Kapat
             const bestOverallMatch = allKeys[0];
             const [bestHmCap, bestCap] = bestOverallMatch.split("x").map(Number);
             const distanceScore = Math.abs(bestHmCap - hmCap) * 3 + Math.abs(bestCap - cap);
             
-            // If distance is too great, use a default value instead
+            // If distance is too great, use a default Değer instead
             if (distanceScore > 5) {
               return 10; // Default value for calisma_hizi when no good match
             }
@@ -9581,37 +9581,37 @@ const GalvanizliTelNetsis = () => {
           }
         } catch (error) {
           console.error('Error finding approximate match in DÜŞEYARA:', error);
-          // Return a reasonable default value in case of error
+          // Return a reasonable default Değer in case of Hata
           return 10;
         }
       }
     }
     
-    // If we couldn't find a match or have no data, use advanced estimation algorithm based on typical patterns
+    // If we couldn't Bul a match or have no Veri, use advanced estimation algorithm based on typical patterns
     
-    // For any lookup value with format "Wx1.25", use more sophisticated estimation
+    // için any lookup Değer ile Formatla "Wx1.25", use more sophisticated estimation
     try {
-      // Try to extract values from lookupValue (e.g., "7x1.25")
+      // Dene a extract values den lookupValue (e.g., "7x1.25")
       const [estHmCap, estCap] = lookupValue.split('x').map(Number);
       if (!isNaN(estHmCap) && !isNaN(estCap)) {
-        // Larger input diameters and smaller output diameters = faster speeds
+        // Larger Girdi diameters and smaller output diameters = faster speeds
         // This is a more nuanced heuristic based on the TLC_Hizlar patterns
         let baseSpeed;
         
-        // Base speed depends on filmasin diameter (higher = slower)
+        // Base speed depends on filmasin Çap (higher = slower)
         if (estHmCap <= 6) baseSpeed = 20;      // 5.5mm, 6mm are fastest
         else if (estHmCap <= 7) baseSpeed = 16; // 7mm is medium
         else if (estHmCap <= 8) baseSpeed = 13; // 8mm is slower
         else baseSpeed = 11;                    // 9mm, 10mm are slowest
         
-        // Adjust for output diameter (thinner = faster processing)
-        // Different adjustment scales based on filmasin diameter
+        // Adjust için output Çap (thinner = faster İşleniyor)
+        // Different adjustment scales based on filmasin Çap
         let capAdjustment; 
         if (estHmCap <= 6) {
-          // For 5.5mm and 6mm filmasin, speed drops faster with thicker outputs
+          // için 5.5mm and 6mm filmasin, speed drops faster ile thicker outputs
           capAdjustment = Math.max(0, (estCap - 1) * 1.5);
         } else {
-          // For thicker filmasin, speed drops more gradually
+          // için thicker filmasin, speed drops more gradually
           capAdjustment = Math.max(0, (estCap - 2) * 1);
         }
         
@@ -9627,13 +9627,13 @@ const GalvanizliTelNetsis = () => {
     return 10;
   };
   
-  // Calculate YuzeyAlani based on the formula
+  // Hesapla YuzeyAlani based on the formula
   const calculateYuzeyAlani = (cap) => {
     // YuzeyAlani: =1000*4000/PI()/'DIA (MM)'/'DIA (MM)'/7.85*'DIA (MM)'*PI()/1000
     return (1000 * 4000 / Math.PI / cap / cap / 7.85 * cap * Math.PI / 1000);
   };
   
-  // Calculate total surface area
+  // Hesapla total surface area
   const calculateTotalYuzeyAlani = () => {
     // toplam_yuzey_alani= uretim_kapasitesi_aylik *1000*4000/ ortalama_uretim_capi / ortalama_uretim_capi /3.14/7.85* ortalama_uretim_capi *3.14/1000
     const { uretim_kapasitesi_aylik, ortalama_uretim_capi } = userInputValues;
@@ -9642,7 +9642,7 @@ const GalvanizliTelNetsis = () => {
   
   // Calculate Durdurma Vinç (DV) based on Min Mukavemet
   const calculateDV = (minMukavemet) => {
-    // DV values with interpolation for intermediate mukavemet values
+    // DV values ile interpolation için intermediate mukavemet values
     const dvTable = [
       { mukavemet: 400, dv: 140 },
       { mukavemet: 500, dv: 160 },
@@ -9650,13 +9650,13 @@ const GalvanizliTelNetsis = () => {
       { mukavemet: 700, dv: 200 }
     ];
     
-    // Find exact match first
+    // Bul exact match first
     const exactMatch = dvTable.find(entry => entry.mukavemet === minMukavemet);
     if (exactMatch) {
       return exactMatch.dv;
     }
     
-    // Find closest values for interpolation
+    // Bul closest values için interpolation
     let lowerBound = null;
     let upperBound = null;
     
@@ -9676,7 +9676,7 @@ const GalvanizliTelNetsis = () => {
       return Math.round(interpolatedDV);
     }
     
-    // Use closest value if outside range
+    // Use closest Değer if outside range
     if (minMukavemet < 400) {
       return 140;
     } else {
@@ -9684,10 +9684,10 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Calculate tuketilenAsit
+  // Hesapla tuketilenAsit
   const calculateTuketilenAsit = () => {
     // tuketilenAsit: = toplam_tuketilen_asit / toplam_yuzey_alani
-    // Based on the formula from GalvanizliFormulas.txt
+    // Based on the formula den GalvanizliFormulas.txt
     const { toplam_tuketilen_asit } = userInputValues;
     const totalYuzeyAlani = calculateTotalYuzeyAlani();
     
@@ -9695,31 +9695,31 @@ const GalvanizliTelNetsis = () => {
       const calculatedValue = toplam_tuketilen_asit / totalYuzeyAlani;
       return calculatedValue;
     } else {
-      // Use default value from historical data if we can't calculate
+      // Use default Değer den historical Veri if we can't Hesapla
       return 0.0647625; // Default value if totalYuzeyAlani is zero
     }
   };
   
-  // Calculate TLC_Hiz based on HM_Cap and Cap values
+  // Hesapla TLC_Hiz based on HM_Cap and Cap values
   // TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
   const calculateTlcHiz = (hmCap, cap) => {
-    // Format inputs to ensure consistency
+    // Formatla inputs a ensure consistency
     const formattedHmCap = parseFloat(hmCap);
     const formattedCap = parseFloat(cap);
     
-    // Create lookup code in format: "7x1.25" with consistent formatting
-    // Try both precise and rounded formats for better matching
+    // Oluştur lookup code in Formatla: "7x1.25" ile consistent formatting
+    // Dene both precise and rounded formats için better matching
     const exactLookupCode = `${formattedHmCap}x${formattedCap}`;
     const roundedLookupCode = `${formattedHmCap.toFixed(2)}x${formattedCap.toFixed(2)}`;
     
     
-    // First try direct lookup in the cache
+    // First Dene direct lookup in the cache
     if (tlcHizlarCache[exactLookupCode]) {
       const exactMatch = tlcHizlarCache[exactLookupCode];
       
       // The formula in GalvanizliFormulas.txt is: TLC_Hiz= =DÜŞEYARA(BİRLEŞTİR(HM_Cap;"x"; Çap);'TLC_Hızlar'!C:F;4;YANLIŞ)*0.7
       // The last column in TLC_Hizlar.csv is "calismahizi" which is what we need
-      // We need to apply the 0.7 multiplier as specified in the formula
+      // We need a apply the 0.7 multiplier olarak specified in the formula
       return exactMatch * 0.7; 
     }
     
@@ -9728,19 +9728,19 @@ const GalvanizliTelNetsis = () => {
       return roundedMatch * 0.7; // Apply 0.7 multiplier as per formula
     }
     
-    // If no direct match, find closest matches and interpolate
+    // If no direct match, Bul closest matches and interpolate
     
-    // Find closest HM_Cap and Cap values in the cache
+    // Bul closest HM_Cap and Cap values in the cache
     const cacheKeys = Object.keys(tlcHizlarCache);
     let closestMatch = null;
     let minDistance = Infinity;
     
-    // Try to find closest match by calculating distance
+    // Dene a Bul closest match ile calculating distance
     cacheKeys.forEach(key => {
       const [keyHmCap, keyCap] = key.split('x').map(parseFloat);
       if (!isNaN(keyHmCap) && !isNaN(keyCap)) {
         // For COILER: Give more weight to hmCap (source diameter) differences
-        // This ensures different source diameters get different TLC_Hiz values
+        // This ensures different source diameters Al different TLC_Hiz values
         const distance = Math.abs(keyHmCap - formattedHmCap) * 0.7 + Math.abs(keyCap - formattedCap) * 0.3;
         if (distance < minDistance) {
           minDistance = distance;
@@ -9753,11 +9753,11 @@ const GalvanizliTelNetsis = () => {
       const interpolatedValue = tlcHizlarCache[closestMatch];
       console.log(`🔧 TLC_HIZ MATCH: ${formattedHmCap}x${formattedCap} → closest: ${closestMatch} → value: ${interpolatedValue * 0.7}`);
 
-      // Apply interpolation based on source diameter difference
+      // Apply interpolation based on source Çap difference
       const [matchHmCap] = closestMatch.split('x').map(parseFloat);
       const capRatio = formattedHmCap / matchHmCap;
 
-      // Adjust TLC_Hiz based on diameter ratio (larger source = slower speed)
+      // Adjust TLC_Hiz based on Çap ratio (larger source = slower speed)
       const adjustedValue = interpolatedValue / capRatio;
 
       return adjustedValue * 0.7;
@@ -9768,7 +9768,7 @@ const GalvanizliTelNetsis = () => {
     return fallbackValue * 0.7; 
   };
 
-  // Request selection handlers
+  // İstek selection handlers
   const handleSelectAllRequests = () => {
     const selectableRequests = getFilteredAndSortedRequests().filter(req => {
       const status = req.status?.toString().toLowerCase().trim();
@@ -9780,7 +9780,7 @@ const GalvanizliTelNetsis = () => {
       // Deselect all
       setSelectedRequestIds([]);
     } else {
-      // Select all selectable requests
+      // Seç all selectable requests
       setSelectedRequestIds(allIds);
     }
   };
@@ -9795,7 +9795,7 @@ const GalvanizliTelNetsis = () => {
     });
   };
 
-  // Handle bulk delete requests
+  // İşle bulk Sil requests
   const handleBulkDeleteRequests = async () => {
     if (selectedRequestIds.length === 0) {
       toast.warning('Lütfen silmek için en az bir talep seçin');
@@ -9826,7 +9826,7 @@ const GalvanizliTelNetsis = () => {
     try {
       setIsDeletingBulk(true);
       
-      // Delete selected requests
+      // Sil selected requests
       const deletePromises = selectedRequestIds.map(async (id) => {
         const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${id}`, {
           method: 'DELETE'
@@ -9849,7 +9849,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   
-  // Download Today's Approved Excel
+  // Download Bugün's Onaylandı Excel
   const downloadTodaysApprovedExcel = async () => {
     try {
       setIsExportingExcel(true);
@@ -9882,7 +9882,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
   
-  // Download Session Approved Excel
+  // Download Session Onaylandı Excel
   const downloadSessionApprovedExcel = async () => {
     try {
       setIsExportingExcel(true);
@@ -9917,9 +9917,9 @@ const GalvanizliTelNetsis = () => {
     }
   };
   
-  // Download Date Range Approved Excel
+  // Download Tarih Range Onaylandı Excel
 
-  // Export selected approved requests to Excel
+  // Export selected Onaylandı requests a Excel
   const exportSelectedToExcel = async () => {
     try {
       if (selectedRequestIds.length === 0) {
@@ -9938,13 +9938,13 @@ const GalvanizliTelNetsis = () => {
         return;
       }
       
-      // Debug: Log all stok_kodu values from selected requests
+      // Debug: Log all stok_kodu values den selected requests
       console.log('🔍 DEBUG: Selected requests stok_kodu values:');
       selectedRequests.forEach((req, index) => {
         console.log(`Request ${index + 1} (ID: ${req.id}): stok_kodu = "${req.stok_kodu}", status = "${req.status}", created_at = "${req.created_at}"`);
       });
       
-      // Check for duplicate stok_kodu values
+      // Kontrol et için duplicate stok_kodu values
       const stokKodular = selectedRequests.map(req => req.stok_kodu).filter(Boolean);
       const uniqueStokKodular = [...new Set(stokKodular)];
       
@@ -9967,7 +9967,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Export selected database products to Excel (similar to Talepler's exportSelectedToExcel)
+  // Export selected database products a Excel (similar a Talepler's exportSelectedToExcel)
   const exportSelectedDatabaseProductsToExcel = async () => {
     try {
       if (selectedDbItems.length === 0) {
@@ -9977,7 +9977,7 @@ const GalvanizliTelNetsis = () => {
 
       setIsExportingExcel(true);
 
-      // Get selected MM GT products only (we don't export YM ST directly, only through MM GT relationships)
+      // Al selected MM GT products only (we don't export YM ST directly, only through MM GT relationships)
       const selectedMmGtProducts = existingMmGts.filter(mmGt => selectedDbItems.includes(mmGt.id));
 
       if (selectedMmGtProducts.length === 0) {
@@ -9990,7 +9990,7 @@ const GalvanizliTelNetsis = () => {
         console.log(`Product ${index + 1} (ID: ${mmGt.id}): stok_kodu = "${mmGt.stok_kodu}", cap = "${mmGt.cap}"`);
       });
 
-      // Create pseudo-requests from selected MM GT products to reuse existing logic
+      // Oluştur pseudo-requests den selected MM GT products a reuse existing logic
       const pseudoRequests = selectedMmGtProducts.map(mmGt => ({
         id: mmGt.id,
         stok_kodu: mmGt.stok_kodu,
@@ -10010,7 +10010,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Bulk Excel generation - download entire database and process locally (similar to Çelik Hasır pattern)
+  // Bulk Excel generation - download entire database and İşlem locally (similar a Çelik Hasır pattern)
   const generateBulkExcelFromDatabase = useCallback(async () => {
     try {
       setIsExportingExcel(true);
@@ -10018,7 +10018,7 @@ const GalvanizliTelNetsis = () => {
 
       console.log('🚀 BULK EXCEL GT: Starting bulk database download using unified fetch approach...');
 
-      // 1. Get all product data first
+      // 1. Al all Ürün Veri first
       setExcelProgress({ current: 1, total: 6, operation: 'Ürün verileri alınıyor...', currentProduct: '' });
       
       const [mmgtResponse, ymgtResponse, ymstResponse] = await Promise.all([
@@ -10044,7 +10044,7 @@ const GalvanizliTelNetsis = () => {
 
       console.log(`🚀 BULK EXCEL GT: Found MM GT(${allMMGTProducts.length}), YM GT(${allYMGTProducts.length}), YM ST(${allYMSTProducts.length}) products`);
 
-      // 2. Fetch all recipe data
+      // 2. Getir all Reçete Veri
       setExcelProgress({ current: 2, total: 6, operation: 'Reçete verileri alınıyor...', currentProduct: '' });
       
       const [mmgtReceteResponse, ymgtReceteResponse, ymstReceteResponse] = await Promise.all([
@@ -10070,7 +10070,7 @@ const GalvanizliTelNetsis = () => {
 
       console.log(`🚀 BULK EXCEL GT: Found MM GT Recipes(${allMMGTRecetes.length}), YM GT Recipes(${allYMGTRecetes.length}), YM ST Recipes(${allYMSTRecetes.length})`);
 
-      // 3. Generate Excel files using the EXACT same format as existing - 2 Excel files with 3 sheets each
+      // 3. Generate Excel files using the EXACT same Formatla olarak existing - 2 Excel files ile 3 sheets each
       setExcelProgress({ current: 3, total: 6, operation: 'Excel dosyaları oluşturuluyor...', currentProduct: '' });
       
       if (allMMGTProducts.length === 0) {
@@ -10078,7 +10078,7 @@ const GalvanizliTelNetsis = () => {
         return;
       }
 
-      // Generate the 2 Excel files with 3 sheets each - exactly like existing format
+      // Generate the 2 Excel files ile 3 sheets each - exactly like existing Formatla
       await generateBulkExcelFiles(allMMGTProducts, allYMGTProducts, allYMSTProducts, allMMGTRecetes, allYMGTRecetes, allYMSTRecetes);
 
       setExcelProgress({ current: 6, total: 6, operation: 'Tamamlandı!', currentProduct: '' });
@@ -10093,7 +10093,7 @@ const GalvanizliTelNetsis = () => {
     }
   }, []);
 
-  // Helper function to generate Excel files from bulk data - EXACT same format as existing
+  // Helper function a generate Excel files den bulk Veri - EXACT same Formatla olarak existing
   const generateBulkExcelFiles = async (allMMGTProducts, allYMGTProducts, allYMSTProducts, allMMGTRecetes, allYMGTRecetes, allYMSTRecetes) => {
     
     // ===== 1. STOK KARTLARI EXCEL (3 sheets) =====
@@ -10104,27 +10104,27 @@ const GalvanizliTelNetsis = () => {
     const mmGtHeaders = getStokKartiHeaders();
     mmGtSheet.addRow(mmGtHeaders);
     
-    // Add all MM GT products
+    // Ekle all MM GT products
     allMMGTProducts.forEach(mmGt => {
       mmGtSheet.addRow(generateMmGtStokKartiDataForBatch(mmGt));
     });
     
-    // YM GT Sheet  
+    // YM GT Sheet
     const ymGtSheet = stokWorkbook.addWorksheet('YM GT');
     const ymGtHeaders = getYmGtHeaders();
     ymGtSheet.addRow(ymGtHeaders);
     
-    // Add all YM GT products
+    // Ekle all YM GT products
     allYMGTProducts.forEach(ymGt => {
       ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(ymGt));
     });
     
-    // YM ST Sheet - Show ALL products (including alternatives) with Matris column
+    // YM ST Sheet - Göster ALL products (including alternatives) ile Matris column
     const ymStSheet = stokWorkbook.addWorksheet('YM ST');
     const ymStHeadersWithPriority = [...getYmStHeaders(), 'Matris']; // Add Matris column for priority
     ymStSheet.addRow(ymStHeadersWithPriority);
 
-    // Add ALL YM ST products sorted by priority (0 first, then 1, 2, ...)
+    // Ekle ALL YM ST products sorted ile priority (0 first, then 1, 2, ...)
     const sortedYmStProducts = allYMSTProducts.sort((a, b) => {
       const priorityA = a.priority || 0;
       const priorityB = b.priority || 0;
@@ -10139,7 +10139,7 @@ const GalvanizliTelNetsis = () => {
       ymStSheet.addRow(rowData);
     });
     
-    // Save Stok Kartları Excel
+    // Kaydet Stok Kartları Excel
     const stokBuffer = await stokWorkbook.xlsx.writeBuffer();
     const stokTimestamp = new Date().toISOString().slice(0, 10);
     const stokFilename = `Toplu_Stok_Kartlari_${stokTimestamp}.xlsx`;
@@ -10156,7 +10156,7 @@ const GalvanizliTelNetsis = () => {
     const receteHeaders = getReceteHeaders();
     mmGtReceteSheet.addRow(receteHeaders);
     
-    // Group MM GT recipes by mamul_kodu for proper sequencing
+    // Group MM GT recipes ile mamul_kodu için proper sequencing
     const mmGtByProduct = {};
     allMMGTRecetes.forEach(recipe => {
       if (!mmGtByProduct[recipe.mamul_kodu]) {
@@ -10165,16 +10165,16 @@ const GalvanizliTelNetsis = () => {
       mmGtByProduct[recipe.mamul_kodu].push(recipe);
     });
     
-    // Add MM GT recipes with proper sequencing per product
+    // Ekle MM GT recipes ile proper sequencing per Ürün
     const sortedMmGtStokCodes = Object.keys(mmGtByProduct).sort();
     sortedMmGtStokCodes.forEach(stokKodu => {
       if (mmGtByProduct[stokKodu] && mmGtByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         mmGtByProduct[stokKodu].forEach(recipe => {
-          // FIX: Update YM.GT bilesen codes to match MM GT sequence (same logic as batch Excel)
+          // FIX: Güncelle YM.GT bilesen codes a match MM GT sequence (same logic olarak batch Excel)
           let updatedBilesenKodu = recipe.bilesen_kodu;
           if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('YM.GT.')) {
-            // Get sequence from MM GT stok kodu
+            // Al sequence den MM GT stok kodu
             const mmGtSequence = stokKodu.split('.').pop() || '00';
             // Replace sequence in YM.GT bilesen kodu
             const bilesenParts = recipe.bilesen_kodu.split('.');
@@ -10184,7 +10184,7 @@ const GalvanizliTelNetsis = () => {
             }
           }
 
-          // Update bilesen_kodu in recipe object for this call
+          // Güncelle bilesen_kodu in Reçete Nesne için this call
           const updatedRecipe = { ...recipe, bilesen_kodu: updatedBilesenKodu };
           mmGtReceteSheet.addRow(generateMmGtReceteRowForBatch(updatedRecipe, productSiraNo, recipe.mamul_kodu, '0'));
           productSiraNo++;
@@ -10196,7 +10196,7 @@ const GalvanizliTelNetsis = () => {
     const ymGtReceteSheet = receteWorkbook.addWorksheet('YM GT REÇETE');
     ymGtReceteSheet.addRow(receteHeaders);
     
-    // Group YM GT recipes by mamul_kodu for proper sequencing
+    // Group YM GT recipes ile mamul_kodu için proper sequencing
     const ymGtByProduct = {};
     allYMGTRecetes.forEach(recipe => {
       if (!ymGtByProduct[recipe.mamul_kodu]) {
@@ -10205,20 +10205,20 @@ const GalvanizliTelNetsis = () => {
       ymGtByProduct[recipe.mamul_kodu].push(recipe);
     });
 
-    // Sort recipes within each product by sira_no field from database
+    // Sırala recipes within each Ürün ile sira_no Alan den database
     Object.keys(ymGtByProduct).forEach(productCode => {
       ymGtByProduct[productCode].sort((a, b) => {
         return (a.sira_no || 0) - (b.sira_no || 0);
       });
     });
 
-    // Add YM GT recipes with proper sequencing per product
+    // Ekle YM GT recipes ile proper sequencing per Ürün
     const sortedYmGtStokCodes = Object.keys(ymGtByProduct).sort();
     sortedYmGtStokCodes.forEach(stokKodu => {
       if (ymGtByProduct[stokKodu] && ymGtByProduct[stokKodu].length > 0) {
         let productSiraNo = 1;
         ymGtByProduct[stokKodu].forEach(recipe => {
-          // Use the actual miktar value from database - component code fix happens inside generateYmGtReceteRowForBatch
+          // Use the actual miktar Değer den database - Bileşen code fix happens inside generateYmGtReceteRowForBatch
           ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, '0'));
           productSiraNo++;
         });
@@ -10226,7 +10226,7 @@ const GalvanizliTelNetsis = () => {
     });
 
     // YM GT REÇETE ALT Sheets - OPTION 2: Coiler (1.5-1.8mm → .ST) + Matrix Priority Alternatives
-    // Step 1: Build YM ST priority mapping from database
+    // Step 1: Build YM ST priority mapping den database
     const ymStPriorityMap = {}; // {diameter: [{stok_kodu, quality, priority, filmasin}]}
 
     console.log('📋 BATCH: Fetching all YM ST products for priority mapping...');
@@ -10234,10 +10234,10 @@ const GalvanizliTelNetsis = () => {
     if (allYmStForPriorityResponse && allYmStForPriorityResponse.ok) {
       const allYmStsForPriority = await allYmStForPriorityResponse.json();
 
-      // Build priority map grouped by target diameter ONLY (not quality!)
-      // Alternatives can have different qualities than the main product
+      // Build priority Map et grouped ile target Çap ONLY (not Kalite!)
+      // Alternatives can have different qualities than the main Ürün
       allYmStsForPriority.forEach(ymSt => {
-        // Extract cap from stok_kodu (e.g., YM.ST.0390 → 3.90mm)
+        // Extract cap den stok_kodu (e.g., YM.ST.0390 → 3.90mm)
         const stokKoduMatch = ymSt.stok_kodu.match(/YM\.ST\.(\d{4})/);
         if (!stokKoduMatch) return;
 
@@ -10245,7 +10245,7 @@ const GalvanizliTelNetsis = () => {
         const quality = ymSt.kod_3 || ymSt.quality; // Use kod_3 if quality field is empty
         const priority = ymSt.priority || 0;
 
-        // Extract filmasin from stok_kodu if available
+        // Extract filmasin den stok_kodu if Mevcut
         const filmasinMatch = ymSt.stok_kodu.match(/YM\.ST\.\d{4}\.(\d{4})\./);
         const filmasin = filmasinMatch ? parseInt(filmasinMatch[1], 10) / 100 : 0;
 
@@ -10262,7 +10262,7 @@ const GalvanizliTelNetsis = () => {
 
       console.log(`✅ BATCH: Built YM ST priority map with ${Object.keys(ymStPriorityMap).length} diameter groups`);
 
-      // Debug: Show some priority map entries
+      // Debug: Göster some priority Map et entries
       const sampleDiameters = Object.keys(ymStPriorityMap).sort((a, b) => a - b).slice(0, 5);
       sampleDiameters.forEach(cap => {
         const entries = ymStPriorityMap[cap].sort((a, b) => a.priority - b.priority);
@@ -10295,7 +10295,7 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // Collect all recipes for coiler products
+    // Collect all recipes için coiler products
     allYMGTRecetes.forEach(recipe => {
       if (coilerProducts.has(recipe.mamul_kodu)) {
         coilerProducts.get(recipe.mamul_kodu).recipes.push(recipe);
@@ -10304,7 +10304,7 @@ const GalvanizliTelNetsis = () => {
 
     console.log(`📋 BATCH: Found ${coilerProducts.size} COILER products (1.5-1.8mm)`);
 
-    // Step 3: Generate MATRIX priority alternatives for ALL YM GT products
+    // Step 3: Generate MATRIX priority alternatives için ALL YM GT products
     const ymGtAltRecipesByPriority = {}; // {priority: {mamul_kodu: {recipes, isCoiler}}}
 
     Object.keys(ymGtByProduct).forEach(mamulKodu => {
@@ -10326,10 +10326,10 @@ const GalvanizliTelNetsis = () => {
         return;
       }
 
-      // For each priority level (1, 2, ...), find the alternative with that priority
-      // NOTE: Alternatives can have DIFFERENT qualities than the main product!
+      // için each priority level (1, 2, ...), Bul the alternative ile that priority
+      // NOTE: Alternatives can have DIFFERENT qualities than the main Ürün!
       [1, 2].forEach(targetPriority => {
-        // Find the alternative with this priority for this diameter
+        // Bul the alternative ile this priority için this Çap
         const altOption = alternativesForDiameter.find(opt => opt.priority === targetPriority);
         if (!altOption) return; // No alternative at this priority level
 
@@ -10362,7 +10362,7 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // Step 4: Add COILER products to ALT 1
+    // Step 4: Ekle COILER products a ALT 1
     if (!ymGtAltRecipesByPriority[1]) {
       ymGtAltRecipesByPriority[1] = {};
     }
@@ -10388,7 +10388,7 @@ const GalvanizliTelNetsis = () => {
 
     console.log(`📋 BATCH: Coiler products replaced ${coilerReplacedMatrix} matrix priority 1 products`);
 
-    // Step 5: Create ALT sheets for each priority
+    // Step 5: Oluştur ALT sheets için each priority
     const foundPriorities = Object.keys(ymGtAltRecipesByPriority)
       .map(p => parseInt(p))
       .sort((a, b) => a - b);
@@ -10426,7 +10426,7 @@ const GalvanizliTelNetsis = () => {
         recipes.forEach(recipe => {
           const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(recipe, productSiraNo, recipe.mamul_kodu, priority, alternativeDescription));
 
-          // Color COILER products with light cream
+          // Color COILER products ile light cream
           if (isCoiler) {
             row.eachCell((cell) => {
               cell.fill = {
@@ -10448,10 +10448,10 @@ const GalvanizliTelNetsis = () => {
     const ymStReceteSheet = receteWorkbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
-    // Group YM ST recipes by mamul_kodu for proper sequencing
+    // Group YM ST recipes ile mamul_kodu için proper sequencing
     const ymStByProduct = {};
-    // NOTE: Include ALL YM ST recipes regardless of priority field
-    // The priority field indicates which YM GT recipe (main/alt1/alt2) uses this YM ST
+    // NOTE: Include ALL YM ST recipes regardless of priority Alan
+    // The priority Alan indicates which YM GT Reçete (main/alt1/alt2) uses this YM ST
     // All YM ST products should appear in the main YM ST REÇETE sheet
     allYMSTRecetes.forEach(recipe => {
       if (!ymStByProduct[recipe.mamul_kodu]) {
@@ -10460,15 +10460,15 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[recipe.mamul_kodu].push(recipe);
     });
 
-    // FIXED: Sort recipes within each product by sequence field from database
-    // Sequence field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
+    // FIXED: Sırala recipes within each Ürün ile sequence Alan den database
+    // Sequence Alan determines Sipariş: 1=main bilesen, 2=operation, 3+=other bilesens
     Object.keys(ymStByProduct).forEach(productCode => {
       ymStByProduct[productCode].sort((a, b) => {
         return (a.sira_no || 0) - (b.sira_no || 0);
       });
     });
 
-    // Add main YM ST recipes (priority 0)
+    // Ekle main YM ST recipes (priority 0)
     const sortedYmStStokCodes = Object.keys(ymStByProduct).sort();
     sortedYmStStokCodes.forEach(stokKodu => {
       if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
@@ -10486,7 +10486,7 @@ const GalvanizliTelNetsis = () => {
     const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
     console.log(`📋 TÜM ÜRÜNLER: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
-    // 🆕 Create YM ST REÇETE ALT 1-8 sheets dynamically based on available alternatives
+    // 🆕 Oluştur YM ST REÇETE ALT 1-8 sheets dynamically based on Mevcut alternatives
     altPriorities.forEach(priority => {
       const altRecipes = coilerAlternatives[priority];
       if (!altRecipes || altRecipes.length === 0) return;
@@ -10494,7 +10494,7 @@ const GalvanizliTelNetsis = () => {
       const altSheet = receteWorkbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
       altSheet.addRow(receteHeaders);
 
-      // Group recipes by product
+      // Group recipes ile Ürün
       const ymStAltByProduct = {};
       altRecipes.forEach(recipe => {
         if (!ymStAltByProduct[recipe.mamul_kodu]) {
@@ -10503,7 +10503,7 @@ const GalvanizliTelNetsis = () => {
         ymStAltByProduct[recipe.mamul_kodu].push(recipe);
       });
 
-      // FIXED: Sort recipes within each product by bilesen_kodu type
+      // FIXED: Sırala recipes within each Ürün ile bilesen_kodu Tip
       // Main bilesen (YM.ST/FLM) should come before operations (COTLC01/TLC01)
       Object.keys(ymStAltByProduct).forEach(productCode => {
         ymStAltByProduct[productCode].sort((a, b) => {
@@ -10517,7 +10517,7 @@ const GalvanizliTelNetsis = () => {
         });
       });
 
-      // Add recipes sorted by product code
+      // Ekle recipes sorted ile Ürün code
       Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
         if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
           const recipes = ymStAltByProduct[stokKodu];
@@ -10537,7 +10537,7 @@ const GalvanizliTelNetsis = () => {
       console.log(`✅ TÜM ÜRÜNLER: Created YM ST REÇETE ALT ${priority} sheet with ${altRecipes.length} recipes`);
     });
     
-    // Save Reçete Excel
+    // Kaydet Reçete Excel
     const receteBuffer = await receteWorkbook.xlsx.writeBuffer();
     const receteTimestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
     const receteFilename = `Toplu_Recete_${receteTimestamp}.xlsx`;
@@ -10546,11 +10546,11 @@ const GalvanizliTelNetsis = () => {
     console.log(`✅ BULK EXCEL GT: Generated Recipe Excel with ${Object.keys(mmGtByProduct).length} MM GT products, ${Object.keys(ymGtByProduct).length} YM GT products, ${allYMSTRecetes.length} YM ST recipes`);
   };
 
-  // Generate Excel files from multiple requests (creates combined stok and recipe Excel files)
+  // Generate Excel files den multiple requests (creates combined stok and Reçete Excel files)
   const generateBatchExcelFromRequests = async (requestsList) => {
     console.log('📋 === BATCH EXCEL GENERATION STARTED ===');
     
-    // Input validation
+    // Girdi validation
     if (!requestsList || requestsList.length === 0) {
       console.error('No requests provided to generateBatchExcelFromRequests');
       throw new Error('Hiçbir talep bulunamadı');
@@ -10567,11 +10567,11 @@ const GalvanizliTelNetsis = () => {
       created_at: r.created_at?.substring(0, 10) || 'unknown'
     })));
     
-    // Initialize progress tracking
+    // Başlat progress tracking
     const totalSteps = requestsList.length + 3; // requests + 3 Excel files (stok, recipe, alternatif)
     setExcelProgress({ current: 0, total: totalSteps, operation: 'Excel hazırlanıyor...', currentProduct: '' });
 
-    // ✅ FIXED: Fetch ALL data upfront for priority-based logic (same as bulk function)
+    // ✅ FIXED: Getir ALL Veri upfront için priority-based logic (same olarak bulk function)
     console.log('📋 BATCH: Fetching all YM GT, YM ST, and recipe data for priority-based alternative matching...');
     const [ymGtResponse, ymStResponse, ymGtRecetesResponse, ymStRecetesResponse] = await Promise.all([
       fetchWithAuth(`${API_URLS.galYmGt}?limit=5000`),
@@ -10587,7 +10587,7 @@ const GalvanizliTelNetsis = () => {
 
     console.log(`📋 BATCH: Fetched YM GT(${ymGtData.length}), YM ST(${ymStData.length}), YM GT Recipes(${ymGtRecipeData.length}), YM ST Recipes(${ymStRecipeData.length})`);
 
-    // Collect all products from all requests (using Maps to avoid duplicates)
+    // Collect all products den all requests (using Maps a avoid duplicates)
     const mmGtMap = new Map(); // key: stok_kodu, value: MM GT data
     const ymGtMap = new Map(); // key: stok_kodu, value: YM GT data
     const ymStMap = new Map(); // key: stok_kodu, value: YM ST data (main only)
@@ -10614,19 +10614,19 @@ const GalvanizliTelNetsis = () => {
         
         console.log(`🔄 [${request.id}] Processing request with stok_kodu: "${request.stok_kodu}"`);
         
-        // Check if request has stok_kodu
+        // Kontrol et if İstek has stok_kodu
         if (!request.stok_kodu) {
           console.warn(`⚠️ [${request.id}] Request has no stok_kodu - skipping (old request without stok_kodu)`);
           continue;
         }
         
-        // Find MM GT by stok_kodu
+        // Bul MM GT ile stok_kodu
         console.log(`🔍 [${request.id}] Searching for MM GT with stok_kodu: "${request.stok_kodu}"`);
         
         totalApiCalls++;
         let mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
         
-        // If exact match fails due to parameter error, fetch all and filter client-side
+        // If exact match fails due a parameter Hata, Getir all and Filtrele client-side
         if (!mmGtResponse || !mmGtResponse.ok) {
           console.log(`🔍 [${request.id}] Exact match failed, fetching all MM GT and filtering client-side...`);
           const allMmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
@@ -10634,7 +10634,7 @@ const GalvanizliTelNetsis = () => {
             const allMmGtProducts = await allMmGtResponse.json();
             const filteredProducts = allMmGtProducts.filter(p => p.stok_kodu === request.stok_kodu);
             
-            // Create a mock response with filtered data
+            // Oluştur a mock Yanıt ile filtered Veri
             mmGtResponse = {
               ok: true,
               json: async () => filteredProducts
@@ -10650,7 +10650,7 @@ const GalvanizliTelNetsis = () => {
           
           console.log(`📋 [${request.id}] MM GT API response:`, mmGtProducts);
           
-          // The API returns an array even for single stok_kodu query
+          // The API returns an Dizi even için single stok_kodu Sorgu
           const mmGtArray = Array.isArray(mmGtProducts) ? mmGtProducts : [mmGtProducts];
           
           if (mmGtArray.length > 0) {
@@ -10668,13 +10668,13 @@ const GalvanizliTelNetsis = () => {
             continue;
           }
           
-          // Process only the specific MM GT for this request
+          // İşlem only the specific MM GT için this İstek
           for (const mmGt of mmGtArray) {
-            // Add MM GT
+            // Ekle MM GT
             console.log(`➕ [${request.id}] Adding MM GT to map: ${mmGt.stok_kodu} (ID: ${mmGt.id})`);
             mmGtMap.set(mmGt.stok_kodu, mmGt);
 
-            // STEP 1: Fetch MM GT recipes first to extract YM GT stok_kodu
+            // STEP 1: Getir MM GT recipes first a extract YM GT stok_kodu
             console.log(`📖 [${processedRequests}/${requestsList.length}] Fetching MM GT recipes for mm_gt_id=${mmGt.id} (stok_kodu: ${mmGt.stok_kodu})...`);
             const allRecipesResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?limit=10000`);
             let mmGtRecipes = [];
@@ -10683,7 +10683,7 @@ const GalvanizliTelNetsis = () => {
               const allRecipes = await allRecipesResponse.json();
               console.log(`📊 Total MM GT recipes fetched from API: ${allRecipes.length}`);
 
-              // Try ID matching first, then stok_kodu matching as fallback
+              // Dene ID matching first, then stok_kodu matching olarak fallback
               const recipesByIdFilter = allRecipes.filter(r => r.mm_gt_id == mmGt.id);
               const recipesByStokKodu = allRecipes.filter(r => r.mamul_kodu === mmGt.stok_kodu);
 
@@ -10697,7 +10697,7 @@ const GalvanizliTelNetsis = () => {
                 console.error(`❌ NO RECIPES found for MM GT ${mmGt.stok_kodu}`);
               }
 
-              // Store MM GT recipes in map
+              // Store MM GT recipes in Map et
               mmGtRecipes.forEach(r => {
                 let updatedBilesenKodu = r.bilesen_kodu;
                 if (r.bilesen_kodu && r.bilesen_kodu.includes('YM.GT.')) {
@@ -10719,7 +10719,7 @@ const GalvanizliTelNetsis = () => {
               });
             }
 
-            // STEP 2: Extract YM GT stok_kodu from MM GT recipes
+            // STEP 2: Extract YM GT stok_kodu den MM GT recipes
             const ymGtRecipe = mmGtRecipes.find(r =>
               (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
               r.bilesen_kodu &&
@@ -10728,7 +10728,7 @@ const GalvanizliTelNetsis = () => {
 
             let ymGtStokKodu = null;
             if (ymGtRecipe) {
-              // Extract and update YM GT stok_kodu with MM GT sequence
+              // Extract and Güncelle YM GT stok_kodu ile MM GT sequence
               const mmGtSequence = mmGt.stok_kodu?.split('.').pop() || '00';
               const bilesenParts = ymGtRecipe.bilesen_kodu.split('.');
               if (bilesenParts.length >= 5) {
@@ -10739,12 +10739,12 @@ const GalvanizliTelNetsis = () => {
               }
               console.log(`✅ Found YM GT stok_kodu from MM GT recipe: ${ymGtStokKodu}`);
             } else {
-              // Fallback: Construct YM GT stok_kodu from MM GT stok_kodu
+              // Fallback: Construct YM GT stok_kodu den MM GT stok_kodu
               ymGtStokKodu = mmGt.stok_kodu.replace('GT.', 'YM.GT.');
               console.log(`⚠️ No YM GT in recipes, using fallback: ${ymGtStokKodu}`);
             }
 
-            // STEP 3: Fetch YM GT by stok_kodu
+            // STEP 3: Getir YM GT ile stok_kodu
             if (ymGtStokKodu) {
               console.log(`📖 Fetching YM GT by stok_kodu: ${ymGtStokKodu}...`);
               const allYmGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
@@ -10757,7 +10757,7 @@ const GalvanizliTelNetsis = () => {
                   console.log(`✅ Found YM GT: ${ymGt.stok_kodu} (ID: ${ymGt.id})`);
                   ymGtMap.set(ymGt.stok_kodu, ymGt);
 
-                  // Fetch YM GT recipes
+                  // Getir YM GT recipes
                   console.log(`📖 Fetching YM GT recipes for ym_gt_id=${ymGt.id}...`);
                   const allYmGtRecipesResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
 
@@ -10777,7 +10777,7 @@ const GalvanizliTelNetsis = () => {
                       });
                     });
 
-                    // STEP 4: Extract main YM ST from YM GT recipes
+                    // STEP 4: Extract main YM ST den YM GT recipes
                     const mainYmStRecipe = ymGtRecipes.find(r =>
                       (r.operasyon_bilesen === 'B' || r.operasyon_bilesen === 'Bileşen') &&
                       r.bilesen_kodu &&
@@ -10787,7 +10787,7 @@ const GalvanizliTelNetsis = () => {
                     if (mainYmStRecipe) {
                       console.log(`✅ Found main YM ST stok_kodu from YM GT recipe: ${mainYmStRecipe.bilesen_kodu}`);
 
-                      // Fetch main YM ST
+                      // Getir main YM ST
                       const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=1000`);
                       if (allYmStResponse && allYmStResponse.ok) {
                         const allYmSt = await allYmStResponse.json();
@@ -10797,7 +10797,7 @@ const GalvanizliTelNetsis = () => {
                           console.log(`✅ Found main YM ST: ${ymSt.stok_kodu} (ID: ${ymSt.id})`);
                           ymStMap.set(ymSt.stok_kodu, ymSt);
 
-                          // Fetch main YM ST recipes
+                          // Getir main YM ST recipes
                           const allYmStRecipesResponse = await fetchWithAuth(`${API_URLS.galYmStRecete}?limit=2000`);
                           if (allYmStRecipesResponse && allYmStRecipesResponse.ok) {
                             const allYmStRecipes = await allYmStRecipesResponse.json();
@@ -10822,27 +10822,27 @@ const GalvanizliTelNetsis = () => {
               }
             }
 
-            // ✅ FIXED: STEP 5: Handle alternatives using PRIORITY column (not relationship table)
+            // ✅ FIXED: STEP 5: İşle alternatives using PRIORITY column (not relationship table)
             console.log(`📋 BATCH: Using priority-based method for MM GT ${mmGt.stok_kodu}`);
 
-            // Use YM GT that was already fetched and added to map (from line 10501)
-            // Don't rely on ymGtData array which might be empty due to API timeout
+            // Use YM GT that was already fetched and added a Map et (den line 10501)
+            // Don't rely on ymGtData Dizi which might be empty due a API timeout
             const ymGtForPriority = ymGtMap.get(ymGtStokKodu);
 
             if (ymGtForPriority) {
               console.log(`✅ BATCH: Found YM GT for priority check: ${ymGtForPriority.stok_kodu} (ID: ${ymGtForPriority.id})`);
               const ymGtIdForPriority = ymGtForPriority.id;
 
-              // Add YM GT to map (if not already added)
+              // Ekle YM GT a Map et (değilse already added)
               if (!ymGtMap.has(ymGtForPriority.stok_kodu)) {
                 ymGtMap.set(ymGtForPriority.stok_kodu, ymGtForPriority);
               }
 
-              // Get YM GT recipes (might already be in map from above)
+              // Al YM GT recipes (might already be in Map et den above)
               const ymGtRecipesForPriority = ymGtRecipeData.filter(r => r.ym_gt_id == ymGtIdForPriority);
               console.log(`📖 BATCH: Found ${ymGtRecipesForPriority.length} YM GT recipes for priority check`);
 
-              // Store recipes if not already stored
+              // Store recipes değilse already stored
               ymGtRecipesForPriority.forEach(r => {
                 const key = `${ymGtForPriority.stok_kodu}-${r.bilesen_kodu}`;
                 if (!ymGtRecipeMap.has(key)) {
@@ -10855,13 +10855,13 @@ const GalvanizliTelNetsis = () => {
                 }
               });
 
-              // ✅ FIXED: Find YM ST bilesen from YM GT recipe
+              // ✅ FIXED: Bul YM ST bilesen den YM GT Reçete
               const ymStRecipe = ymGtRecipesForPriority.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
               if (ymStRecipe) {
                 const mainYmStCode = ymStRecipe.bilesen_kodu;
                 console.log(`📋 BATCH: Main YM ST bilesen: ${mainYmStCode}`);
 
-                // Find main YM ST product (might already be in map from earlier code)
+                // Bul main YM ST Ürün (might already be in Map et den earlier code)
                 let mainYmSt = ymStMap.get(mainYmStCode);
                 if (!mainYmSt) {
                   mainYmSt = ymStData.find(ym => ym.stok_kodu === mainYmStCode);
@@ -10874,7 +10874,7 @@ const GalvanizliTelNetsis = () => {
                 }
 
                 if (mainYmSt) {
-                  // Add main YM ST recipes (if not already added)
+                  // Ekle main YM ST recipes (değilse already added)
                   const mainYmStRecipes = ymStRecipeData.filter(r => r.ym_st_id == mainYmSt.id);
                   mainYmStRecipes.forEach(r => {
                     const key = `${mainYmSt.stok_kodu}-${r.bilesen_kodu}`;
@@ -10886,7 +10886,7 @@ const GalvanizliTelNetsis = () => {
                     }
                   });
 
-                  // ✅ FIXED: Find alternatives using PRIORITY column
+                  // ✅ FIXED: Bul alternatives using PRIORITY column
                   let targetDiameter = null;
                   const stMatch = mainYmStCode.match(/YM\.ST\.(\d{4})/);
                   if (stMatch) {
@@ -10896,7 +10896,7 @@ const GalvanizliTelNetsis = () => {
                   if (targetDiameter) {
                     console.log(`📋 BATCH: Searching for alternatives for diameter ${targetDiameter/100}mm`);
 
-                    // Find all YM ST with same diameter and priority > 0
+                    // Bul all YM ST ile same Çap and priority > 0
                     const alternatives = ymStData.filter(ym => {
                       const ymMatch = ym.stok_kodu.match(/YM\.ST\.(\d{4})/);
                       if (!ymMatch) return false;
@@ -10909,11 +10909,11 @@ const GalvanizliTelNetsis = () => {
 
                     console.log(`📋 BATCH: Found ${alternatives.length} alternatives using priority column`);
 
-                    // Group alternatives by priority
+                    // Group alternatives ile priority
                     alternatives.forEach(ymSt => {
                       const priority = ymSt.priority || 1;
 
-                      // Initialize maps for this priority if needed
+                      // Başlat maps için this priority if needed
                       if (!ymStAltMaps[priority]) {
                         ymStAltMaps[priority] = new Map();
                       }
@@ -10924,7 +10924,7 @@ const GalvanizliTelNetsis = () => {
                       console.log(`📦 BATCH: Adding YM ST to ALT ${priority}: ${ymSt.stok_kodu}`);
                       ymStAltMaps[priority].set(ymSt.stok_kodu, ymSt);
 
-                      // Add alternative YM ST recipes
+                      // Ekle alternative YM ST recipes
                       const altRecipes = ymStRecipeData.filter(r => r.ym_st_id == ymSt.id);
                       altRecipes.forEach(r => {
                         const key = `${ymSt.stok_kodu}-${r.bilesen_kodu}`;
@@ -10962,7 +10962,7 @@ const GalvanizliTelNetsis = () => {
     // API call statistics
     console.log('📊 === API CALL STATISTICS ===');
 
-    // Convert Maps to arrays for Excel generation
+    // Çevir Maps a arrays için Excel generation
     console.log('🗂️ === FINAL MAP CONTENTS ===');
     console.log(`MM GT Map keys: [${Array.from(mmGtMap.keys()).join(', ')}]`);
     console.log(`YM GT Map keys: [${Array.from(ymGtMap.keys()).join(', ')}]`);
@@ -10977,7 +10977,7 @@ const GalvanizliTelNetsis = () => {
     const allYmGtData = Array.from(ymGtMap.values());
     const allYmStData = Array.from(ymStMap.values());
 
-    // Convert alternative maps to arrays dynamically
+    // Çevir alternative maps a arrays dynamically
     const allYmStAltData = {}; // { 1: array, 2: array, 3: array, ... }
     Object.keys(ymStAltMaps).forEach(seqIndex => {
       allYmStAltData[seqIndex] = Array.from(ymStAltMaps[seqIndex].values());
@@ -10987,7 +10987,7 @@ const GalvanizliTelNetsis = () => {
     const allYmGtRecipes = Array.from(ymGtRecipeMap.values());
     const allYmStRecipes = Array.from(ymStRecipeMap.values());
 
-    // Convert alternative recipe maps to arrays dynamically
+    // Çevir alternative Reçete maps a arrays dynamically
     const allYmStAltRecipes = {}; // { 1: array, 2: array, 3: array, ... }
     Object.keys(ymStAltRecipeMaps).forEach(seqIndex => {
       allYmStAltRecipes[seqIndex] = Array.from(ymStAltRecipeMaps[seqIndex].values());
@@ -11007,43 +11007,43 @@ const GalvanizliTelNetsis = () => {
       console.log(`YM ST Recipes (ALT ${seqIndex}): ${(allYmStAltRecipes[seqIndex] || []).length}`);
     });
     
-    // Sort all products by diameter (cap) in ascending order (low to high)
+    // Sırala all products ile Çap (cap) in ascending Sipariş (low a high)
     console.log('🔢 Sorting products by diameter (Çap) - ascending order...');
     
     const sortedMmGtData = allMmGtData.sort((a, b) => {
       const capA = parseFloat(a.cap) || 0;
       const capB = parseFloat(b.cap) || 0;
-      // First sort by cap (diameter)
+      // First Sırala ile cap (Çap)
       if (capA !== capB) {
         return capA - capB; // Ascending: smaller diameters first
       }
-      // If caps are equal, sort by stok_kodu to ensure sequence order
+      // If caps are equal, Sırala ile stok_kodu a ensure sequence Sipariş
       return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
     
     const sortedYmGtData = allYmGtData.sort((a, b) => {
       const capA = parseFloat(a.cap) || 0;
       const capB = parseFloat(b.cap) || 0;
-      // First sort by cap (diameter)
+      // First Sırala ile cap (Çap)
       if (capA !== capB) {
         return capA - capB; // Ascending: smaller diameters first
       }
-      // If caps are equal, sort by stok_kodu to ensure sequence order
+      // If caps are equal, Sırala ile stok_kodu a ensure sequence Sipariş
       return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
     
     const sortedYmStData = allYmStData.sort((a, b) => {
       const capA = parseFloat(a.cap) || 0;
       const capB = parseFloat(b.cap) || 0;
-      // First sort by cap (diameter)
+      // First Sırala ile cap (Çap)
       if (capA !== capB) {
         return capA - capB; // Ascending: smaller diameters first
       }
-      // If caps are equal, sort by stok_kodu to ensure sequence order
+      // If caps are equal, Sırala ile stok_kodu a ensure sequence Sipariş
       return (a.stok_kodu || '').localeCompare(b.stok_kodu || '');
     });
 
-    // Sort alternatives dynamically
+    // Sırala alternatives dynamically
     const sortedYmStAltData = {};
     Object.keys(allYmStAltData).forEach(seqIndex => {
       sortedYmStAltData[seqIndex] = allYmStAltData[seqIndex].sort((a, b) => {
@@ -11056,13 +11056,13 @@ const GalvanizliTelNetsis = () => {
       });
     });
 
-    // Recipe order will be determined by sorted product data in generateBatchReceteExcel
+    // Reçete Sipariş will be determined ile sorted Ürün Veri in generateBatchReceteExcel
     
     
-    // Final data collection summary (after sorting)
+    // Final Veri collection summary (after sorting)
     console.log('📊 === FINAL DATA COLLECTION SUMMARY (SORTED BY DIAMETER) ===');
     
-    // Detailed product information (sorted by diameter)
+    // Detailed Ürün information (sorted ile Çap)
     if (sortedMmGtData.length > 0) {
       console.log('📦 MM GT Products details (sorted by cap):', sortedMmGtData.map(m => ({ 
         stok_kodu: m.stok_kodu, 
@@ -11100,10 +11100,10 @@ const GalvanizliTelNetsis = () => {
     }
     
 
-    // Create two separate Excel files with EXACT same format as individual exports
+    // Oluştur two separate Excel files ile EXACT same Formatla olarak individual exports
     console.log('📄 Starting Stok Kartı Excel generation...');
 
-    // Calculate total alternative products for progress message
+    // Hesapla total alternative products için progress Mesaj
     const altCounts = Object.keys(sortedYmStAltData).map(idx => `ALT ${idx}: ${sortedYmStAltData[idx].length}`).join(', ');
 
     setExcelProgress({
@@ -11116,7 +11116,7 @@ const GalvanizliTelNetsis = () => {
 
     console.log('📄 Starting Reçete Excel generation...');
 
-    // Calculate total recipes (ALT recipes will be generated dynamically)
+    // Hesapla total recipes (ALT recipes will be generated dynamically)
     const totalRecipes = allMmGtRecipes.length + allYmGtRecipes.length + allYmStRecipes.length;
 
     setExcelProgress({
@@ -11136,7 +11136,7 @@ const GalvanizliTelNetsis = () => {
     });
   };
 
-  // Generate batch stock card Excel - EXACT same format as individual, just multiple rows
+  // Generate batch Stok card Excel - EXACT same Formatla olarak individual, just multiple rows
   const generateBatchStokKartiExcel = async (mmGtData, ymGtData, ymStData, ymStAltDataObj) => {
     console.log('📋 Batch Stok Kartı Excel - Input validation');
 
@@ -11146,25 +11146,25 @@ const GalvanizliTelNetsis = () => {
 
     const workbook = new ExcelJS.Workbook();
 
-    // MM GT Sheet - EXACT same structure as individual
+    // MM GT Sheet - EXACT same structure olarak individual
     const mmGtSheet = workbook.addWorksheet('MM GT');
     const mmGtHeaders = getStokKartiHeaders();
     mmGtSheet.addRow(mmGtHeaders);
 
-    // Add multiple MM GT rows (one per product)
+    // Ekle multiple MM GT rows (one per Ürün)
     for (const mmGt of mmGtData) {
-      // Create a batch-specific row with actual MM GT data
+      // Oluştur a batch-specific row ile actual MM GT Veri
       mmGtSheet.addRow(generateMmGtStokKartiDataForBatch(mmGt));
     }
 
-    // YM GT Sheet - EXACT same structure as individual
+    // YM GT Sheet - EXACT same structure olarak individual
     const ymGtSheet = workbook.addWorksheet('YM GT');
     const ymGtHeaders = getYmGtHeaders();
     ymGtSheet.addRow(ymGtHeaders);
 
-    // Add multiple YM GT rows (one per product)
+    // Ekle multiple YM GT rows (one per Ürün)
     for (const ymGt of ymGtData) {
-      // Create a batch-specific row with actual YM GT data
+      // Oluştur a batch-specific row ile actual YM GT Veri
       ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(ymGt));
     }
 
@@ -11173,7 +11173,7 @@ const GalvanizliTelNetsis = () => {
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
 
-    // Categorize all YM STs by priority (from ymStData and ymStAltDataObj)
+    // Categorize all YM STs ile priority (den ymStData and ymStAltDataObj)
     const allYmSts = [...ymStData];
     if (ymStAltDataObj) {
       Object.values(ymStAltDataObj).forEach(altArray => {
@@ -11183,7 +11183,7 @@ const GalvanizliTelNetsis = () => {
       });
     }
 
-    // Group by priority
+    // Group ile priority
     const ymStsByPriority = {};
     allYmSts.forEach(ymSt => {
       const priority = ymSt.priority !== undefined ? ymSt.priority : 0;
@@ -11193,19 +11193,19 @@ const GalvanizliTelNetsis = () => {
       ymStsByPriority[priority].push(ymSt);
     });
 
-    // Add YM STs dynamically for each priority
+    // Ekle YM STs dynamically için each priority
     const priorities = Object.keys(ymStsByPriority).map(Number).sort((a, b) => a - b);
 
     priorities.forEach(priority => {
       const ymSts = ymStsByPriority[priority];
 
       if (priority === 0) {
-        // Main products (priority 0) - add to main YM ST sheet
+        // Main products (priority 0) - Ekle a main YM ST sheet
         ymSts.forEach(ymSt => {
           ymStSheet.addRow(generateYmStStokKartiData(ymSt));
         });
       } else if (priority > 0) {
-        // ✅ FIXED: Alternative products (priority 1, 2, 3, ...) - Only create ALT sheets for priority >= 1
+        // ✅ FIXED: Alternative products (priority 1, 2, 3, ...) - Only Oluştur ALT sheets için priority >= 1
         if (ymSts.length > 0) {
           const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
           altSheet.addRow(ymStHeaders);
@@ -11223,18 +11223,18 @@ const GalvanizliTelNetsis = () => {
 
   };
 
-  // Generate batch recipe Excel - EXACT same format as individual, just multiple rows
+  // Generate batch Reçete Excel - EXACT same Formatla olarak individual, just multiple rows
   const generateBatchReceteExcel = async (mmGtRecipes, ymGtRecipes, ymStRecipes, sortedMmGtData, sortedYmGtData, sortedYmStData) => {
     console.log('📋 Batch Reçete Excel - Input validation');
     
     const workbook = new ExcelJS.Workbook();
     
-    // MM GT REÇETE Sheet - EXACT same structure as individual
+    // MM GT REÇETE Sheet - EXACT same structure olarak individual
     const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
     const receteHeaders = getReceteHeaders();
     mmGtReceteSheet.addRow(receteHeaders);
     
-    // FIXED: Add multiple MM GT recipe rows with per-product sequence numbering
+    // FIXED: Ekle multiple MM GT Reçete rows ile per-Ürün sequence numbering
     const mmGtByProduct = {};
     console.log(`📊 Total MM GT recipes to process: ${mmGtRecipes.length}`);
     mmGtRecipes.forEach(recipe => {
@@ -11245,7 +11245,7 @@ const GalvanizliTelNetsis = () => {
     });
     console.log(`📊 Recipes grouped into ${Object.keys(mmGtByProduct).length} products`);
     
-    // Get stok codes from sorted product data to maintain diameter order
+    // Al stok codes den sorted Ürün Veri a maintain Çap Sipariş
     const sortedMmGtStokCodes = sortedMmGtData.map(product => product.stok_kodu);
     console.log('🔍 DEBUG: Sorted MM GT product order by cap:', sortedMmGtData.map(p => ({ stok_kodu: p.stok_kodu, cap: p.cap })));
     console.log('🔍 DEBUG: Available MM GT recipe stok codes:', Object.keys(mmGtByProduct));
@@ -11264,11 +11264,11 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // YM GT REÇETE Sheet - EXACT same structure as individual
+    // YM GT REÇETE Sheet - EXACT same structure olarak individual
     const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
     ymGtReceteSheet.addRow(receteHeaders);
     
-    // FIXED: Add multiple YM GT recipe rows with per-product sequence numbering
+    // FIXED: Ekle multiple YM GT Reçete rows ile per-Ürün sequence numbering
     const ymGtByProduct = {};
     ymGtRecipes.forEach(recipe => {
       if (!ymGtByProduct[recipe.ym_gt_stok_kodu]) {
@@ -11277,32 +11277,32 @@ const GalvanizliTelNetsis = () => {
       ymGtByProduct[recipe.ym_gt_stok_kodu].push(recipe);
     });
 
-    // Sort recipes within each product by sira_no field from database
+    // Sırala recipes within each Ürün ile sira_no Alan den database
     Object.keys(ymGtByProduct).forEach(productCode => {
       ymGtByProduct[productCode].sort((a, b) => {
         return (a.sira_no || 0) - (b.sira_no || 0);
       });
     });
 
-    // Get stok codes from sorted product data to maintain diameter order
+    // Al stok codes den sorted Ürün Veri a maintain Çap Sipariş
     const sortedYmGtStokCodes = sortedYmGtData.map(product => product.stok_kodu);
     
     sortedYmGtStokCodes.forEach(stokKodu => {
       if (ymGtByProduct[stokKodu] && ymGtByProduct[stokKodu].length > 0) {
         let productSiraNo = 1; // Restart sequence for each product
         
-        // Find the Çinko (150 03) recipe for this product to calculate YM.ST miktar
+        // Bul the Çinko (150 03) Reçete için this Ürün a Hesapla YM.ST miktar
         const zincRecipe = ymGtByProduct[stokKodu].find(r => r.bilesen_kodu === '150' || r.bilesen_kodu === '150 03');
         
         ymGtByProduct[stokKodu].forEach(recipe => {
           let finalMiktar = recipe.miktar;
           
-          // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+          // için YM.ST entries, Hesapla the Değer olarak "1 - Çinko Tüketim Miktarı"
           if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('YM.ST.') && zincRecipe) {
             finalMiktar = 1 - parseFloat(zincRecipe.miktar);
           }
 
-          // Update recipe miktar for this call
+          // Güncelle Reçete miktar için this call
           const updatedRecipe = { ...recipe, miktar: finalMiktar };
           ymGtReceteSheet.addRow(generateYmGtReceteRowForBatch(updatedRecipe, productSiraNo, recipe.ym_gt_stok_kodu, '0'));
           productSiraNo++;
@@ -11311,7 +11311,7 @@ const GalvanizliTelNetsis = () => {
     });
 
     // YM GT REÇETE ALT Sheets - COMPLETE: Coiler (1.5-1.8mm → .ST) + Matrix Priority Alternatives
-    // Step 1: Build YM ST priority mapping from database
+    // Step 1: Build YM ST priority mapping den database
     const ymStPriorityMap = {}; // {diameter: [{stok_kodu, quality, priority, filmasin}]}
 
     console.log('📋 BATCH RECETE: Fetching all YM ST products for priority mapping...');
@@ -11319,10 +11319,10 @@ const GalvanizliTelNetsis = () => {
     if (allYmStForPriorityResponse && allYmStForPriorityResponse.ok) {
       const allYmStsForPriority = await allYmStForPriorityResponse.json();
 
-      // Build priority map grouped by target diameter ONLY (not quality!)
-      // Alternatives can have different qualities than the main product
+      // Build priority Map et grouped ile target Çap ONLY (not Kalite!)
+      // Alternatives can have different qualities than the main Ürün
       allYmStsForPriority.forEach(ymSt => {
-        // Extract cap from stok_kodu (e.g., YM.ST.0390 → 3.90mm)
+        // Extract cap den stok_kodu (e.g., YM.ST.0390 → 3.90mm)
         const stokKoduMatch = ymSt.stok_kodu.match(/YM\.ST\.(\d{4})/);
         if (!stokKoduMatch) return;
 
@@ -11330,7 +11330,7 @@ const GalvanizliTelNetsis = () => {
         const quality = ymSt.kod_3 || ymSt.quality; // Use kod_3 if quality field is empty
         const priority = ymSt.priority || 0;
 
-        // Extract filmasin from stok_kodu if available
+        // Extract filmasin den stok_kodu if Mevcut
         const filmasinMatch = ymSt.stok_kodu.match(/YM\.ST\.\d{4}\.(\d{4})\./);
         const filmasin = filmasinMatch ? parseInt(filmasinMatch[1], 10) / 100 : 0;
 
@@ -11370,7 +11370,7 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // Collect all recipes for coiler products
+    // Collect all recipes için coiler products
     ymGtRecipes.forEach(recipe => {
       if (coilerProducts.has(recipe.ym_gt_stok_kodu)) {
         coilerProducts.get(recipe.ym_gt_stok_kodu).recipes.push(recipe);
@@ -11379,7 +11379,7 @@ const GalvanizliTelNetsis = () => {
 
     console.log(`📋 BATCH RECETE: Found ${coilerProducts.size} COILER products (1.5-1.8mm)`);
 
-    // Step 3: Generate MATRIX priority alternatives for ALL YM GT products
+    // Step 3: Generate MATRIX priority alternatives için ALL YM GT products
     const ymGtAltRecipesByPriority = {}; // {priority: {ym_gt_stok_kodu: {recipes, isCoiler}}}
 
     Object.keys(ymGtByProduct).forEach(ymGtStokKodu => {
@@ -11400,10 +11400,10 @@ const GalvanizliTelNetsis = () => {
         return;
       }
 
-      // For each priority level (1, 2, ...), find the alternative with that priority
-      // NOTE: Alternatives can have DIFFERENT qualities than the main product!
+      // için each priority level (1, 2, ...), Bul the alternative ile that priority
+      // NOTE: Alternatives can have DIFFERENT qualities than the main Ürün!
       [1, 2].forEach(targetPriority => {
-        // Find the alternative with this priority for this diameter
+        // Bul the alternative ile this priority için this Çap
         const altOption = alternativesForDiameter.find(opt => opt.priority === targetPriority);
         if (!altOption) return; // No alternative at this priority level
 
@@ -11429,7 +11429,7 @@ const GalvanizliTelNetsis = () => {
 
     console.log(`📋 BATCH RECETE: Generated matrix priority alternatives for priorities:`, Object.keys(ymGtAltRecipesByPriority));
 
-    // Step 4: Add COILER products to ALT 1
+    // Step 4: Ekle COILER products a ALT 1
     if (!ymGtAltRecipesByPriority[1]) {
       ymGtAltRecipesByPriority[1] = {};
     }
@@ -11455,7 +11455,7 @@ const GalvanizliTelNetsis = () => {
 
     console.log(`📋 BATCH RECETE: Coiler products replaced ${coilerReplacedMatrix} matrix priority 1 products`);
 
-    // Step 5: Create ALT sheets for each priority
+    // Step 5: Oluştur ALT sheets için each priority
     const foundPriorities = Object.keys(ymGtAltRecipesByPriority)
       .map(p => parseInt(p))
       .sort((a, b) => a - b);
@@ -11487,7 +11487,7 @@ const GalvanizliTelNetsis = () => {
 
         let productSiraNo = 1;
 
-        // Find the Çinko (150 03) recipe for this product to calculate YM.ST miktar
+        // Bul the Çinko (150 03) Reçete için this Ürün a Hesapla YM.ST miktar
         const zincRecipe = recipes.find(r => r.bilesen_kodu === '150' || r.bilesen_kodu === '150 03');
 
         // Extract the main bilesen (YM.ST) code for this alternative
@@ -11497,16 +11497,16 @@ const GalvanizliTelNetsis = () => {
         recipes.forEach(recipe => {
           let finalMiktar = recipe.miktar;
 
-          // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+          // için YM.ST entries, Hesapla the Değer olarak "1 - Çinko Tüketim Miktarı"
           if (recipe.bilesen_kodu && recipe.bilesen_kodu.includes('YM.ST.') && zincRecipe) {
             finalMiktar = 1 - parseFloat(zincRecipe.miktar);
           }
 
-          // Update recipe miktar for this call
+          // Güncelle Reçete miktar için this call
           const updatedRecipe = { ...recipe, miktar: finalMiktar };
           const row = ymGtAltSheet.addRow(generateYmGtReceteRowForBatch(updatedRecipe, productSiraNo, recipe.ym_gt_stok_kodu, priority, alternativeDescription));
 
-          // Color COILER products with light cream
+          // Color COILER products ile light cream
           if (isCoiler) {
             row.eachCell((cell) => {
               cell.fill = {
@@ -11534,8 +11534,8 @@ const GalvanizliTelNetsis = () => {
     const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
     console.log(`📋 BATCH RECETE: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
-    // Group ALL YM ST recipes by product for the main sheet
-    // NOTE: priority field indicates which YM GT recipe uses this YM ST, not YM ST's own priority
+    // Group ALL YM ST recipes ile Ürün için the main sheet
+    // NOTE: priority Alan indicates which YM GT Reçete uses this YM ST, not YM ST's own priority
     const ymStByProduct = {};
     ymStRecipes.forEach(recipe => {
       const productCode = recipe.ym_st_stok_kodu || recipe.mamul_kodu;
@@ -11545,15 +11545,15 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[productCode].push(recipe);
     });
 
-    // Sort recipes within each product by sira_no field from database
-    // sira_no field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
+    // Sırala recipes within each Ürün ile sira_no Alan den database
+    // sira_no Alan determines Sipariş: 1=main bilesen, 2=operation, 3+=other bilesens
     Object.keys(ymStByProduct).forEach(productCode => {
       ymStByProduct[productCode].sort((a, b) => {
-        // Sort by sira_no field if both have it
+        // Sırala ile sira_no Alan if both have it
         if (a.sira_no && b.sira_no) {
           return a.sira_no - b.sira_no;
         }
-        // If sira_no is missing, use bilesen_kodu type as fallback
+        // If sira_no is missing, use bilesen_kodu Tip olarak fallback
         const aIsMainBilesen = a.bilesen_kodu && (a.bilesen_kodu.includes('YM.ST.') || a.bilesen_kodu.includes('FLM.'));
         const bIsMainBilesen = b.bilesen_kodu && (b.bilesen_kodu.includes('YM.ST.') || b.bilesen_kodu.includes('FLM.'));
         if (aIsMainBilesen && !bIsMainBilesen) return -1;
@@ -11562,7 +11562,7 @@ const GalvanizliTelNetsis = () => {
       });
     });
 
-    // Add main recipes (priority 0)
+    // Ekle main recipes (priority 0)
     const sortedYmStStokCodes = sortedYmStData.map(product => product.stok_kodu);
     sortedYmStStokCodes.forEach(stokKodu => {
       if (ymStByProduct[stokKodu] && ymStByProduct[stokKodu].length > 0) {
@@ -11580,7 +11580,7 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // 🆕 Create YM ST REÇETE ALT 1-8 sheets dynamically based on generated alternatives
+    // 🆕 Oluştur YM ST REÇETE ALT 1-8 sheets dynamically based on generated alternatives
     altPriorities.forEach(priority => {
       const altRecipes = coilerAlternatives[priority];
       if (!altRecipes || altRecipes.length === 0) return;
@@ -11588,7 +11588,7 @@ const GalvanizliTelNetsis = () => {
       const altSheet = workbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
       altSheet.addRow(receteHeaders);
 
-      // Group recipes by product
+      // Group recipes ile Ürün
       const ymStAltByProduct = {};
       altRecipes.forEach(recipe => {
         if (!ymStAltByProduct[recipe.mamul_kodu]) {
@@ -11597,7 +11597,7 @@ const GalvanizliTelNetsis = () => {
         ymStAltByProduct[recipe.mamul_kodu].push(recipe);
       });
 
-      // FIXED: Sort recipes within each product by bilesen_kodu type
+      // FIXED: Sırala recipes within each Ürün ile bilesen_kodu Tip
       // Main bilesen (YM.ST/FLM) should come before operations (COTLC01/TLC01)
       Object.keys(ymStAltByProduct).forEach(productCode => {
         ymStAltByProduct[productCode].sort((a, b) => {
@@ -11611,7 +11611,7 @@ const GalvanizliTelNetsis = () => {
         });
       });
 
-      // Add recipes sorted by product code
+      // Ekle recipes sorted ile Ürün code
       Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
         if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
           const recipes = ymStAltByProduct[stokKodu];
@@ -11638,13 +11638,13 @@ const GalvanizliTelNetsis = () => {
 
   };
 
-  // Handle edit confirmation
+  // İşle edit confirmation
   const handleEditConfirm = async () => {
     try {
       setIsLoading(true);
       setShowEditConfirmModal(false);
       
-      // Proceed with saving using the existing checkForDuplicatesAndConfirm function
+      // Proceed ile saving using the existing checkForDuplicatesAndConfirm function
       const saveResult = await checkForDuplicatesAndConfirm();
       
       // If there's a queue resolve function waiting, call it
@@ -11658,7 +11658,7 @@ const GalvanizliTelNetsis = () => {
       console.error('Error in handleEditConfirm:', error);
       setIsLoading(false);
       
-      // If there's a queue resolve function waiting, call it with error
+      // If there's a queue resolve function waiting, call it ile Hata
       if (window.editConfirmResolve) {
         window.editConfirmResolve(false);
         window.editConfirmResolve = null;
@@ -11666,7 +11666,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Generate Excel files for a specific request by loading its data from database
+  // Generate Excel files için a specific İstek ile Yükleniyor its Veri den database
   const generateExcelFromRequest = async (request) => {
     if (!request || !request.stok_kodu) {
       toast.error('Geçersiz talep - stok_kodu bulunamadı');
@@ -11677,7 +11677,7 @@ const GalvanizliTelNetsis = () => {
       setIsLoading(true);
       console.log(`🔄 Generating Excel for request ${request.id} with stok_kodu: ${request.stok_kodu}`);
       
-      // Extract sequence from stok_kodu
+      // Extract sequence den stok_kodu
       let requestSequence = '00';
       if (request.stok_kodu) {
         const match = request.stok_kodu.match(/\.(\d+)$/);
@@ -11688,7 +11688,7 @@ const GalvanizliTelNetsis = () => {
       
       console.log(`📊 Using sequence: ${requestSequence} for request ${request.id}`);
       
-      // Find MM GT by stok_kodu
+      // Bul MM GT ile stok_kodu
       const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${request.stok_kodu}`);
       if (!mmGtResponse || !mmGtResponse.ok) {
         throw new Error('MM GT ürünü bulunamadı');
@@ -11702,7 +11702,7 @@ const GalvanizliTelNetsis = () => {
       const mmGt = mmGtProducts[0];
       console.log(`📦 Found MM GT:`, { stok_kodu: mmGt.stok_kodu, id: mmGt.id });
       
-      // Create individual Excel files using the request data
+      // Oluştur individual Excel files using the İstek Veri
       await generateBatchExcelFromRequests([request]);
       
       toast.success('Excel dosyaları başarıyla oluşturuldu');
@@ -11714,7 +11714,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Generate Excel for a specific task using stored data
+  // Generate Excel için a specific task using stored Veri
   const generateExcelForTask = async (task) => {
     if (!task.excelData) {
       throw new Error('Bu görev için Excel verileri bulunamadı');
@@ -11723,11 +11723,11 @@ const GalvanizliTelNetsis = () => {
     try {
       const { excelData } = task;
       
-      // Use the existing Excel generation logic with stored data
+      // Use the existing Excel generation logic ile stored Veri
       const Excel = require('exceljs');
       const { saveAs } = require('file-saver');
       
-      // Create both stok kartı and reçete files
+      // Oluştur both stok kartı and reçete files
       await Promise.all([
         generateStokKartiExcelFromData(excelData),
         generateReceteExcelFromData(excelData)
@@ -11741,7 +11741,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Helper function to generate individual stok kartı Excel from stored data
+  // Helper function a generate individual stok kartı Excel den stored Veri
   const generateStokKartiExcelFromData = async (excelData) => {
     const Excel = require('exceljs');
     const { saveAs } = require('file-saver');
@@ -11752,7 +11752,7 @@ const GalvanizliTelNetsis = () => {
     // Ana YM ST'yi belirle
     const mainYmSt = allYmSts[excelData.mainYmStIndex] || allYmSts[0];
     
-    // Get stok kartı headers from the old function (assuming it's available)
+    // Al stok kartı Başlıklar den the old function (assuming it's Mevcut)
     const stokKartiHeaders = getStokKartiHeaders();
     
     // MM GT Sheet - Artık sadece 1 tane MM GT
@@ -11789,7 +11789,7 @@ const GalvanizliTelNetsis = () => {
     saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
   };
 
-  // Helper function to generate individual reçete Excel from stored data
+  // Helper function a generate individual reçete Excel den stored Veri
   const generateReceteExcelFromData = async (excelData) => {
     const Excel = require('exceljs');
     const { saveAs } = require('file-saver');
@@ -11797,12 +11797,12 @@ const GalvanizliTelNetsis = () => {
     const workbook = new Excel.Workbook();
     const allYmSts = [...excelData.selectedYmSts, ...excelData.autoGeneratedYmSts];
     
-    // Get main YM ST
+    // Al main YM ST
     const mainYmSt = allYmSts[excelData.mainYmStIndex] || allYmSts[0];
     const mainYmStIndex_ = excelData.mainYmStIndex;
     const sequence = excelData.sequence;
     
-    // Get recipe headers from the old function (assuming it's available)
+    // Al Reçete Başlıklar den the old function (assuming it's Mevcut)
     const receteHeaders = getReceteHeaders();
     
     // MM GT REÇETE Sheet
@@ -11820,7 +11820,7 @@ const GalvanizliTelNetsis = () => {
     const fixedRecipe = {};
     Object.entries(mmGtRecipe).forEach(([key, value]) => {
       if (key.includes('YM.GT.')) {
-        // Always replace ANY YM.GT key with the correct sequence
+        // Always replace ANY YM.GT key ile the correct sequence
         fixedRecipe[correctStokKodu] = value;
       } else {
         fixedRecipe[key] = value;
@@ -11832,20 +11832,20 @@ const GalvanizliTelNetsis = () => {
     
     let siraNo = 1;
     
-    // MMGT reçete sıralaması: fixed exact order as specified
+    // MMGT reçete sıralaması: fixed exact Sipariş olarak specified
     const recipeEntries = Object.entries(processedMmGtRecipe);
     
-    // CRITICAL FIX: Ensure only ONE shrink entry exists for Excel
+    // CRITICAL FIX: Ensure only ONE shrink entry exists için Excel
     const shrinkEntries = recipeEntries.filter(([key]) => key.includes('AMB.SHRİNK.'));
     if (shrinkEntries.length > 1) {
       console.warn(`Multiple shrink entries found (${shrinkEntries.length}), cleaning for Excel generation:`);
       shrinkEntries.forEach(([key, value]) => console.warn(`  ${key}: ${value}`));
       
-      // Find the one with highest value or first non-zero
+      // Bul the one ile highest Değer or first non-zero
       const activeShrink = shrinkEntries.find(([key, value]) => value > 0) || shrinkEntries[0];
       console.warn(`Using only: ${activeShrink[0]} = ${activeShrink[1]}`);
       
-      // Remove all other shrink entries from the recipe for Excel
+      // Kaldır all other shrink entries den the Reçete için Excel
       shrinkEntries.forEach(([key]) => {
         if (key !== activeShrink[0]) {
           delete processedMmGtRecipe[key];
@@ -11858,7 +11858,7 @@ const GalvanizliTelNetsis = () => {
       recipeEntries.push(...cleanedEntries);
     }
     
-    // Maintain fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
+    // Maintain fixed Sipariş: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
     const correctYmGtStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
     const ymGtEntry = recipeEntries.find(([key]) => key === correctYmGtStokKodu) || 
                       recipeEntries.find(([key]) => key.includes('YM.GT.'));
@@ -11870,7 +11870,7 @@ const GalvanizliTelNetsis = () => {
     const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
     const desiEntry = recipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
     
-    // Other entries that might exist but aren't in the fixed order
+    // Other entries that might exist but aren't in the fixed Sipariş
     const otherEntries = recipeEntries.filter(([key]) => 
       !key.includes('YM.GT.') && 
       key !== 'GTPKT01' &&
@@ -11882,7 +11882,7 @@ const GalvanizliTelNetsis = () => {
       key !== 'SM.DESİ.PAK'
     );
     
-    // Sırayla ekle - exact order
+    // Sırayla ekle - exact Sipariş
     const orderedEntries = [
       ymGtEntry, 
       gtpkt01Entry, 
@@ -11903,7 +11903,7 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // Debugging: Check if we have exactly 8 rows as expected
+    // Debugging: Kontrol et if we have exactly 8 rows olarak expected
     const addedRows = orderedEntries.filter(([key, value]) => value > 0).length;
     if (addedRows !== 8) {
       console.warn(`MMGT reçetesi ${addedRows} satır içeriyor, 8 olmalı. Girdiler:`, 
@@ -11917,18 +11917,18 @@ const GalvanizliTelNetsis = () => {
     // Sadece 1 YM GT reçetesi ekle - aynı sequence'i kullan
     let siraNo2 = 1;
     
-    // YM GT reçetesinden sequence'e uygun değerleri al - fixed exact order
+    // YM GT reçetesinden sequence'e uygun değerleri al - fixed exact Sipariş
     const ymGtRecipeEntries = Object.entries(excelData.allRecipes.ymGtRecipe);
     
-    // Fixed order: YM.ST.*.*.*, GLV01, 150 03, SM.HİDROLİK.ASİT
-    // Find YM.ST component in YM GT recipe
+    // Fixed Sipariş: YM.ST.*.*.*, GLV01, 150 03, SM.HİDROLİK.ASİT
+    // Bul YM.ST Bileşen in YM GT Reçete
     const ymStEntry = ymGtRecipeEntries.find(([key]) => key.includes('YM.ST.'));
     const glv01Entry = ymGtRecipeEntries.find(([key]) => key === 'GLV01');
-    // Get Çinko from YM GT recipe (NOT YM ST recipe)
+    // Al Çinko den YM GT Reçete (NOT YM ST Reçete)
     const zincEntry = ymGtRecipeEntries.find(([key]) => key === '150 03');
     const asitEntry = ymGtRecipeEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
     
-    // Other entries that might exist but aren't in the fixed order
+    // Other entries that might exist but aren't in the fixed Sipariş
     const otherYmGtEntries = ymGtRecipeEntries.filter(([key]) => 
       !key.includes('YM.ST.') && 
       key !== 'GLV01' && 
@@ -11936,7 +11936,7 @@ const GalvanizliTelNetsis = () => {
       key !== 'SM.HİDROLİK.ASİT'
     );
     
-    // Sırayla ekle - exact order
+    // Sırayla ekle - exact Sipariş
     const orderedYmGtEntries = [
       ymStEntry, // Use the YM.ST entry as found
       glv01Entry,
@@ -11947,7 +11947,7 @@ const GalvanizliTelNetsis = () => {
     
     orderedYmGtEntries.forEach(([key, value]) => {
       if (value > 0) {
-        // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+        // için YM.ST entries, Hesapla the Değer olarak "1 - Çinko Tüketim Miktarı"
         let finalValue = value;
         if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
           finalValue = 1 - parseFloat(zincEntry[1]);
@@ -11958,7 +11958,7 @@ const GalvanizliTelNetsis = () => {
     });
 
     // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST filmaşin bilesen)
-    // Check if this product uses FILMAŞIN YM ST in 1.5-1.8mm range (then generate .ST alternative)
+    // Kontrol et if this Ürün uses FILMAŞIN YM ST in 1.5-1.8mm range (then generate .ST alternative)
     let hasFilmasinInCoilerRange = false;
     let ymStBilesenDiameter = 0;
     let alternativeBilesenKodu = '';
@@ -11968,7 +11968,7 @@ const GalvanizliTelNetsis = () => {
       const bilesenMatch = ymStEntry[0].match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
       if (bilesenMatch) {
         ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
-        // Check if diameter is in 1.5-1.8mm range (inclusive)
+        // Kontrol et if Çap is in 1.5-1.8mm range (inclusive)
         if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
           hasFilmasinInCoilerRange = true;
           // Generate alternative bilesen code (replace filmaşin with .ST)
@@ -11995,7 +11995,7 @@ const GalvanizliTelNetsis = () => {
           let finalKey = key;
           let finalValue = value;
 
-          // Replace filmaşin YM.ST with .ST version
+          // Replace filmaşin YM.ST ile .ST version
           if (key.includes('YM.ST.') && key.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/)) {
             finalKey = alternativeBilesenKodu;
             if (zincEntry && zincEntry[1]) {
@@ -12020,21 +12020,21 @@ const GalvanizliTelNetsis = () => {
     // İlk olarak ana YM ST'nin reçetesini ekle
     let siraNoMain = 1;
     
-    // Ana YMST reçete sıralaması: fixed exact order - 1) FLM bileşeni, 2) TLC01 operasyonu
+    // Ana YMST reçete sıralaması: fixed exact Sipariş - 1) FLM bileşeni, 2) TLC01 operasyonu
     const mainYmStRecipe = excelData.allRecipes.ymStRecipes[mainYmStIndex_] || {};
     const mainRecipeEntries = Object.entries(mainYmStRecipe);
     
-    // Fixed order: FLM.*.*, TLC01
+    // Fixed Sipariş: FLM.*.*, TLC01
     const mainFlmEntry = mainRecipeEntries.find(([key]) => key.includes('FLM.'));
     const mainTlc01Entry = mainRecipeEntries.find(([key]) => key === 'TLC01');
     
-    // Any other entries that might exist but aren't in the fixed order
+    // Any other entries that might exist but aren't in the fixed Sipariş
     const mainOtherEntries = mainRecipeEntries.filter(([key]) => 
       !key.includes('FLM.') && 
       key !== 'TLC01'
     );
     
-    // Sırayla ekle - exact order
+    // Sırayla ekle - exact Sipariş
     const mainOrderedEntries = [
       mainFlmEntry,
       mainTlc01Entry,
@@ -12048,8 +12048,8 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // YM ST REÇETE ALT Sheets - For matrix alternatives (all priorities > 0)
-    // Group alternatives by priority
+    // YM ST REÇETE ALT Sheets - için matrix alternatives (all priorities > 0)
+    // Group alternatives ile priority
     const ymStAltsByPriority = {};
     allYmSts.forEach((ymSt, index) => {
       const priority = ymSt.priority !== undefined ? ymSt.priority : (index === mainYmStIndex_ ? 0 : 999);
@@ -12061,21 +12061,21 @@ const GalvanizliTelNetsis = () => {
       }
     });
 
-    // Create separate ALT sheet for each priority
+    // Oluştur separate ALT sheet için each priority
     Object.keys(ymStAltsByPriority).sort((a, b) => Number(a) - Number(b)).forEach(priority => {
       const alts = ymStAltsByPriority[priority];
       const altSheet = workbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
       altSheet.addRow(receteHeaders);
 
-      // Add all alternatives for this priority
+      // Ekle all alternatives için this priority
       alts.forEach(({ ymSt, index }) => {
         const ymStRecipe = excelData.allRecipes.ymStRecipes[index] || {};
         let siraNo = 1;
 
-        // YMST reçete sıralaması: fixed exact order
+        // YMST reçete sıralaması: fixed exact Sipariş
         const recipeEntries = Object.entries(ymStRecipe);
 
-        // Fixed order: FLM/YM.ST source, TLC01/COTLC01
+        // Fixed Sipariş: FLM/YM.ST source, TLC01/COTLC01
         const flmEntry = recipeEntries.find(([key]) => key.includes('FLM.'));
         const ymStSourceEntry = recipeEntries.find(([key]) => key.includes('YM.ST.') && key !== ymSt.stok_kodu);
         const tlc01Entry = recipeEntries.find(([key]) => key === 'TLC01');
@@ -12089,7 +12089,7 @@ const GalvanizliTelNetsis = () => {
           key !== 'COTLC01'
         );
 
-        // Sırayla ekle - exact order
+        // Sırayla ekle - exact Sipariş
         const orderedEntries = [
           flmEntry || ymStSourceEntry,
           tlc01Entry || cotlc01Entry,
@@ -12106,7 +12106,7 @@ const GalvanizliTelNetsis = () => {
     });
     
     try {
-      // Validate data before writing
+      // Doğrula Veri before writing
       console.log('Reçete Excel dosyası oluşturuluyor...');
       const buffer = await workbook.xlsx.writeBuffer();
       console.log('Reçete Excel buffer oluşturuldu, dosya boyutu:', buffer.byteLength, 'bytes');
@@ -12129,7 +12129,7 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Helper function to generate combined stok kartı Excel from stored data
+  // Helper function a generate combined stok kartı Excel den stored Veri
   const generateCombinedStokKartiExcelFromData = async (tasks) => {
     const Excel = require('exceljs');
     const { saveAs } = require('file-saver');
@@ -12141,7 +12141,7 @@ const GalvanizliTelNetsis = () => {
     const mmGtSheet = workbook.addWorksheet('MM GT');
     mmGtSheet.addRow(stokKartiHeaders);
     
-    // YM GT Sheet  
+    // YM GT Sheet
     const ymGtSheet = workbook.addWorksheet('YM GT');
     ymGtSheet.addRow(stokKartiHeaders);
     
@@ -12154,10 +12154,10 @@ const GalvanizliTelNetsis = () => {
       const allYmSts = [...excelData.selectedYmSts, ...excelData.autoGeneratedYmSts];
       const mainYmSt = allYmSts[excelData.mainYmStIndex] || allYmSts[0];
       
-      // Add MM GT
+      // Ekle MM GT
       mmGtSheet.addRow(generateMmGtStokKartiDataForBatch(excelData.mmGtData));
       
-      // Add YM GT - Create YM GT data from task-specific MM GT data
+      // Ekle YM GT - Oluştur YM GT Veri den task-specific MM GT Veri
       const taskYmGtData = {
         stok_kodu: `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${excelData.sequence}`,
         cap: excelData.mmGtData.cap,
@@ -12166,10 +12166,10 @@ const GalvanizliTelNetsis = () => {
       };
       ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(taskYmGtData));
       
-      // Add main YM ST first
+      // Ekle main YM ST first
       ymStSheet.addRow(generateYmStStokKartiData(mainYmSt));
 
-      // Add other YM STs
+      // Ekle other YM STs
       allYmSts.forEach((ymSt, index) => {
         if (index !== excelData.mainYmStIndex) {
           ymStSheet.addRow(generateYmStStokKartiData(ymSt));
@@ -12183,14 +12183,14 @@ const GalvanizliTelNetsis = () => {
     saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
   };
 
-  // Helper function to generate combined reçete Excel from stored data
+  // Helper function a generate combined reçete Excel den stored Veri
   const generateCombinedReceteExcelFromData = async (tasks) => {
     console.log('📋 === POST-SAVE COMBINED RECIPE EXCEL GENERATION STARTED ===');
     
-    // Instead of converting to requests and re-fetching from database, 
-    // directly use the task data which has complete MM GT information including proper stok_adi
+    // Instead of converting a requests and re-fetching den database,
+    // directly use the task Veri which has Tamamlandı MM GT information including proper stok_adi
     
-    // Prepare complete MM GT data from task data (which already has proper formatting)
+    // Prepare Tamamlandı MM GT Veri den task Veri (which already has proper formatting)
     const mmGtData = [];
     const ymGtData = [];
     const ymStData = [];
@@ -12203,11 +12203,11 @@ const GalvanizliTelNetsis = () => {
     for (const task of tasks) {
       const { excelData } = task;
       
-      // Use the MM GT data from the task which already has correct stok_adi formatting
+      // Use the MM GT Veri den the task which already has correct stok_adi formatting
       if (excelData.mmGtData) {
         console.log(`📋 Adding MM GT: ${excelData.mmGtData.stok_kodu} -> stok_adi: "${excelData.mmGtData.stok_adi}"`);
         
-        // If stok_adi is undefined, generate it from the saved data
+        // If stok_adi is undefined, generate it den the saved Veri
         if (!excelData.mmGtData.stok_adi) {
           console.log(`⚠️ MM GT stok_adi is undefined, generating from saved data...`);
           const cap = parseFloat(excelData.mmGtData.cap);
@@ -12217,32 +12217,32 @@ const GalvanizliTelNetsis = () => {
             ? `/${excelData.mmGtData.cast_kont}`
             : '';
 
-          // Format tolerance values with proper signs (values are already signed in database)
+          // Formatla tolerance values ile proper signs (values are already signed in database)
           const formattedMinus = (toleransMinus >= 0 ? '+' : '') + toleransMinus.toFixed(2).replace('.', ',');
           const formattedPlus = (toleransPlus >= 0 ? '+' : '') + toleransPlus.toFixed(2).replace('.', ',');
           const toleranceText = `${formattedMinus}/${formattedPlus}`;
 
-          // Generate complete stok_adi with all the formatting
+          // Generate Tamamlandı stok_adi ile all the formatting
           const generatedStokAdi = `Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${excelData.mmGtData.kaplama || '0'} gr/m² ${excelData.mmGtData.min_mukavemet || '0'}-${excelData.mmGtData.max_mukavemet || '0'} MPa ID:${excelData.mmGtData.ic_cap || '45'} cm OD:${excelData.mmGtData.dis_cap || '75'} cm ${excelData.mmGtData.kg || '0'}${bagAmount} kg`;
           
-          // Extract packaging suffixes from the saved task data
+          // Extract packaging suffixes den the saved task Veri
           const suffixes = [];
           
-          // Check if packaging info exists in the task data
+          // Kontrol et if packaging info exists in the task Veri
           if (task.packaging) {
-            // Use packaging info from task if available
+            // Use packaging info den task if Mevcut
             console.log(`📦 Using task packaging: ${JSON.stringify(task.packaging)}`);
             if (task.packaging.shrink) suffixes.push('Shrink');
             if (task.packaging.paletli) suffixes.push('Plt');
             if (task.packaging.sepetli) suffixes.push('Spt');
           } else if (excelData.packaging) {
-            // Check if packaging is stored in excelData
+            // Kontrol et if packaging is stored in excelData
             console.log(`📦 Using excelData packaging: ${JSON.stringify(excelData.packaging)}`);
             if (excelData.packaging.shrink) suffixes.push('Shrink');
             if (excelData.packaging.paletli) suffixes.push('Plt');
             if (excelData.packaging.sepetli) suffixes.push('Spt');
           } else {
-            // Fallback: use current form state (this shouldn't happen with the fix above)
+            // Fallback: use current Form State (this shouldn't happen ile the fix above)
             console.log(`⚠️ No packaging info found in task data, using current form state as fallback`);
             if (paketlemeSecenekleri.shrink) suffixes.push('Shrink');
             if (paketlemeSecenekleri.paletli) suffixes.push('Plt');
@@ -12261,7 +12261,7 @@ const GalvanizliTelNetsis = () => {
         mmGtData.push(excelData.mmGtData);
       }
       
-      // Add YM GT data
+      // Ekle YM GT Veri
       const allYmSts = [...excelData.selectedYmSts, ...excelData.autoGeneratedYmSts];
       const mainYmSt = allYmSts[excelData.mainYmStIndex] || allYmSts[0];
       
@@ -12281,13 +12281,13 @@ const GalvanizliTelNetsis = () => {
           tolerans_plus: excelData.mmGtData.tolerans_plus,
           tolerans_minus: excelData.mmGtData.tolerans_minus,
           shrink: excelData.mmGtData.shrink,
-          // Generate proper stok_adi with complete formatting
+          // Generate proper stok_adi ile Tamamlandı formatting
           stok_adi: generateYmGtStokAdi(excelData.mmGtData, excelData.sequence),
           ingilizce_isim: generateYmGtEnglishName(excelData.mmGtData, excelData.sequence)
         };
         ymGtData.push(ymGtItem);
         
-        // Add YM ST data 
+        // Ekle YM ST Veri
         allYmSts.forEach(ymSt => {
           if (!ymStData.find(item => item.stok_kodu === ymSt.stok_kodu)) {
             ymStData.push(ymSt);
@@ -12295,7 +12295,7 @@ const GalvanizliTelNetsis = () => {
         });
       }
       
-      // Add recipe data if available
+      // Ekle Reçete Veri if Mevcut
       if (excelData.allRecipes) {
         if (excelData.allRecipes.mmGtRecipes) {
           mmGtRecipeData.push(...Object.values(excelData.allRecipes.mmGtRecipes));
@@ -12315,7 +12315,7 @@ const GalvanizliTelNetsis = () => {
     try {
       console.log('📋 Calling direct Excel generation with complete task data...');
       
-      // Create Excel workbooks using the same perfected logic as batch generation
+      // Oluştur Excel workbooks using the same perfected logic olarak batch generation
       await Promise.all([
         generateDirectStokKartiExcelFromData(mmGtData, ymGtData, ymStData),
         generateDirectReceteExcelFromData(mmGtRecipeData, ymGtRecipeData, ymStRecipeData, tasks)
@@ -12328,9 +12328,9 @@ const GalvanizliTelNetsis = () => {
       throw error;
     }
     
-    // OLD CODE BELOW - keeping as fallback (should not reach here)
+    // OLD CODE BELOW - keeping olarak fallback (should not reach here)
     
-    // Helper functions for direct Excel generation
+    // Helper functions için direct Excel generation
     function generateYmGtStokAdi(mmGtData, sequence) {
       const cap = parseFloat(mmGtData.cap);
       const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== '' 
@@ -12352,15 +12352,15 @@ const GalvanizliTelNetsis = () => {
     async function generateDirectStokKartiExcelFromData(mmGtData, ymGtData, ymStData) {
       console.log('📋 Generating direct stok kartı Excel...');
       
-      // Create the exact same Excel structure as the batch function
+      // Oluştur the exact same Excel structure olarak the batch function
       const workbook = new ExcelJS.Workbook();
       
-      // MM GT Sheet - using perfected format
+      // MM GT Sheet - using perfected Formatla
       const mmGtSheet = workbook.addWorksheet('MM GT');
       const mmGtHeaders = getStokKartiHeaders();
       mmGtSheet.addRow(mmGtHeaders);
       
-      // Add MM GT data using the perfected generateMmGtStokKartiDataForBatch function
+      // Ekle MM GT Veri using the perfected generateMmGtStokKartiDataForBatch function
       for (const mmGt of mmGtData) {
         mmGtSheet.addRow(generateMmGtStokKartiDataForBatch(mmGt));
       }
@@ -12370,7 +12370,7 @@ const GalvanizliTelNetsis = () => {
       const ymGtHeaders = getYmGtHeaders();
       ymGtSheet.addRow(ymGtHeaders);
       
-      // Add YM GT data
+      // Ekle YM GT Veri
       for (const ymGt of ymGtData) {
         ymGtSheet.addRow(generateYmGtStokKartiDataForBatch(ymGt));
       }
@@ -12380,7 +12380,7 @@ const GalvanizliTelNetsis = () => {
       const ymStHeaders = getYmStHeaders();
       ymStSheet.addRow(ymStHeaders);
 
-      // Add YM ST data
+      // Ekle YM ST Veri
       for (const ymSt of ymStData) {
         ymStSheet.addRow(generateYmStStokKartiData(ymSt));
       }
@@ -12396,21 +12396,21 @@ const GalvanizliTelNetsis = () => {
     async function generateDirectReceteExcelFromData(mmGtRecipeData, ymGtRecipeData, ymStRecipeData, tasks) {
       console.log('📋 Generating direct recipe Excel using PERFECTED format...');
       
-      // Create the exact same Excel structure as the perfected batch function
+      // Oluştur the exact same Excel structure olarak the perfected batch function
       const workbook = new ExcelJS.Workbook();
       
-      // Get the proper recipe headers (same as perfected function)
+      // Al the proper Reçete Başlıklar (same olarak perfected function)
       const receteHeaders = getReceteHeaders();
       
-      // MM GT REÇETE Sheet - Use PERFECTED format
+      // MM GT REÇETE Sheet - Use PERFECTED Formatla
       const mmGtReceteSheet = workbook.addWorksheet('MM GT REÇETE');
       mmGtReceteSheet.addRow(receteHeaders);
       
-      // Add MM GT recipes using the PERFECTED logic
+      // Ekle MM GT recipes using the PERFECTED logic
       for (const task of tasks) {
         const { excelData } = task;
         
-        // Validate excelData structure
+        // Doğrula excelData structure
         if (!excelData || !excelData.allRecipes || !excelData.allRecipes.mmGtRecipes) {
           console.warn('⚠️ Missing recipe data in task, skipping MM GT recipes');
           continue;
@@ -12420,11 +12420,11 @@ const GalvanizliTelNetsis = () => {
         const mainYmStIndex = excelData.mainYmStIndex || 0;
         const sequence = excelData.sequence;
         
-        // Use the SAME logic as the perfected individual Excel generation
+        // Use the SAME logic olarak the perfected individual Excel generation
         const mmGtRecipe = { ...excelData.allRecipes.mmGtRecipes[mainYmStIndex] } || {};
         const correctStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
         
-        // Fix YM.GT key in recipe (same as perfected)
+        // Fix YM.GT key in Reçete (same olarak perfected)
         const fixedRecipe = {};
         Object.entries(mmGtRecipe).forEach(([key, value]) => {
           if (key.includes('YM.GT.')) {
@@ -12434,11 +12434,11 @@ const GalvanizliTelNetsis = () => {
           }
         });
         
-        // Process recipe entries using the PERFECTED fixed order
+        // İşlem Reçete entries using the PERFECTED fixed Sipariş
         const processedMmGtRecipe = fixedRecipe;
         const mmGtRecipeEntries = Object.entries(processedMmGtRecipe);
         
-        // PERFECTED fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
+        // PERFECTED fixed Sipariş: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
         const ymGtEntry = mmGtRecipeEntries.find(([key]) => key === correctStokKodu) || 
                           mmGtRecipeEntries.find(([key]) => key.includes('YM.GT.'));
         const gtpkt01Entry = mmGtRecipeEntries.find(([key]) => key === 'GTPKT01');
@@ -12449,14 +12449,14 @@ const GalvanizliTelNetsis = () => {
         const tokaEntry = mmGtRecipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
         const desiEntry = mmGtRecipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
         
-        // Add entries in the PERFECTED fixed order
+        // Ekle entries in the PERFECTED fixed Sipariş
         const orderedEntries = [ymGtEntry, gtpkt01Entry, kartonEntry, shrinkEntry, halkaEntry, cemberEntry, tokaEntry, desiEntry].filter(Boolean);
         
         // Use the PERFECTED generateMmGtReceteRowForBatch function (which accepts parameters)
         let siraNo = 1;
         orderedEntries.forEach(([key, value]) => {
           if (value > 0) {
-            // Create recipe object for new rows (POST-SAVE)
+            // Oluştur Reçete Nesne için new rows (POST-Kaydet)
             const mockRecipe = {
               bilesen_kodu: key,
               miktar: value,
@@ -12470,15 +12470,15 @@ const GalvanizliTelNetsis = () => {
         });
       }
       
-      // YM GT REÇETE Sheet - Use PERFECTED format
+      // YM GT REÇETE Sheet - Use PERFECTED Formatla
       const ymGtReceteSheet = workbook.addWorksheet('YM GT REÇETE');
       ymGtReceteSheet.addRow(receteHeaders);
       
-      // Add YM GT recipes using PERFECTED logic
+      // Ekle YM GT recipes using PERFECTED logic
       for (const task of tasks) {
         const { excelData } = task;
         
-        // Validate excelData structure for YM GT recipes
+        // Doğrula excelData structure için YM GT recipes
         if (!excelData || !excelData.allRecipes || !excelData.allRecipes.ymGtRecipe) {
           console.warn('⚠️ Missing YM GT recipe data in task, skipping YM GT recipes');
           continue;
@@ -12486,11 +12486,11 @@ const GalvanizliTelNetsis = () => {
         
         const sequence = excelData.sequence;
         
-        // Use PERFECTED YM GT recipe logic
+        // Use PERFECTED YM GT Reçete logic
         let siraNo2 = 1;
         const ymGtRecipeEntries = Object.entries(excelData.allRecipes.ymGtRecipe);
         
-        // PERFECTED fixed order: YM.ST.*.*.*, GLV01, 150 03, SM.HİDROLİK.ASİT
+        // PERFECTED fixed Sipariş: YM.ST.*.*.*, GLV01, 150 03, SM.HİDROLİK.ASİT
         const ymStEntry = ymGtRecipeEntries.find(([key]) => key.includes('YM.ST.'));
         const glv01Entry = ymGtRecipeEntries.find(([key]) => key === 'GLV01');
         const zincEntry = ymGtRecipeEntries.find(([key]) => key === '150 03');
@@ -12503,7 +12503,7 @@ const GalvanizliTelNetsis = () => {
           key !== 'SM.HİDROLİK.ASİT'
         );
         
-        // Add entries in PERFECTED order
+        // Ekle entries in PERFECTED Sipariş
         const orderedYmGtEntries = [
           ymStEntry, 
           glv01Entry,
@@ -12514,14 +12514,14 @@ const GalvanizliTelNetsis = () => {
         
         orderedYmGtEntries.forEach(([key, value]) => {
           if (value > 0) {
-            // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+            // için YM.ST entries, Hesapla the Değer olarak "1 - Çinko Tüketim Miktarı"
             let finalValue = value;
             if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
               finalValue = 1 - parseFloat(zincEntry[1]);
             }
             const ymGtStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
 
-            // Create mock recipe object for POST-SAVE
+            // Oluştur mock Reçete Nesne için POST-Kaydet
             const mockRecipe = {
               bilesen_kodu: key,
               miktar: finalValue,
@@ -12536,9 +12536,9 @@ const GalvanizliTelNetsis = () => {
       }
 
       // YM GT REÇETE ALT Sheets - COMPLETE: Coiler (1.5-1.8mm → .ST) + Matrix Priority Alternatives
-      // This matches the complete logic from generateBatchReceteExcel
+      // This matches the Tamamlandı logic den generateBatchReceteExcel
 
-      // Step 1: Build YM ST priority mapping from database for matrix alternatives
+      // Step 1: Build YM ST priority mapping den database için matrix alternatives
       const ymStPriorityMap = {}; // {diameter: [{stok_kodu, quality, priority, filmasin}]}
 
       console.log('📋 POST-SAVE: Fetching all YM ST products for priority mapping...');
@@ -12603,7 +12603,7 @@ const GalvanizliTelNetsis = () => {
 
       console.log(`📋 POST-SAVE: Found ${coilerProductsMap.size} COILER products (1.5-1.8mm)`);
 
-      // Step 3: Generate MATRIX priority alternatives for ALL YM GT products
+      // Step 3: Generate MATRIX priority alternatives için ALL YM GT products
       const ymGtAltRecipesByPriority = {}; // {priority: {ymGtStokKodu: {recipes, isCoiler}}}
 
       for (const task of tasks) {
@@ -12617,7 +12617,7 @@ const GalvanizliTelNetsis = () => {
         const ymStEntry = ymGtRecipeEntries.find(([key]) => key.includes('YM.ST.'));
         if (!ymStEntry) continue;
 
-        // Skip .ST products (handled by COILER)
+        // Skip .ST products (handled ile COILER)
         if (ymStEntry[0].endsWith('.ST')) continue;
 
         const ymStMatch = ymStEntry[0].match(/YM\.ST\.(\d{4})\.(\d{4})\.(\d{4})$/);
@@ -12627,7 +12627,7 @@ const GalvanizliTelNetsis = () => {
         const alternativesForDiameter = ymStPriorityMap[targetCapRaw];
         if (!alternativesForDiameter) continue;
 
-        // Generate alternatives for priority 1, 2
+        // Generate alternatives için priority 1, 2
         [1, 2].forEach(targetPriority => {
           const altOption = alternativesForDiameter.find(opt => opt.priority === targetPriority);
           if (!altOption) return;
@@ -12656,7 +12656,7 @@ const GalvanizliTelNetsis = () => {
 
       console.log(`📋 POST-SAVE: Generated matrix priority alternatives for priorities:`, Object.keys(ymGtAltRecipesByPriority));
 
-      // Step 4: Add COILER products to ALT 1
+      // Step 4: Ekle COILER products a ALT 1
       if (!ymGtAltRecipesByPriority[1]) {
         ymGtAltRecipesByPriority[1] = {};
       }
@@ -12667,7 +12667,7 @@ const GalvanizliTelNetsis = () => {
           coilerReplacedMatrix++;
         }
 
-        // Replace filmaşin with .ST in recipes
+        // Replace filmaşin ile .ST in recipes
         const altRecipes = data.recipes.map(([key, value]) => {
           if (key === data.ymStBilesen) {
             return [data.replacementCode, value];
@@ -12684,7 +12684,7 @@ const GalvanizliTelNetsis = () => {
 
       console.log(`📋 POST-SAVE: Coiler products replaced ${coilerReplacedMatrix} matrix priority 1 products`);
 
-      // Step 5: Create ALT sheets for each priority
+      // Step 5: Oluştur ALT sheets için each priority
       const foundPriorities = Object.keys(ymGtAltRecipesByPriority)
         .map(p => parseInt(p))
         .sort((a, b) => a - b);
@@ -12745,16 +12745,16 @@ const GalvanizliTelNetsis = () => {
         console.log(`✅ POST-SAVE: Created YM GT REÇETE ALT ${priority} sheet with ${Object.keys(altProducts).length} products (${coilerCount} coiler, ${matrixCount} matrix)`);
       });
 
-      // YM ST REÇETE Sheet - Use PERFECTED format
+      // YM ST REÇETE Sheet - Use PERFECTED Formatla
       const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
       ymStReceteSheet.addRow(receteHeaders);
       
-      // Add YM ST recipes using PERFECTED logic
+      // Ekle YM ST recipes using PERFECTED logic
       let totalMainRecipesAdded = 0;
       for (const task of tasks) {
         const { excelData } = task;
 
-        // Validate excelData structure for YM ST recipes
+        // Doğrula excelData structure için YM ST recipes
         if (!excelData || !excelData.allRecipes || !excelData.allRecipes.ymStRecipes) {
           console.warn('⚠️ Missing YM ST recipe data in task, skipping YM ST recipes');
           continue;
@@ -12763,7 +12763,7 @@ const GalvanizliTelNetsis = () => {
         const allYmSts = [...(excelData.selectedYmSts || []), ...(excelData.autoGeneratedYmSts || [])];
         const mainYmStIndex = excelData.mainYmStIndex || 0;
 
-        // Add main YM ST recipe first (PERFECTED logic)
+        // Ekle main YM ST Reçete first (PERFECTED logic)
         let siraNoMain = 1;
         const mainYmStRecipe = excelData.allRecipes.ymStRecipes[mainYmStIndex] || {};
         const mainRecipeEntries = Object.entries(mainYmStRecipe);
@@ -12786,7 +12786,7 @@ const GalvanizliTelNetsis = () => {
           if (value > 0) {
             const mainYmSt = allYmSts[mainYmStIndex];
             console.log(`✅ POST-SAVE MAIN: Adding recipe entry - key: ${key}, value: ${value}, stok_kodu: ${mainYmSt.stok_kodu}`);
-            // Create recipe object for new rows (POST-SAVE)
+            // Oluştur Reçete Nesne için new rows (POST-Kaydet)
             const mockRecipe = {
               bilesen_kodu: key,
               miktar: value,
@@ -12802,7 +12802,7 @@ const GalvanizliTelNetsis = () => {
           }
         });
 
-        // Add other YM ST recipes (PERFECTED logic)
+        // Ekle other YM ST recipes (PERFECTED logic)
         allYmSts.forEach((ymSt, index) => {
           if (index !== mainYmStIndex) { // Skip main YM ST (already added)
             let siraNoOther = 1;
@@ -12817,7 +12817,7 @@ const GalvanizliTelNetsis = () => {
 
             otherOrderedEntries.forEach(([key, value]) => {
               if (value > 0) {
-                // Create recipe object for new rows (POST-SAVE)
+                // Oluştur Reçete Nesne için new rows (POST-Kaydet)
                 const mockRecipe = {
                   bilesen_kodu: key,
                   miktar: value,
@@ -12839,7 +12839,7 @@ const GalvanizliTelNetsis = () => {
       // 🆕 Generate COILER alternatives dynamically for .ST products (up to 8 alternatives)
       console.log('🔄 POST-SAVE: Generating COILER alternatives for .ST products...');
 
-      // Build YM ST recipes array from tasks
+      // Build YM ST recipes Dizi den tasks
       const ymStRecipesForAlternatives = [];
       const ymStProductsForAlternatives = [];
 
@@ -12876,7 +12876,7 @@ const GalvanizliTelNetsis = () => {
       const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
       console.log(`📋 POST-SAVE: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
-      // Create YM ST REÇETE ALT 1-8 sheets dynamically based on generated alternatives
+      // Oluştur YM ST REÇETE ALT 1-8 sheets dynamically based on generated alternatives
       altPriorities.forEach(priority => {
         const altRecipes = coilerAlternatives[priority];
         if (!altRecipes || altRecipes.length === 0) return;
@@ -12884,7 +12884,7 @@ const GalvanizliTelNetsis = () => {
         const altSheet = workbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
         altSheet.addRow(receteHeaders);
 
-        // Group recipes by product
+        // Group recipes ile Ürün
         const ymStAltByProduct = {};
         altRecipes.forEach(recipe => {
           if (!ymStAltByProduct[recipe.mamul_kodu]) {
@@ -12893,7 +12893,7 @@ const GalvanizliTelNetsis = () => {
           ymStAltByProduct[recipe.mamul_kodu].push(recipe);
         });
 
-        // Add recipes sorted by product code
+        // Ekle recipes sorted ile Ürün code
         Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
           if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
             let productSiraNo = 1;
@@ -12922,26 +12922,26 @@ const GalvanizliTelNetsis = () => {
       const mainYmStIndex_ = excelData.mainYmStIndex;
       const sequence = excelData.sequence;
       
-      // Add MM GT recipes  
+      // Ekle MM GT recipes
       const mmGtRecipe = { ...excelData.allRecipes.mmGtRecipes[mainYmStIndex_] } || {};
       const correctStokKodu = `YM.GT.${excelData.mmGtData.kod_2}.${Math.round(parseFloat(excelData.mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
       
-      // Fix YM.GT key in recipe (same logic as individual function)
+      // Fix YM.GT key in Reçete (same logic olarak individual function)
       const fixedRecipe = {};
       Object.entries(mmGtRecipe).forEach(([key, value]) => {
         if (key.includes('YM.GT.')) {
-          // Always replace ANY YM.GT key with the correct sequence
+          // Always replace ANY YM.GT key ile the correct sequence
           fixedRecipe[correctStokKodu] = value;
         } else {
           fixedRecipe[key] = value;
         }
       });
       
-      // Process all MM GT recipe components in proper order
+      // İşlem all MM GT Reçete components in proper Sipariş
       const processedMmGtRecipe = fixedRecipe;
       const mmGtRecipeEntries = Object.entries(processedMmGtRecipe);
       
-      // Maintain fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
+      // Maintain fixed Sipariş: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
       const ymGtEntry = mmGtRecipeEntries.find(([key]) => key === correctStokKodu) || 
                         mmGtRecipeEntries.find(([key]) => key.includes('YM.GT.'));
       const gtpkt01Entry = mmGtRecipeEntries.find(([key]) => key === 'GTPKT01');
@@ -12952,7 +12952,7 @@ const GalvanizliTelNetsis = () => {
       const tokaEntry = mmGtRecipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
       const desiEntry = mmGtRecipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
       
-      // Other entries that might exist but aren't in the fixed order
+      // Other entries that might exist but aren't in the fixed Sipariş
       const otherEntries = mmGtRecipeEntries.filter(([key]) => 
         !key.includes('YM.GT.') && 
         key !== 'GTPKT01' &&
@@ -12964,7 +12964,7 @@ const GalvanizliTelNetsis = () => {
         key !== 'SM.DESİ.PAK'
       );
       
-      // Sırayla ekle - exact order
+      // Sırayla ekle - exact Sipariş
       const orderedEntries = [
         ymGtEntry, 
         gtpkt01Entry, 
@@ -12977,7 +12977,7 @@ const GalvanizliTelNetsis = () => {
         ...otherEntries
       ].filter(Boolean);
       
-      // Add all MM GT recipe components
+      // Ekle all MM GT Reçete components
       let siraNo = 1;
       orderedEntries.forEach(([key, value]) => {
         if (value > 0) {
@@ -12986,7 +12986,7 @@ const GalvanizliTelNetsis = () => {
         }
       });
       
-      // Add YM GT recipes
+      // Ekle YM GT recipes
       const ymGtRecipe = excelData.allRecipes.ymGtRecipe || {};
       const recipeEntries = Object.entries(ymGtRecipe);
       
@@ -13008,7 +13008,7 @@ const GalvanizliTelNetsis = () => {
         ymGtReceteSheet.addRow(generateYmGtReceteRow(key, value, index + 1, sequence, '0'));
       });
       
-      // Add YM ST recipes - Main YM ST first
+      // Ekle YM ST recipes - Main YM ST first
       let siraNoMain = 1;
       const mainYmStRecipe = excelData.allRecipes.ymStRecipes[mainYmStIndex_] || {};
       const mainRecipeEntries = Object.entries(mainYmStRecipe);
@@ -13026,7 +13026,7 @@ const GalvanizliTelNetsis = () => {
         }
       });
       
-      // Add other YM STs
+      // Ekle other YM STs
       allYmSts.forEach((ymSt, index) => {
         if (index !== mainYmStIndex_) {
           const ymStRecipe = excelData.allRecipes.ymStRecipes[index] || {};
@@ -13055,7 +13055,7 @@ const GalvanizliTelNetsis = () => {
     saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename);
   };
 
-  // Generate combined Excel for all completed tasks using stored data
+  // Generate combined Excel için all Tamamlandı tasks using stored Veri
   const generateCombinedExcelForTasks = async (tasks) => {
     try {
       const tasksWithData = tasks.filter(task => task.excelData);
@@ -13063,7 +13063,7 @@ const GalvanizliTelNetsis = () => {
         throw new Error('Tamamlanan görevler için Excel verileri bulunamadı');
       }
       
-      // Create ONLY combined recipe Excel (stock Excel already created post-save)
+      // Oluştur ONLY combined Reçete Excel (Stok Excel already created post-Kaydet)
       await generateCombinedReceteExcelFromData(tasksWithData);
       
       toast.success(`${tasksWithData.length} ürün için birleştirilmiş reçete Excel dosyası oluşturuldu!`);
@@ -13074,14 +13074,14 @@ const GalvanizliTelNetsis = () => {
     }
   };
 
-  // Helper function to find requests for a specific task
+  // Helper function a Bul requests için a specific task
   const findRequestsForTask = (task) => {
     try {
       console.log('🔍 Finding requests for task:', task.name);
       console.log('📋 Available requests count:', requests.length);
       console.log('📋 Approved requests:', requests.filter(r => r.status === 'approved').length);
       
-      // Extract product info from task name
+      // Extract Ürün info den task name
       const productInfo = task.name.match(/([A-Z0-9]+)\s+(\d+(?:\.\d+)?mm)/);
       if (!productInfo) {
         console.warn('Could not extract product info from task name:', task.name);
@@ -13092,7 +13092,7 @@ const GalvanizliTelNetsis = () => {
       const capValue = parseFloat(cap.replace('mm', ''));
       console.log('🎯 Extracted product info:', { kod2, cap, capValue });
       
-      // Find approved requests that match this product
+      // Bul Onaylandı requests that match this Ürün
       const matchingRequests = requests.filter(request => {
         if (!request || request.status !== 'approved') return false;
         
@@ -13108,7 +13108,7 @@ const GalvanizliTelNetsis = () => {
       
       console.log(`🔍 Found ${matchingRequests.length} matching requests by kod_2/cap`);
       
-      // If no matching requests found in current requests, try to find by stok_kodu
+      // If no matching requests found in current requests, Dene a Bul ile stok_kodu
       if (matchingRequests.length === 0) {
         console.log('🔍 No direct matches found, trying stok_kodu pattern...');
         
@@ -13144,7 +13144,7 @@ const GalvanizliTelNetsis = () => {
     try {
       console.log(`📋 Generating Excel from database for: ${mmGtStokKodu}`);
 
-      // 1. Fetch MM GT from database
+      // 1. Getir MM GT den database
       const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}?limit=1000`);
       if (!mmGtResponse || !mmGtResponse.ok) {
         throw new Error('MM GT verisi yüklenemedi');
@@ -13156,7 +13156,7 @@ const GalvanizliTelNetsis = () => {
         throw new Error(`MM GT bulunamadı: ${mmGtStokKodu}`);
       }
 
-      // 2. Fetch YM GT from database (same pattern as MM GT but with YM.GT prefix)
+      // 2. Getir YM GT den database (same pattern olarak MM GT but ile YM.GT prefix)
       const ymGtStokKodu = mmGtStokKodu.replace('GT.', 'YM.GT.');
       const ymGtResponse = await fetchWithAuth(`${API_URLS.galYmGt}?limit=1000`);
       if (!ymGtResponse || !ymGtResponse.ok) {
@@ -13169,10 +13169,10 @@ const GalvanizliTelNetsis = () => {
         throw new Error(`YM GT bulunamadı: ${ymGtStokKodu}`);
       }
 
-      // 3. ✅ FIXED: Fetch YM ST products using PRIORITY column (not relationship table)
+      // 3. ✅ FIXED: Getir YM ST products using PRIORITY column (not relationship table)
       console.log(`📋 SINGLE PRODUCT: Using priority-based method to find YM ST alternatives for ${ymGtStokKodu}`);
 
-      // First, get YM GT recipes to find which YM ST is used
+      // First, Al YM GT recipes a Bul which YM ST is used
       const ymGtRecipeResponse = await fetchWithAuth(`${API_URLS.galYmGtRecete}?limit=2000`);
       if (!ymGtRecipeResponse || !ymGtRecipeResponse.ok) {
         throw new Error('YM GT reçete verileri yüklenemedi');
@@ -13180,7 +13180,7 @@ const GalvanizliTelNetsis = () => {
       const allYmGtRecipes = await ymGtRecipeResponse.json();
       const ymGtRecipes = allYmGtRecipes.filter(r => r.ym_gt_id == ymGt.id);
 
-      // Find the YM ST bilesen in the YM GT recipe
+      // Bul the YM ST bilesen in the YM GT Reçete
       const ymStRecipe = ymGtRecipes.find(r => r.bilesen_kodu && r.bilesen_kodu.startsWith('YM.ST.'));
       if (!ymStRecipe) {
         throw new Error(`YM GT reçetesinde YM ST bileşeni bulunamadı: ${ymGtStokKodu}`);
@@ -13189,14 +13189,14 @@ const GalvanizliTelNetsis = () => {
       const mainYmStCode = ymStRecipe.bilesen_kodu;
       console.log(`📋 SINGLE PRODUCT: Main YM ST bilesen found: ${mainYmStCode}`);
 
-      // Fetch ALL YM ST products to build priority map
+      // Getir ALL YM ST products a build priority Map et
       const allYmStResponse = await fetchWithAuth(`${API_URLS.galYmSt}?limit=5000`);
       if (!allYmStResponse || !allYmStResponse.ok) {
         throw new Error('YM ST verileri yüklenemedi');
       }
       const allYmSts = await allYmStResponse.json();
 
-      // Find the main YM ST product
+      // Bul the main YM ST Ürün
       const mainYmSt = allYmSts.find(ym => ym.stok_kodu === mainYmStCode);
       if (!mainYmSt) {
         throw new Error(`YM ST bulunamadı: ${mainYmStCode}`);
@@ -13205,19 +13205,19 @@ const GalvanizliTelNetsis = () => {
       const ymStProducts = [mainYmSt]; // Priority 0 (main)
       const ymStAltDataObj = {}; // Group alternatives by priority
 
-      // Extract diameter and quality from main YM ST
+      // Extract Çap and Kalite den main YM ST
       let targetDiameter = null;
       let isCoilerProduct = false;
 
       if (mainYmStCode.endsWith('.ST')) {
-        // This is a .ST product (coiler range)
+        // This is a .ST Ürün (coiler range)
         const match = mainYmStCode.match(/YM\.ST\.(\d{4})\.ST/);
         if (match) {
           targetDiameter = parseInt(match[1], 10); // e.g., 0150 → 150
           isCoilerProduct = true;
         }
       } else {
-        // This is a filmasin product
+        // This is a filmasin Ürün
         const match = mainYmStCode.match(/YM\.ST\.(\d{4})\./);
         if (match) {
           targetDiameter = parseInt(match[1], 10); // e.g., 0390 → 390
@@ -13229,9 +13229,9 @@ const GalvanizliTelNetsis = () => {
       } else {
         console.log(`📋 SINGLE PRODUCT: Target diameter: ${targetDiameter/100}mm, isCoiler: ${isCoilerProduct}`);
 
-        // Find alternatives based on priority column
+        // Bul alternatives based on priority column
         const alternativesForDiameter = allYmSts.filter(ym => {
-          // Must have same target diameter
+          // Must have same target Çap
           const ymMatch = ym.stok_kodu.match(/YM\.ST\.(\d{4})/);
           if (!ymMatch) return false;
           const ymDiameter = parseInt(ymMatch[1], 10);
@@ -13246,7 +13246,7 @@ const GalvanizliTelNetsis = () => {
 
         console.log(`📋 SINGLE PRODUCT: Found ${alternativesForDiameter.length} alternatives for diameter ${targetDiameter/100}mm`);
 
-        // Group alternatives by priority
+        // Group alternatives ile priority
         alternativesForDiameter.forEach(ymSt => {
           const priority = ymSt.priority || 1;
           if (!ymStAltDataObj[priority]) {
@@ -13257,25 +13257,25 @@ const GalvanizliTelNetsis = () => {
         });
       }
 
-      // 4. Fetch recipes from database
+      // 4. Getir recipes den database
       const mmGtRecipeResponse = await fetchWithAuth(`${API_URLS.galMmGtRecete}?mm_gt_id=${mmGt.id}`);
       const mmGtRecipes = (mmGtRecipeResponse && mmGtRecipeResponse.ok) ? await mmGtRecipeResponse.json() : [];
 
-      // Add mm_gt_stok_kodu and sequence to each recipe
+      // Ekle mm_gt_stok_kodu and sequence a each Reçete
       mmGtRecipes.forEach(recipe => {
         recipe.mm_gt_stok_kodu = mmGtStokKodu;
         recipe.sequence = mmGtStokKodu.split('.').pop();
       });
 
-      // YM GT recipes already fetched above (no need to fetch again)
+      // YM GT recipes already fetched above (no need a Getir again)
 
-      // Add ym_gt_stok_kodu and sequence to each recipe
+      // Ekle ym_gt_stok_kodu and sequence a each Reçete
       ymGtRecipes.forEach(recipe => {
         recipe.ym_gt_stok_kodu = ymGtStokKodu;
         recipe.sequence = ymGtStokKodu.split('.').pop();
       });
 
-      // Fetch YM ST recipes for all YM ST products (main and alternatives)
+      // Getir YM ST recipes için all YM ST products (main and alternatives)
       const allYmStProducts = [...ymStProducts, ...Object.values(ymStAltDataObj).flat()];
       const ymStRecipes = [];
 
@@ -13291,7 +13291,7 @@ const GalvanizliTelNetsis = () => {
         }
       }
 
-      // 5. Generate Excel using batch functions (ensures format matches database reality)
+      // 5. Generate Excel using batch functions (ensures Formatla matches database reality)
       await generateBatchStokKartiExcel([mmGt], [ymGt], ymStProducts, ymStAltDataObj);
       await generateBatchReceteExcel(mmGtRecipes, ymGtRecipes, ymStRecipes, [mmGt], [ymGt], allYmStProducts);
 
@@ -13306,10 +13306,10 @@ const GalvanizliTelNetsis = () => {
   // Excel dosyalarını oluştur
   const generateExcelFiles = async () => {
     try {
-      // Check if we're editing a request and need approval (but not already in approval process)
+      // Kontrol et if we're editing a İstek and need approval (but not already in approval İşlem)
       if (isEditingRequest && selectedRequest && !isInApprovalProcess) {
         setIsInApprovalProcess(true);
-        // Skip modal, proceed directly with approval and queue
+        // Skip Modal, proceed directly ile approval and queue
         approveRequestAndContinue();
         return;
       }
@@ -13328,13 +13328,13 @@ const GalvanizliTelNetsis = () => {
         return;
       }
       
-      // Excel generation should use the processSequence that was set during database save
+      // Excel generation should use the processSequence that was Ayarla during database Kaydet
       // This ensures consistency between database and Excel files
       
-      // Debug: Check sessionStorage for sequence consistency
+      // Debug: Kontrol et sessionStorage için sequence consistency
       const storedSequence = sessionStorage.getItem('lastProcessSequence');
       
-      // Extract sequence from selected request's stok_kodu if available
+      // Extract sequence den selected İstek's stok_kodu if Mevcut
       let requestSequence = '00';
       if (selectedRequest && selectedRequest.stok_kodu) {
         const match = selectedRequest.stok_kodu.match(/\.(\d+)$/);
@@ -13358,18 +13358,18 @@ const GalvanizliTelNetsis = () => {
       });
         
       if (storedSequence && storedSequence !== processSequence) {
-        // Update processSequence to match the stored value
+        // Güncelle processSequence a match the stored Değer
         setProcessSequence(storedSequence);
       }
       
-      // Calculate what the expected stok_kodu should be
+      // Hesapla what the expected stok_kodu should be
       const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
       const expectedStokKodu = `GT.${mmGtData.kod_2}.${capFormatted}.${sequenceToUse}`;
       
       if (!sequenceToUse || sequenceToUse === '00') {
       }
       
-      // Generate Excel from database (ensures Excel matches what was actually saved)
+      // Generate Excel den database (ensures Excel matches what was actually saved)
       try {
         await generateExcelFilesFromDatabase(expectedStokKodu);
         console.log(`✅ Excel files generated from database for: ${expectedStokKodu}`);
@@ -13381,13 +13381,13 @@ const GalvanizliTelNetsis = () => {
       
       // Both Excel files generated successfully
       
-      // Only show success message if we're not in the request approval flow
-      // (the approval flow will handle its own success message)
+      // Only Göster Başarılı Mesaj if we're not in the İstek approval flow
+      // (the approval flow will İşle its own Başarılı Mesaj)
       if (!isEditingRequest) {
         setSuccessMessage('Excel dosyaları başarıyla oluşturuldu');
         toast.success('Excel dosyaları başarıyla oluşturuldu');
         
-        // Clear the success message after 5 seconds
+        // Temizle the Başarılı Mesaj after 5 seconds
         setTimeout(() => {
           setSuccessMessage('');
         }, 5000);
@@ -13400,9 +13400,9 @@ const GalvanizliTelNetsis = () => {
       console.log('Excel oluşturma işlemi sonlandı');
       setIsLoading(false);
       
-      // Force UI update
+      // Force UI Güncelle
       setTimeout(() => {
-        // Reset loading state again just to be sure
+        // Sıfırla Yükleniyor State again just a be sure
         setIsLoading(false);
       }, 500);
     }
@@ -13442,33 +13442,33 @@ const GalvanizliTelNetsis = () => {
     const ymStHeaders = getYmStHeaders();
     ymStSheet.addRow(ymStHeaders);
 
-    // Categorize YM STs by priority/isMain - DYNAMIC VERSION (supports unlimited priorities)
+    // Categorize YM STs ile priority/isMain - DYNAMIC VERSION (supports unlimited priorities)
     const ymStsByPriority = {};
 
     allYmSts.forEach((ymSt, index) => {
       const isMain = ymSt.isMain !== false && (ymSt.priority === 0 || ymSt.priority === undefined || index === mainYmStIndex);
       const priority = ymSt.priority !== undefined ? ymSt.priority : (index === mainYmStIndex ? 0 : index);
 
-      // Group by priority dynamically
+      // Group ile priority dynamically
       if (!ymStsByPriority[priority]) {
         ymStsByPriority[priority] = [];
       }
       ymStsByPriority[priority].push(ymSt);
     });
 
-    // Add YM STs dynamically for each priority
+    // Ekle YM STs dynamically için each priority
     const priorities = Object.keys(ymStsByPriority).map(Number).sort((a, b) => a - b);
 
     priorities.forEach(priority => {
       const ymSts = ymStsByPriority[priority];
 
       if (priority === 0) {
-        // Main products (priority 0) - add to main YM ST sheet
+        // Main products (priority 0) - Ekle a main YM ST sheet
         ymSts.forEach(ymSt => {
           ymStSheet.addRow(generateYmStStokKartiData(ymSt));
         });
       } else if (priority > 0) {
-        // ✅ FIXED: Alternative products (priority 1, 2, 3, ...) - Only create ALT sheets for priority >= 1
+        // ✅ FIXED: Alternative products (priority 1, 2, 3, ...) - Only Oluştur ALT sheets için priority >= 1
         if (ymSts.length > 0) {
           const altSheet = workbook.addWorksheet(`YM ST ALT ${priority}`);
           altSheet.addRow(ymStHeaders);
@@ -13480,7 +13480,7 @@ const GalvanizliTelNetsis = () => {
     });
     
     try {
-      // Validate data before writing
+      // Doğrula Veri before writing
       console.log('Stok Kartı Excel dosyası oluşturuluyor...');
       const buffer = await workbook.xlsx.writeBuffer();
       console.log('Stok Kartı Excel buffer oluşturuldu, dosya boyutu:', buffer.byteLength, 'bytes');
@@ -13506,7 +13506,7 @@ const GalvanizliTelNetsis = () => {
   const generateReceteExcel = async (sequenceParam = '00') => {
     // Use the passed sequence parameter which should be the correct one
     const sequence = sequenceParam || processSequence || '00';
-    // Recipe Excel generation using sequence: ${sequence}
+    // Reçete Excel generation using sequence: ${sequence}
     
     const workbook = new ExcelJS.Workbook();
     const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
@@ -13543,20 +13543,20 @@ const GalvanizliTelNetsis = () => {
     
     let siraNo = 1;
     
-    // MMGT reçete sıralaması: fixed exact order as specified
+    // MMGT reçete sıralaması: fixed exact Sipariş olarak specified
     const recipeEntries = Object.entries(processedMmGtRecipe);
     
-    // CRITICAL FIX: Ensure only ONE shrink entry exists for Excel
+    // CRITICAL FIX: Ensure only ONE shrink entry exists için Excel
     const shrinkEntries = recipeEntries.filter(([key]) => key.includes('AMB.SHRİNK.'));
     if (shrinkEntries.length > 1) {
       console.warn(`Multiple shrink entries found (${shrinkEntries.length}), cleaning for Excel generation:`);
       shrinkEntries.forEach(([key, value]) => console.warn(`  ${key}: ${value}`));
       
-      // Find the one with highest value or first non-zero
+      // Bul the one ile highest Değer or first non-zero
       const activeShrink = shrinkEntries.find(([key, value]) => value > 0) || shrinkEntries[0];
       console.warn(`Using only: ${activeShrink[0]} = ${activeShrink[1]}`);
       
-      // Remove all other shrink entries from the recipe for Excel
+      // Kaldır all other shrink entries den the Reçete için Excel
       shrinkEntries.forEach(([key]) => {
         if (key !== activeShrink[0]) {
           delete processedMmGtRecipe[key];
@@ -13569,7 +13569,7 @@ const GalvanizliTelNetsis = () => {
       recipeEntries.push(...cleanedEntries);
     }
     
-    // Maintain fixed order: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
+    // Maintain fixed Sipariş: YM.GT.*.*, GTPKT01, AMB.ÇEM.KARTON.GAL, AMB.SHRİNK.*, SM.7MMHALKA, AMB.APEX CEMBER, AMB.TOKA.SIGNODE, SM.DESİ.PAK
     // Düzeltme: YM.GT kodunu mamul_kodu ile aynı sequence'e sahip olacak şekilde ara
     const correctYmGtStokKodu = `YM.GT.${mmGtData.kod_2}.${Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0')}.${sequence}`;
     const ymGtEntry = recipeEntries.find(([key]) => key === correctYmGtStokKodu) || 
@@ -13582,7 +13582,7 @@ const GalvanizliTelNetsis = () => {
     const tokaEntry = recipeEntries.find(([key]) => key === 'AMB.TOKA.SIGNODE.114P. DKP');
     const desiEntry = recipeEntries.find(([key]) => key === 'SM.DESİ.PAK');
     
-    // Other entries that might exist but aren't in the fixed order
+    // Other entries that might exist but aren't in the fixed Sipariş
     const otherEntries = recipeEntries.filter(([key]) => 
       !key.includes('YM.GT.') && 
       key !== 'GTPKT01' &&
@@ -13594,7 +13594,7 @@ const GalvanizliTelNetsis = () => {
       key !== 'SM.DESİ.PAK'
     );
     
-    // Sırayla ekle - exact order
+    // Sırayla ekle - exact Sipariş
     const orderedEntries = [
       ymGtEntry, 
       gtpkt01Entry, 
@@ -13615,7 +13615,7 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // Debugging: Check if we have exactly 8 rows as expected
+    // Debugging: Kontrol et if we have exactly 8 rows olarak expected
     const addedRows = orderedEntries.filter(([key, value]) => value > 0).length;
     if (addedRows !== 8) {
       console.warn(`MMGT reçetesi ${addedRows} satır içeriyor, 8 olmalı. Girdiler:`, 
@@ -13629,18 +13629,18 @@ const GalvanizliTelNetsis = () => {
     // Sadece 1 YM GT reçetesi ekle - aynı sequence'i kullan
     let siraNo2 = 1;
     
-    // YM GT reçetesinden sequence'e uygun değerleri al - fixed exact order
+    // YM GT reçetesinden sequence'e uygun değerleri al - fixed exact Sipariş
     const ymGtRecipeEntries = Object.entries(allRecipes.ymGtRecipe);
     
-    // Fixed order: YM.ST.*.*.*, GLV01, 150 03, SM.HİDROLİK.ASİT
-    // Find YM.ST component in YM GT recipe
+    // Fixed Sipariş: YM.ST.*.*.*, GLV01, 150 03, SM.HİDROLİK.ASİT
+    // Bul YM.ST Bileşen in YM GT Reçete
     const ymStEntry = ymGtRecipeEntries.find(([key]) => key.includes('YM.ST.'));
     const glv01Entry = ymGtRecipeEntries.find(([key]) => key === 'GLV01');
-    // Get Çinko from YM GT recipe (NOT YM ST recipe)
+    // Al Çinko den YM GT Reçete (NOT YM ST Reçete)
     const zincEntry = ymGtRecipeEntries.find(([key]) => key === '150 03');
     const asitEntry = ymGtRecipeEntries.find(([key]) => key === 'SM.HİDROLİK.ASİT');
     
-    // Other entries that might exist but aren't in the fixed order
+    // Other entries that might exist but aren't in the fixed Sipariş
     const otherYmGtEntries = ymGtRecipeEntries.filter(([key]) => 
       !key.includes('YM.ST.') && 
       key !== 'GLV01' && 
@@ -13648,7 +13648,7 @@ const GalvanizliTelNetsis = () => {
       key !== 'SM.HİDROLİK.ASİT'
     );
     
-    // Sırayla ekle - exact order
+    // Sırayla ekle - exact Sipariş
     const orderedYmGtEntries = [
       ymStEntry, // Use the YM.ST entry as found
       glv01Entry,
@@ -13659,7 +13659,7 @@ const GalvanizliTelNetsis = () => {
     
     orderedYmGtEntries.forEach(([key, value]) => {
       if (value > 0) {
-        // For YM.ST entries, calculate the value as "1 - Çinko Tüketim Miktarı"
+        // için YM.ST entries, Hesapla the Değer olarak "1 - Çinko Tüketim Miktarı"
         let finalValue = value;
         if (key.includes('YM.ST.') && zincEntry && zincEntry[1]) {
           finalValue = 1 - parseFloat(zincEntry[1]);
@@ -13670,7 +13670,7 @@ const GalvanizliTelNetsis = () => {
     });
 
     // YM GT REÇETE ALT 1 Sheet - For COILER alternatives (1.5-1.8mm YM ST filmaşin bilesen)
-    // Check if this product uses FILMAŞIN YM ST in 1.5-1.8mm range (then generate .ST alternative)
+    // Kontrol et if this Ürün uses FILMAŞIN YM ST in 1.5-1.8mm range (then generate .ST alternative)
     let hasFilmasinInCoilerRange = false;
     let ymStBilesenDiameter = 0;
     let alternativeBilesenKodu = '';
@@ -13680,7 +13680,7 @@ const GalvanizliTelNetsis = () => {
       const bilesenMatch = ymStEntry[0].match(/YM\.ST\.(\d{4})\.\d+\.\d+$/);
       if (bilesenMatch) {
         ymStBilesenDiameter = parseFloat(bilesenMatch[1]) / 100.0;
-        // Check if diameter is in 1.5-1.8mm range (inclusive)
+        // Kontrol et if Çap is in 1.5-1.8mm range (inclusive)
         if (ymStBilesenDiameter >= 1.5 && ymStBilesenDiameter <= 1.8) {
           hasFilmasinInCoilerRange = true;
           // Generate alternative bilesen code (replace filmaşin with .ST)
@@ -13707,7 +13707,7 @@ const GalvanizliTelNetsis = () => {
           let finalKey = key;
           let finalValue = value;
 
-          // Replace filmaşin YM.ST with .ST version
+          // Replace filmaşin YM.ST ile .ST version
           if (key.includes('YM.ST.') && key.match(/YM\.ST\.(\d{4})\.\d+\.\d+$/)) {
             finalKey = alternativeBilesenKodu;
             if (zincEntry && zincEntry[1]) {
@@ -13729,8 +13729,8 @@ const GalvanizliTelNetsis = () => {
     const ymStReceteSheet = workbook.addWorksheet('YM ST REÇETE');
     ymStReceteSheet.addRow(receteHeaders);
 
-    // Build main YM ST recipes array from allRecipes.ymStRecipes
-    // Filter for .ST products (COILER products)
+    // Build main YM ST recipes Dizi den allRecipes.ymStRecipes
+    // Filtrele için .ST products (COILER products)
     const mainYmStRecipes = [];
     allYmSts.forEach((ymSt, index) => {
       const ymStRecipe = allRecipes.ymStRecipes[index] || {};
@@ -13749,7 +13749,7 @@ const GalvanizliTelNetsis = () => {
       });
     });
 
-    // Add main YM ST recipes to sheet
+    // Ekle main YM ST recipes a sheet
     const ymStByProduct = {};
     mainYmStRecipes.forEach(recipe => {
       if (!ymStByProduct[recipe.mamul_kodu]) {
@@ -13758,15 +13758,15 @@ const GalvanizliTelNetsis = () => {
       ymStByProduct[recipe.mamul_kodu].push(recipe);
     });
 
-    // FIXED: Sort recipes within each product by sira_no field from database
-    // sira_no field determines order: 1=main bilesen, 2=operation, 3+=other bilesens
+    // FIXED: Sırala recipes within each Ürün ile sira_no Alan den database
+    // sira_no Alan determines Sipariş: 1=main bilesen, 2=operation, 3+=other bilesens
     Object.keys(ymStByProduct).forEach(productCode => {
       ymStByProduct[productCode].sort((a, b) => {
-        // Sort by sira_no field if both have it
+        // Sırala ile sira_no Alan if both have it
         if (a.sira_no && b.sira_no) {
           return a.sira_no - b.sira_no;
         }
-        // If sira_no is missing, use bilesen_kodu type as fallback
+        // If sira_no is missing, use bilesen_kodu Tip olarak fallback
         const aIsMainBilesen = a.bilesen_kodu && (a.bilesen_kodu.includes('YM.ST.') || a.bilesen_kodu.includes('FLM.'));
         const bIsMainBilesen = b.bilesen_kodu && (b.bilesen_kodu.includes('YM.ST.') || b.bilesen_kodu.includes('FLM.'));
         if (aIsMainBilesen && !bIsMainBilesen) return -1;
@@ -13793,7 +13793,7 @@ const GalvanizliTelNetsis = () => {
     const altPriorities = Object.keys(coilerAlternatives).map(Number).sort((a, b) => a - b);
     console.log(`📋 SINGLE RECIPE: Generated COILER alternatives for priorities: ${altPriorities.join(', ')}`);
 
-    // 🆕 Create YM ST REÇETE ALT 1-8 sheets dynamically based on available alternatives
+    // 🆕 Oluştur YM ST REÇETE ALT 1-8 sheets dynamically based on Mevcut alternatives
     altPriorities.forEach(priority => {
       const altRecipes = coilerAlternatives[priority];
       if (!altRecipes || altRecipes.length === 0) return;
@@ -13801,7 +13801,7 @@ const GalvanizliTelNetsis = () => {
       const altSheet = workbook.addWorksheet(`YM ST REÇETE ALT ${priority}`);
       altSheet.addRow(receteHeaders);
 
-      // Group recipes by product
+      // Group recipes ile Ürün
       const ymStAltByProduct = {};
       altRecipes.forEach(recipe => {
         if (!ymStAltByProduct[recipe.mamul_kodu]) {
@@ -13810,7 +13810,7 @@ const GalvanizliTelNetsis = () => {
         ymStAltByProduct[recipe.mamul_kodu].push(recipe);
       });
 
-      // FIXED: Sort recipes within each product by bilesen_kodu type
+      // FIXED: Sırala recipes within each Ürün ile bilesen_kodu Tip
       // Main bilesen (YM.ST/FLM) should come before operations (COTLC01/TLC01)
       Object.keys(ymStAltByProduct).forEach(productCode => {
         ymStAltByProduct[productCode].sort((a, b) => {
@@ -13824,7 +13824,7 @@ const GalvanizliTelNetsis = () => {
         });
       });
 
-      // Add recipes sorted by product code
+      // Ekle recipes sorted ile Ürün code
       Object.keys(ymStAltByProduct).sort().forEach(stokKodu => {
         if (ymStAltByProduct[stokKodu] && ymStAltByProduct[stokKodu].length > 0) {
           let productSiraNo = 1;
@@ -13840,7 +13840,7 @@ const GalvanizliTelNetsis = () => {
     });
     
     try {
-      // Validate data before writing
+      // Doğrula Veri before writing
       console.log('Excel dosyası oluşturuluyor...');
       const buffer = await workbook.xlsx.writeBuffer();
       console.log('Excel buffer oluşturuldu, dosya boyutu:', buffer.byteLength, 'bytes');
@@ -13932,7 +13932,7 @@ const GalvanizliTelNetsis = () => {
     'Alternatif Açıklama'
   ];
 
-  // Helper function to extract packaging options from stok_adi
+  // Helper function a extract packaging options den stok_adi
   const extractPackagingFromStokAdi = (stokAdi) => {
     if (!stokAdi) return { shrink: false, paletli: false, sepetli: false };
     
@@ -13947,7 +13947,7 @@ const GalvanizliTelNetsis = () => {
     };
   };
 
-  // Helper function to categorize diameter into KOD-3 groups
+  // Helper function a categorize Çap into KOD-3 groups
   const getDiameterGroup = (cap) => {
     if (cap <= 1.8) {
       return 'Grup 1';
@@ -13965,7 +13965,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   // Excel veri oluşturma fonksiyonları - doğru formatlar ve COMMA usage
-  // Batch version that takes MM GT data as parameter
+  // Batch version that takes MM GT Veri olarak parameter
   const generateMmGtStokKartiDataForBatch = (mmGt) => {
     const cap = parseFloat(mmGt.cap);
     const toleransPlus = parseFloat(mmGt.tolerans_plus) || 0;
@@ -13975,19 +13975,19 @@ const GalvanizliTelNetsis = () => {
     const adjustedPlus = toleransPlus;
     const adjustedMinus = toleransMinus;
     
-    // Check if stok_adi already has packaging suffixes
+    // Kontrol et if stok_adi already has packaging suffixes
     const existingPackaging = extractPackagingFromStokAdi(mmGt.stok_adi);
     
-    // Generate stok_adi for this specific MM GT
+    // Generate stok_adi için this specific MM GT
     const bagAmount = mmGt.cast_kont && mmGt.cast_kont.trim() !== '' 
       ? `/${mmGt.cast_kont}` 
       : '';
     
-    // Use stok_adi from database if available, otherwise generate it
+    // Use stok_adi den database if Mevcut, otherwise generate it
     let stokAdi = mmGt.stok_adi;
     let englishName = mmGt.ingilizce_isim;
     
-    // If stok_adi is not in database, generate it (shouldn't happen with proper data)
+    // If stok_adi is not in database, generate it (shouldn't happen ile proper Veri)
     if (!stokAdi) {
       const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
       const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
@@ -14202,27 +14202,27 @@ const GalvanizliTelNetsis = () => {
     ];
   };
 
-  // Batch version that takes YM GT data as parameter
+  // Batch version that takes YM GT Veri olarak parameter
   const generateYmGtStokKartiDataForBatch = (ymGt) => {
-    // Use cap directly from ymGt object if available, otherwise parse from stok_kodu
+    // Use cap directly den ymGt Nesne if Mevcut, otherwise Parse et den stok_kodu
     let cap;
     if (ymGt.cap) {
       cap = parseFloat(ymGt.cap);
     } else {
-      // Extract cap from stok_kodu as fallback
+      // Extract cap den stok_kodu olarak fallback
       const stokParts = ymGt.stok_kodu.split('.');
       const capCode = stokParts[3]; // cap code like 0250
       cap = parseInt(capCode) / 100; // Convert back to decimal (0250 -> 2.50)
     }
     
-    // Extract other values from stok_kodu for display
+    // Extract other values den stok_kodu için display
     const stokParts = ymGt.stok_kodu.split('.');
     const kod2 = stokParts[2]; // GT kod_2
     const sequence = stokParts[4] || '00'; // sequence
     
     console.log('Batch YM GT - stok_kodu:', ymGt.stok_kodu, 'calculated cap:', cap, 'gumruk tarife kodu:', getGumrukTarifeKoduForCap(cap));
     
-    // Get values from YM GT data
+    // Al values den YM GT Veri
     const toleransPlus = parseFloat(ymGt.tolerans_plus) || 0;
     const toleransMinus = parseFloat(ymGt.tolerans_minus) || 0;
 
@@ -14230,7 +14230,7 @@ const GalvanizliTelNetsis = () => {
     const adjustedPlus = toleransPlus;
     const adjustedMinus = toleransMinus;
 
-    // Get proper signs for tolerance display
+    // Al proper signs için tolerance display
     const plusSign = adjustedPlus >= 0 ? '+' : '';
     const minusSign = adjustedMinus >= 0 ? '+' : '';
 
@@ -14242,19 +14242,19 @@ const GalvanizliTelNetsis = () => {
     const kg = ymGt.kg || '0';
     const castKont = ymGt.cast_kont;
 
-    // Determine if we need to append the bag amount (cast_kont) value
+    // Determine if we need a append the bag amount (cast_kont) Değer
     const bagAmount = castKont && castKont.trim() !== '' ? `/${castKont}` : '';
 
-    // Generate stok_adi with proper tolerance signs
+    // Generate stok_adi ile proper tolerance signs
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
     const stokAdi = `YM Galvanizli Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg}${bagAmount} kg`;
 
-    // Generate cari_adi with proper tolerance signs
+    // Generate cari_adi ile proper tolerance signs
     const cariAdi = `Tel ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
 
-    // Generate english name with proper tolerance signs
+    // Generate english name ile proper tolerance signs
     const englishName = `Galvanized Steel Wire ${cap.toFixed(2).replace('.', ',')} mm ${toleranceText} ${kaplama} gr/m² ${minMukavemet}-${maxMukavemet} MPa ID:${icCap} cm OD:${disCap} cm ${kg} kg`;
     
     return [
@@ -14337,7 +14337,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   const generateYmGtStokKartiData = (sequence = '00') => {
-    // If ymGtData is not populated, generate it from mmGtData and current form values
+    // If ymGtData is not populated, generate it den mmGtData and current Form values
     let currentYmGtData = ymGtData;
     if (!currentYmGtData && mmGtData) {
       console.log('⚠️ YMGT data missing, generating from MMGT data and current form values');
@@ -14350,18 +14350,18 @@ const GalvanizliTelNetsis = () => {
     }
     
     const cap = parseFloat(currentYmGtData.cap);
-    // Generate correct stock code using the passed sequence
+    // Generate correct Stok code using the passed sequence
     const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
     const stokKodu = `YM.GT.${currentYmGtData.kod_2}.${capFormatted}.${sequence}`;
     
-    // Use YM GT tolerance data - values are already signed in database
+    // Use YM GT tolerance Veri - values are already signed in database
     const toleransPlus = parseFloat(currentYmGtData.tolerans_plus) || 0;
     const toleransMinus = parseFloat(currentYmGtData.tolerans_minus) || 0;
     // Values are already signed, use them directly
     let adjustedPlus = toleransPlus;
     let adjustedMinus = toleransMinus;
 
-    // Apply mathematical correction if needed (same logic as getAdjustedToleranceValues)
+    // Apply mathematical correction if needed (same logic olarak getAdjustedToleranceValues)
     if (adjustedPlus < adjustedMinus) {
       // Swap values if mathematically incorrect
       const temp = adjustedPlus;
@@ -14453,7 +14453,7 @@ const GalvanizliTelNetsis = () => {
   };
 
   const generateYmStStokKartiData = (ymSt) => {
-    // Extract diameter from YM ST stock code (e.g., YM.ST.0151.0600.1006 -> 1.51mm)
+    // Extract Çap den YM ST Stok code (e.g., YM.ST.0151.0600.1006 -> 1.51mm)
     const stokParts = ymSt.stok_kodu.split('.');
     const capCode = stokParts[2]; // e.g., "0151"
     const cap = parseInt(capCode) / 100; // Convert to decimal (0151 -> 1.51)
@@ -14530,7 +14530,7 @@ const GalvanizliTelNetsis = () => {
   const generateMmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
 
-    // Map bilesen code to new standardized code
+    // Map et bilesen code a new standardized code
     const mappedBilesenKodu = mapBilesenKoduForExcel(bilesenKodu);
 
     // Determine if this is an Operation row
@@ -14570,16 +14570,16 @@ const GalvanizliTelNetsis = () => {
   const generateYmGtReceteRow = (bilesenKodu, miktar, siraNo, sequence = '00', priority = '', alternativeDescription = '') => {
     const capFormatted = Math.round(parseFloat(mmGtData.cap) * 100).toString().padStart(4, '0');
 
-    // Fix: Convert "150" to "150 03"
+    // Fix: Çevir "150" a "150 03"
     const fixedBilesenKodu = bilesenKodu === '150' ? '150 03' : bilesenKodu;
 
-    // Map bilesen code to new standardized code
+    // Map et bilesen code a new standardized code
     const mappedBilesenKodu = mapBilesenKoduForExcel(fixedBilesenKodu);
 
     // Determine if this is an Operation row
     const isOperation = fixedBilesenKodu === 'GLV01';
 
-    // FIXED: Use correct fire_orani value (0.00040 not 0.00000)
+    // FIXED: Use correct fire_orani Değer (0.00040 not 0.00000)
     const fireOraniFormatted = formatDecimalForReceteExcel(0.0004);
 
     return [
@@ -14650,7 +14650,7 @@ const GalvanizliTelNetsis = () => {
     ];
   };
 
-  // Map old bilesen codes to new standardized codes for Excel export
+  // Map et old bilesen codes a new standardized codes için Excel export
   const mapBilesenKoduForExcel = (bilesenKodu) => {
     const bilesenMapping = {
       // MM GT bilesen mappings
@@ -14670,21 +14670,21 @@ const GalvanizliTelNetsis = () => {
     return bilesenMapping[bilesenKodu] || bilesenKodu;
   };
 
-  // Batch Excel için MM GT recipe row generator
+  // Batch Excel için MM GT Reçete row generator
   const generateMmGtReceteRowForBatch = (recipe, siraNo, mmGtStokKodu, priority = '') => {
-    // FIXED: MM GT recipe should use MM GT stok kodu, not YM GT format
-    // The mmGtStokKodu is already in correct format (GT.PAD.0087.00)
+    // FIXED: MM GT Reçete should use MM GT stok kodu, not YM GT Formatla
+    // The mmGtStokKodu is already in correct Formatla (GT.PAD.0087.00)
 
     const bilesenKodu = recipe.bilesen_kodu;
     const miktar = recipe.miktar;
 
-    // Map bilesen code to new standardized code
+    // Map et bilesen code a new standardized code
     const mappedBilesenKodu = mapBilesenKoduForExcel(bilesenKodu);
 
     // Determine if this is an Operation row
     const isOperation = bilesenKodu === 'GTPKT01';
 
-    // Format fire_orani from database (convert to 5 decimals with comma)
+    // Formatla fire_orani den database (Çevir a 5 decimals ile comma)
     const fireOraniValue = recipe.fire_orani || 0.0004;
     const fireOraniFormatted = formatDecimalForReceteExcel(fireOraniValue);
 
@@ -14719,21 +14719,21 @@ const GalvanizliTelNetsis = () => {
     ];
   };
 
-  // Batch Excel için YM GT recipe row generator
+  // Batch Excel için YM GT Reçete row generator
   const generateYmGtReceteRowForBatch = (recipe, siraNo, ymGtStokKodu, priority = '', alternativeDescription = '') => {
     const bilesenKodu = recipe.bilesen_kodu;
     const miktar = recipe.miktar;
 
-    // Fix: Convert "150" to "150 03"
+    // Fix: Çevir "150" a "150 03"
     const fixedBilesenKodu = bilesenKodu === '150' ? '150 03' : bilesenKodu;
 
-    // Map bilesen code to new standardized code
+    // Map et bilesen code a new standardized code
     const mappedBilesenKodu = mapBilesenKoduForExcel(fixedBilesenKodu);
 
     // Determine if this is an Operation row
     const isOperation = fixedBilesenKodu === 'GLV01';
 
-    // Format fire_orani from database (convert to 5 decimals with comma)
+    // Formatla fire_orani den database (Çevir a 5 decimals ile comma)
     const fireOraniValue = recipe.fire_orani || 0.0004;
     const fireOraniFormatted = formatDecimalForReceteExcel(fireOraniValue);
 
@@ -14777,7 +14777,7 @@ const GalvanizliTelNetsis = () => {
     // Determine if this is an Operation row
     const isOperation = ['TLC01', 'COTLC01'].includes(bilesenKodu);
 
-    // Format fire_orani from database (convert to 5 decimals with comma)
+    // Formatla fire_orani den database (Çevir a 5 decimals ile comma)
     const fireOraniValue = recipe.fire_orani || 0.0004;
     const fireOraniFormatted = formatDecimalForReceteExcel(fireOraniValue);
 
@@ -14814,17 +14814,17 @@ const GalvanizliTelNetsis = () => {
   };
 
   // String oluşturma fonksiyonları - COMMA Excel formatında
-  // Database version - uses POINT format
+  // Database version - uses POINT Formatla
   const generateStokAdi = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
-    // Determine if we need to append the bag amount (cast_kont) value
+    // Determine if we need a append the bag amount (cast_kont) Değer
     const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
       ? `/${mmGtData.cast_kont}`
       : '';
 
-    // Format with proper signs (negative sign automatic from toFixed, add + for positive)
+    // Formatla ile proper signs (negative sign automatic den toFixed, Ekle + için positive)
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
@@ -14842,21 +14842,21 @@ const GalvanizliTelNetsis = () => {
       stokAdi += '-' + suffixes.join('-');
     }
     
-    // Use point for database storage - NO comma replacement for database
+    // Use point için database storage - NO comma replacement için database
     return stokAdi;
   };
 
-  // Excel version - uses COMMA format  
+  // Excel version - uses COMMA Formatla
   const generateStokAdiForExcel = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
-    // Determine if we need to append the bag amount (cast_kont) value
+    // Determine if we need a append the bag amount (cast_kont) Değer
     const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
       ? `/${mmGtData.cast_kont}`
       : '';
 
-    // Format with proper signs and comma for Excel
+    // Formatla ile proper signs and comma için Excel
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
@@ -14874,21 +14874,21 @@ const GalvanizliTelNetsis = () => {
       stokAdi += '-' + suffixes.join('-');
     }
     
-    // Use comma for Excel display
+    // Use comma için Excel display
     return stokAdi;
   };
 
-  // Database version for YM GT - uses POINT format
+  // Database version için YM GT - uses POINT Formatla
   const generateYmGtStokAdi = (sequence = '00') => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
-    // Determine if we need to append the bag amount (cast_kont) value
+    // Determine if we need a append the bag amount (cast_kont) Değer
     const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
       ? `/${mmGtData.cast_kont}`
       : '';
 
-    // Format with proper signs (negative sign automatic from toFixed, add + for positive)
+    // Formatla ile proper signs (negative sign automatic den toFixed, Ekle + için positive)
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
@@ -14906,21 +14906,21 @@ const GalvanizliTelNetsis = () => {
       stokAdi += '-' + suffixes.join('-');
     }
     
-    // Use point for database storage
+    // Use point için database storage
     return stokAdi;
   };
 
-  // Excel version for YM GT - uses COMMA format
+  // Excel version için YM GT - uses COMMA Formatla
   const generateYmGtStokAdiForExcel = (sequence = '00') => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
-    // Determine if we need to append the bag amount (cast_kont) value
+    // Determine if we need a append the bag amount (cast_kont) Değer
     const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
       ? `/${mmGtData.cast_kont}`
       : '';
 
-    // Format with proper signs and comma for Excel
+    // Formatla ile proper signs and comma için Excel
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
@@ -14938,7 +14938,7 @@ const GalvanizliTelNetsis = () => {
       stokAdi += '-' + suffixes.join('-');
     }
     
-    // Use comma for Excel display
+    // Use comma için Excel display
     return stokAdi;
   };
 
@@ -14946,7 +14946,7 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
-    // Format with proper signs and comma for Excel
+    // Formatla ile proper signs and comma için Excel
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
@@ -14971,12 +14971,12 @@ const GalvanizliTelNetsis = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
-    // Determine if we need to append the bag amount (cast_kont) value
+    // Determine if we need a append the bag amount (cast_kont) Değer
     const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
       ? `/${mmGtData.cast_kont}`
       : '';
 
-    // Format with proper signs and comma for Excel
+    // Formatla ile proper signs and comma için Excel
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
@@ -14997,17 +14997,17 @@ const GalvanizliTelNetsis = () => {
     return ingilizceIsim;
   };
 
-  // Database version - uses POINT format
+  // Database version - uses POINT Formatla
   const generateEnglishName = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
-    // Determine if we need to append the bag amount (cast_kont) value
+    // Determine if we need a append the bag amount (cast_kont) Değer
     const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
       ? `/${mmGtData.cast_kont}`
       : '';
 
-    // Format with proper signs (negative sign automatic from toFixed, add + for positive)
+    // Formatla ile proper signs (negative sign automatic den toFixed, Ekle + için positive)
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2);
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2);
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
@@ -15025,21 +15025,21 @@ const GalvanizliTelNetsis = () => {
       englishName += '-' + suffixes.join('-');
     }
     
-    // Use points for database storage
+    // Use points için database storage
     return englishName;
   };
 
-  // Excel version - uses COMMA format
+  // Excel version - uses COMMA Formatla
   const generateEnglishNameForExcel = () => {
     const cap = parseFloat(mmGtData.cap) || 0;
     const { adjustedPlus, adjustedMinus } = getAdjustedToleranceValues();
 
-    // Determine if we need to append the bag amount (cast_kont) value
+    // Determine if we need a append the bag amount (cast_kont) Değer
     const bagAmount = mmGtData.cast_kont && mmGtData.cast_kont.trim() !== ''
       ? `/${mmGtData.cast_kont}`
       : '';
 
-    // Format with proper signs and comma for Excel
+    // Formatla ile proper signs and comma için Excel
     const formattedMinus = (adjustedMinus >= 0 ? '+' : '') + adjustedMinus.toFixed(2).replace('.', ',');
     const formattedPlus = (adjustedPlus >= 0 ? '+' : '') + adjustedPlus.toFixed(2).replace('.', ',');
     const toleranceText = `${formattedMinus}/${formattedPlus}`;
@@ -15057,7 +15057,7 @@ const GalvanizliTelNetsis = () => {
       englishName += '-' + suffixes.join('-');
     }
     
-    // Use comma for Excel display
+    // Use comma için Excel display
     return englishName;
   };
 
@@ -15085,7 +15085,7 @@ const GalvanizliTelNetsis = () => {
       });
       
       if (response && response.ok) {
-        // Add to session approvals - avoid duplicates
+        // Ekle a session approvals - avoid duplicates
         setSessionApprovals(prev => {
           if (!prev.includes(selectedRequest.id)) {
             console.log('Adding to session approvals:', selectedRequest.id, 'Current total:', prev.length + 1);
@@ -15163,7 +15163,7 @@ const GalvanizliTelNetsis = () => {
       }
     });
     
-    // Update dropdown state to reflect the change
+    // Güncelle dropdown State a reflect the Değiştir
     setActiveTabDropdownValues(prev => ({
       ...prev,
       shrinkType: newShrinkCode
@@ -15377,7 +15377,7 @@ const GalvanizliTelNetsis = () => {
                 value={`${mmGtData.ic_cap}-${mmGtData.dis_cap}`}
                 onChange={(e) => {
                   if (e.target.value === 'custom') {
-                    // Custom entry selected - show input fields
+                    // Custom entry selected - Göster Girdi fields
                     const customIc = prompt('İç Çap (cm) girin:');
                     const customDis = prompt('Dış Çap (cm) girin:');
                     if (customIc && customDis) {
@@ -15904,15 +15904,15 @@ const GalvanizliTelNetsis = () => {
                           </div>
                           <button
                             onClick={() => {
-                              // If removing the main YMST, set a new main YMST
+                              // If removing the main YMST, Ayarla a new main YMST
                               if (isMain) {
-                                // Find new main index - prefer to keep among selected YMSTs
+                                // Bul new main index - prefer a keep among selected YMSTs
                                 const newMainIndex = selectedYmSts.length > 1 
                                   ? (index === selectedYmSts.length - 1 ? index - 1 : index + 1) 
                                   : (autoGeneratedYmSts.length > 0 ? selectedYmSts.length : 0);
                                 setMainYmStIndex(newMainIndex);
                               } else if (index < mainYmStIndex) {
-                                // If removing an YMST with index less than main, adjust main index
+                                // If removing an YMST ile index less than main, adjust main index
                                 setMainYmStIndex(mainYmStIndex - 1);
                               }
                               removeSelectedYmSt(index);
@@ -15977,9 +15977,9 @@ const GalvanizliTelNetsis = () => {
                           </div>
                           <button
                             onClick={() => {
-                              // If removing the main YMST, set a new main YMST
+                              // If removing the main YMST, Ayarla a new main YMST
                               if (isMain) {
-                                // Find new main index - prefer to keep among auto YMSTs or selected YMSTs
+                                // Bul new main index - prefer a keep among auto YMSTs or selected YMSTs
                                 const newMainIndex = autoGeneratedYmSts.length > 1 
                                   ? (index === autoGeneratedYmSts.length - 1 
                                     ? selectedYmSts.length + index - 1 
@@ -15987,7 +15987,7 @@ const GalvanizliTelNetsis = () => {
                                   : (selectedYmSts.length > 0 ? 0 : 0);
                                 setMainYmStIndex(newMainIndex);
                               } else if (autoIndex < mainYmStIndex) {
-                                // If removing an YMST with index less than main, adjust main index
+                                // If removing an YMST ile index less than main, adjust main index
                                 setMainYmStIndex(mainYmStIndex - 1);
                               }
                               removeAutoGeneratedYmSt(index);
@@ -16031,7 +16031,7 @@ const GalvanizliTelNetsis = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={() => {
-                      // Fill empty fields with auto-fill indicators
+                      // Fill empty fields ile auto-fill indicators
                       fillEmptyFieldsWithAutoFill();
                     }}
                     className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-lg flex items-center gap-2"
@@ -16100,7 +16100,7 @@ const GalvanizliTelNetsis = () => {
                         
                         const friendlyName = type === 'readonly' ? 'YM GT Bileşeni' : friendlyNames[key] || key;
                         const statusText = type === 'readonly' ? 'Otomatik oluşturuldu' : getRecipeStatusText('mmgt', activeRecipeTab, key);
-                        // Force 'readonly' type to use KG as the unit
+                        // Force 'readonly' Tip a use KG olarak the unit
                         
                         return (
                           <div key={key} className="space-y-2">
@@ -16218,7 +16218,7 @@ const GalvanizliTelNetsis = () => {
                         }
                         
                         const friendlyName = friendlyNames[key] || key;
-                        // YM GT recipe is shared across all YM STs since it's the final product recipe
+                        // YM GT Reçete is shared across all YM STs since it's the final Ürün Reçete
                         const isMainYmSt = activeRecipeTab === mainYmStIndex;
                         const currentValue = allRecipes.ymGtRecipe?.[key] || '';
                         const statusText = getRecipeStatusText('ymgt', null, key);
@@ -16300,7 +16300,7 @@ const GalvanizliTelNetsis = () => {
               <button
                 onClick={() => {
                   if (isViewingExistingProduct) {
-                    // Cancel changes and go back to database list
+                    // İptal changes and go Geri a database Liste
                     if (window.confirm('Değişiklikleri iptal etmek istediğinizden emin misiniz?')) {
                       setCurrentStep('input');
                       setSavedToDatabase(false);
@@ -16318,7 +16318,7 @@ const GalvanizliTelNetsis = () => {
                       toast.info('Değişiklikler iptal edildi');
                     }
                   } else {
-                    // Normal back behavior for new products
+                    // Normal Geri behavior için new products
                     setCurrentStep('input');
                     setSavedToDatabase(false);
                     setDatabaseIds({ mmGtIds: [], ymGtId: null, ymStIds: [] });
@@ -16351,17 +16351,17 @@ const GalvanizliTelNetsis = () => {
                     try {
                       setIsLoading(true);
                       
-                      // First check for duplicate stok_kodu when editing
+                      // First Kontrol et için duplicate stok_kodu zaman editing
                       const isDuplicateValid = await checkForDuplicatesWhenEditing();
                       if (!isDuplicateValid) {
                         setIsLoading(false);
                         return;
                       }
                       
-                      // Check for changes when editing existing product
+                      // Kontrol et için changes zaman editing existing Ürün
                       const changes = detectChanges();
                       
-                      // Show change preview modal
+                      // Göster Değiştir preview Modal
                       setPendingChanges({
                         changes: changes,
                         originalData: originalProductData,
@@ -16379,7 +16379,7 @@ const GalvanizliTelNetsis = () => {
                       setError(`İşlem hatası: ${error.message}`);
                       toast.error(`İşlem hatası: ${error.message}`);
                       
-                      // Reset loading state to allow user to try again
+                      // Sıfırla Yükleniyor State a allow user a Dene again
                       setIsLoading(false);
                     } finally {
                       setIsLoading(false);
@@ -16410,23 +16410,23 @@ const GalvanizliTelNetsis = () => {
               {/* Sadece Kaydet button - yeni urunler icin veya talep duzenlerken goster */}
               {(() => {
                 const shouldShow = ((!isViewingExistingProduct && !savedToDatabase) || isEditingRequest) && !isViewingExistingProduct;
-                // Removed frequent console.log to reduce render noise
+                // Removed frequent console.log a Reduce et Render et noise
                 return shouldShow;
               })() && (
                 <button
                   onClick={(e) => {
                     console.log("Sadece Kaydet - adding to queue");
                     
-                    // Get product name for task display
+                    // Al Ürün name için task display
                     const productName = `${mmGtData.kod_2} ${mmGtData.cap}mm`;
                     const taskName = `${productName}`;
                     const taskId = Date.now().toString();
                     
-                    // ✅ CRITICAL FIX: Capture request ID when task is created, not when it runs
+                    // ✅ CRITICAL FIX: Capture İstek ID zaman task is created, not zaman it runs
                     const currentRequestId = selectedRequest?.id;
                     console.log(`📝 Capturing request ID for queue task: ${currentRequestId}`);
 
-                    // 🔒 STATE SNAPSHOT: Capture ALL state at task creation to prevent mixing
+                    // 🔒 State SNAPSHOT: Capture ALL State at task creation a prevent mixing
                     console.log(`📸 Creating state snapshot for task: ${productName}`);
                     const stateSnapshot = {
                       mmGtData: JSON.parse(JSON.stringify(mmGtData)),
@@ -16448,7 +16448,7 @@ const GalvanizliTelNetsis = () => {
                       requestId: stateSnapshot.currentRequestId
                     });
 
-                    // Create animation element
+                    // Oluştur animation element
                     const buttonRect = e.currentTarget.getBoundingClientRect();
                     const animElement = document.createElement('div');
                     animElement.className = 'fixed z-50 bg-green-600 text-white px-3 py-1 rounded-lg text-sm pointer-events-none transition-all duration-700 shadow-lg';
@@ -16464,29 +16464,29 @@ const GalvanizliTelNetsis = () => {
                     animElement.style.top = `${buttonRect.top}px`;
                     document.body.appendChild(animElement);
                     
-                    // Calculate target position (bottom bar)
+                    // Hesapla target position (bottom bar)
                     const targetY = window.innerHeight - 60;
                     const targetX = 100 + (taskQueue.length * 150);
                     
-                    // Animate to bottom bar
+                    // Animate a bottom bar
                     requestAnimationFrame(() => {
                       animElement.style.transform = `translate(${targetX - buttonRect.left}px, ${targetY - buttonRect.top}px) scale(0.9)`;
                       animElement.style.opacity = '0.3';
                     });
                     
-                    // Remove animation element
+                    // Kaldır animation element
                     setTimeout(() => {
                       if (animElement.parentNode) {
                         document.body.removeChild(animElement);
                       }
                     }, 700);
                     
-                    // Add to queue with save function
+                    // Ekle a queue ile Kaydet function
                     addToTaskQueue(taskName, async () => {
                       let saveResult;
                       let actualSequence = '00'; // ✅ CRITICAL FIX: Declare outside try block
 
-                      // 🔒 USE SNAPSHOT: All operations use stateSnapshot, NEVER global state
+                      // 🔒 USE SNAPSHOT: All operations use stateSnapshot, NEVER global State
                       console.log(`🔄 Task executing with snapshot:`, {
                         kod_2: stateSnapshot.mmGtData.kod_2,
                         cap: stateSnapshot.mmGtData.cap,
@@ -16502,11 +16502,11 @@ const GalvanizliTelNetsis = () => {
                           return false;
                         }
 
-                        // Get next sequence for this product with atomic sequence generation
+                        // Al İleri sequence için this Ürün ile atomic sequence generation
                         const capFormatted = Math.round(parseFloat(stateSnapshot.mmGtData.cap) * 100).toString().padStart(4, '0');
                         const baseCode = `GT.${stateSnapshot.mmGtData.kod_2}.${capFormatted}`;
                         
-                        // Add task ID to sequence generation for atomic operation
+                        // Ekle task ID a sequence generation için atomic operation
                         const taskId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                         console.log(`🔒 [${taskId}] Starting atomic sequence generation for ${baseCode}`);
                         
@@ -16544,7 +16544,7 @@ const GalvanizliTelNetsis = () => {
                           
                           console.log(`🔍 [${taskId}] Checking if ${potentialStokKodu} already exists...`);
                           
-                          // Double-check: verify this sequence is not already taken
+                          // Double-Kontrol et: verify this sequence is not already taken
                           const checkResponse = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${potentialStokKodu}`);
                           if (checkResponse && checkResponse.ok) {
                             const existing = await checkResponse.json();
@@ -16553,7 +16553,7 @@ const GalvanizliTelNetsis = () => {
                               break; // Sequence is available
                             } else {
                               console.log(`⚠️ [${taskId}] Sequence ${sequence} is taken, retrying...`);
-                              // Add small delay to prevent tight loop
+                              // Ekle small delay a prevent tight loop
                               await new Promise(resolve => setTimeout(resolve, 100));
                               continue; // Try again
                             }
@@ -16569,13 +16569,13 @@ const GalvanizliTelNetsis = () => {
                         console.log(`🎯 [${taskId}] Final sequence: ${sequence} for ${baseCode}`);
                         setProcessSequence(sequence);
                         
-                        // Convert sequence string back to number for proceedWithSave
+                        // Çevir sequence String Geri a Sayı için proceedWithSave
                         const nextSequence = parseInt(sequence);
                         
-                        // ✅ CRITICAL FIX: Capture the actual sequence for later use in approval
+                        // ✅ CRITICAL FIX: Capture the actual sequence için later use in approval
                         actualSequence = sequence;
 
-                        // ✅ CRITICAL FIX: Pass the captured request ID to proceedWithSave
+                        // ✅ CRITICAL FIX: Pass the captured İstek ID a proceedWithSave
                         console.log(`🎯 Using snapshot request ID in queue task: ${stateSnapshot.currentRequestId}`);
                         saveResult = await proceedWithSave(allYmSts, nextSequence, stateSnapshot.currentRequestId);
                       } catch (error) {
@@ -16584,16 +16584,16 @@ const GalvanizliTelNetsis = () => {
                         saveResult = false;
                       }
                       
-                      // If we have a pending approval action and save was successful, approve the request
+                      // If we have a Beklemede approval action and Kaydet was successful, approve the İstek
                       if (saveResult && stateSnapshot.pendingApprovalAction && stateSnapshot.selectedRequest) {
                         console.log("Sadece Kaydet: Pending approval action detected, approving request");
 
-                        // Generate the actual stok_kodu that was used during database save
+                        // Generate the actual stok_kodu that was used during database Kaydet
                         const capFormatted = Math.round(parseFloat(stateSnapshot.mmGtData.cap) * 100).toString().padStart(4, '0');
                         const actualStokKodu = `GT.${stateSnapshot.mmGtData.kod_2}.${capFormatted}.${actualSequence}`;
                         console.log(`🎯 [Queue Approval] Using captured sequence: ${actualSequence} for stok_kodu: ${actualStokKodu}`);
 
-                        // Check what action was pending
+                        // Kontrol et what action was Beklemede
                         const isApproval = stateSnapshot.pendingApprovalAction === 'approve';
                         const isEdit = stateSnapshot.pendingApprovalAction === 'edit';
                         
@@ -16615,28 +16615,28 @@ const GalvanizliTelNetsis = () => {
                           });
                           
                           if (updateResponse && updateResponse.ok) {
-                            // Show appropriate success message
+                            // Göster appropriate Başarılı Mesaj
                             if (isApproval) {
                               toast.success('Talep başarıyla onaylandı');
                             } else if (isEdit) {
                               toast.success('Talep başarıyla düzenlendi ve onaylandı');
                             }
                             
-                            // Reset states
+                            // Sıfırla states
                             setIsEditingRequest(false);
                             setPendingApprovalAction(null);
                             setIsRequestUsed(false); // Clear the used flag to remove status message
                             
-                            // Refresh requests list to update status from 'işleniyor' to 'onaylandı'
+                            // Refresh requests Liste a Güncelle Durum den 'işleniyor' a 'onaylandı'
                             setTimeout(async () => {
                               await fetchRequests();
                             }, 500);
                             
-                            // ✅ Return success with excel data since both save and approval succeeded
+                            // ✅ Return Başarılı ile excel Veri since both Kaydet and approval succeeded
                             const capFormatted = Math.round(parseFloat(stateSnapshot.mmGtData.cap) * 100).toString().padStart(4, '0');
                             const finalStokKodu = `GT.${stateSnapshot.mmGtData.kod_2}.${capFormatted}.${actualSequence}`;
 
-                            // Get signed tolerance values for Excel generation from snapshot
+                            // Al signed tolerance values için Excel generation den snapshot
                             const adjustedPlus = stateSnapshot.toleransMaxSign === '+' ? stateSnapshot.mmGtData.tolerans_plus : `-${stateSnapshot.mmGtData.tolerans_plus}`;
                             const adjustedMinus = stateSnapshot.toleransMinSign === '-' ? `-${stateSnapshot.mmGtData.tolerans_minus}` : stateSnapshot.mmGtData.tolerans_minus;
 
@@ -16658,23 +16658,23 @@ const GalvanizliTelNetsis = () => {
                           } else {
                             console.error('Failed to update request status');
                             toast.error('Talep onaylanamadı');
-                            // ❌ Return failure since approval failed
+                            // ❌ Return failure since approval Başarısız
                             return { success: false };
                           }
                         } catch (error) {
                           console.error('Error updating request status:', error);
                           toast.error('Talep onaylanamadı: ' + error.message);
-                          // ❌ Return failure since approval failed
+                          // ❌ Return failure since approval Başarısız
                           return { success: false };
                         }
                       }
                       
-                      // If save was successful, prepare Excel data for instant generation
+                      // If Kaydet was successful, prepare Excel Veri için instant generation
                       if (saveResult) {
                         const capFormatted = Math.round(parseFloat(stateSnapshot.mmGtData.cap) * 100).toString().padStart(4, '0');
                         const finalStokKodu = `GT.${stateSnapshot.mmGtData.kod_2}.${capFormatted}.${actualSequence}`;
 
-                        // Get signed tolerance values for Excel generation from snapshot
+                        // Al signed tolerance values için Excel generation den snapshot
                         const adjustedPlus = stateSnapshot.toleransMaxSign === '+' ? stateSnapshot.mmGtData.tolerans_plus : `-${stateSnapshot.mmGtData.tolerans_plus}`;
                         const adjustedMinus = stateSnapshot.toleransMinSign === '-' ? `-${stateSnapshot.mmGtData.tolerans_minus}` : stateSnapshot.mmGtData.tolerans_minus;
 
@@ -16696,11 +16696,11 @@ const GalvanizliTelNetsis = () => {
                         return { success: true, excelData };
                       }
                       
-                      // If no approval action, return the save result
+                      // If no approval action, return the Kaydet result
                       return { success: saveResult };
                     }, taskId);
                     
-                    // Start processing queue
+                    // Başlangıç İşleniyor queue
                     processTaskQueue();
                   }}
                   disabled={isLoadingRecipes}
@@ -17616,7 +17616,7 @@ const GalvanizliTelNetsis = () => {
                               {(request.status === 'pending' || request.status === 'in_progress') && (
                                 <button
                                   onClick={() => {
-                                    // If request is in queue, remove it from queue first
+                                    // If İstek is in queue, Kaldır it den queue first
                                     if (isRequestInQueue(request.id)) {
                                       setTaskQueue(prev => prev.filter(t => !t.name.includes(request.id)));
                                       taskQueueRef.current = taskQueueRef.current.filter(t => !t.name.includes(request.id));
@@ -17778,13 +17778,13 @@ const GalvanizliTelNetsis = () => {
                     <p className="text-sm font-medium text-gray-500">Tolerans</p>
                     <p className="text-base text-gray-900">
                       {(() => {
-                        // Apply mathematical correction to display tolerance values correctly
+                        // Apply mathematical correction a display tolerance values correctly
                         const plusValue = parseFloat(selectedRequest.tolerans_plus) || 0;
                         const minusValue = parseFloat(selectedRequest.tolerans_minus) || 0;
                         const maxSign = selectedRequest.tolerans_max_sign || '+';
                         const minSign = selectedRequest.tolerans_min_sign || '-';
                         
-                        // Apply signs to get actual values
+                        // Apply signs a Al actual values
                         const actualPlusValue = maxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
                         const actualMinusValue = minSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
                         
@@ -17792,7 +17792,7 @@ const GalvanizliTelNetsis = () => {
                         const higherValue = Math.max(actualPlusValue, actualMinusValue);
                         const lowerValue = Math.min(actualPlusValue, actualMinusValue);
                         
-                        // Format with proper signs
+                        // Formatla ile proper signs
                         const lowerText = lowerValue >= 0 ? `+${lowerValue.toFixed(2)}` : lowerValue.toFixed(2);
                         const higherText = higherValue >= 0 ? `+${higherValue.toFixed(2)}` : higherValue.toFixed(2);
                         
@@ -17806,20 +17806,20 @@ const GalvanizliTelNetsis = () => {
                       {(() => {
                         const packaging = [];
                         
-                        // Extract packaging info from stok_adi if available (new format)
+                        // Extract packaging info den stok_adi if Mevcut (new Formatla)
                         if (selectedRequest.stok_adi) {
                           if (selectedRequest.stok_adi.includes('-Shrink')) packaging.push('Shrink');
                           if (selectedRequest.stok_adi.includes('-Plt')) packaging.push('Paletli');
                           if (selectedRequest.stok_adi.includes('-Spt')) packaging.push('Sepetli');
                         }
                         
-                        // Fallback to legacy shrink field if no packaging suffixes found
+                        // Fallback a legacy shrink Alan if no packaging suffixes found
                         if (packaging.length === 0 && selectedRequest.shrink) {
                           const shrinkText = selectedRequest.shrink === 'evet' || selectedRequest.shrink === 'Yes' ? 'Shrink' : 'Shrink Yok';
                           packaging.push(shrinkText);
                         }
                         
-                        // If still no packaging info, show default
+                        // If still no packaging info, Göster default
                         if (packaging.length === 0) {
                           packaging.push('Belirtilmemiş');
                         }
@@ -17907,7 +17907,7 @@ const GalvanizliTelNetsis = () => {
                 <div className="flex gap-3">
                   {/* Show different buttons based on request status */}
                   {selectedRequest.status === 'pending' ? (
-                    // Pending status - show all three buttons
+                    // Beklemede Durum - Göster all three buttons
                     <>
                       <button
                         onClick={handleEditRequest}
@@ -17949,16 +17949,16 @@ const GalvanizliTelNetsis = () => {
                       </button>
                     </>
                   ) : selectedRequest.status?.toString().toLowerCase().trim() === 'approved' ? (
-                    // Approved status - show edit saved product button
+                    // Onaylandı Durum - Göster edit saved Ürün button
                     <button
                       onClick={async () => {
-                        // Find the saved product using multiple methods with priority order
+                        // Bul the saved Ürün using multiple methods ile priority Sipariş
                         let foundProduct = null;
                         
                         try {
                           setIsLoading(true);
                           
-                          // Method 1: Try with stok_kodu (most reliable)
+                          // Method 1: Dene ile stok_kodu (most reliable)
                           if (selectedRequest.stok_kodu && !foundProduct) {
                             console.log('Trying to find product by stok_kodu:', selectedRequest.stok_kodu);
                             const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_kodu=${selectedRequest.stok_kodu}`);
@@ -17971,7 +17971,7 @@ const GalvanizliTelNetsis = () => {
                             }
                           }
                           
-                          // Method 2: Try with final_stok_adi if available (for edited products)
+                          // Method 2: Dene ile final_stok_adi if Mevcut (için edited products)
                           if (!foundProduct && selectedRequest.final_stok_adi) {
                             console.log('Trying to find product by final_stok_adi:', selectedRequest.final_stok_adi);
                             const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_adi=${encodeURIComponent(selectedRequest.final_stok_adi)}`);
@@ -17984,7 +17984,7 @@ const GalvanizliTelNetsis = () => {
                             }
                           }
                           
-                          // Method 3: Try with original stok_adi as fallback
+                          // Method 3: Dene ile original stok_adi olarak fallback
                           if (!foundProduct && selectedRequest.stok_adi) {
                             console.log('Trying to find product by stok_adi:', selectedRequest.stok_adi);
                             const response = await fetchWithAuth(`${API_URLS.galMmGt}?stok_adi=${encodeURIComponent(selectedRequest.stok_adi)}`);
@@ -17997,12 +17997,12 @@ const GalvanizliTelNetsis = () => {
                             }
                           }
                           
-                          // Method 4: Use final_product_key to match based on product characteristics
+                          // Method 4: Use final_product_key a match based on Ürün characteristics
                           if (!foundProduct && selectedRequest.final_product_key) {
                             console.log('Trying to find product by product key characteristics');
                             try {
                               const productKey = JSON.parse(selectedRequest.final_product_key);
-                              // Build query parameters from product key
+                              // Build Sorgu parameters den Ürün key
                               const queryParams = new URLSearchParams();
                               if (productKey.cap) queryParams.append('cap', productKey.cap);
                               if (productKey.kod_2) queryParams.append('kod_2', productKey.kod_2);
@@ -18012,7 +18012,7 @@ const GalvanizliTelNetsis = () => {
                               if (response && response.ok) {
                                 const products = await response.json();
                                 if (products && products.length > 0) {
-                                  // Find the best match based on more characteristics
+                                  // Bul the best match based on more characteristics
                                   foundProduct = products.find(p => 
                                     p.cap === productKey.cap && 
                                     p.kod_2 === productKey.kod_2 &&
@@ -18027,11 +18027,11 @@ const GalvanizliTelNetsis = () => {
                           }
                           
                           if (foundProduct) {
-                            // Close the request detail modal
+                            // Kapat the İstek detail Modal
                             setShowRequestDetailModal(false);
-                            // Set editing existing product flag
+                            // Ayarla editing existing Ürün flag
                             setIsEditingExistingProduct(true);
-                            // Load the product for editing
+                            // Yükle the Ürün için editing
                             handleSelectExistingMmGt(foundProduct);
                           } else {
                             toast.error('Kaydedilmiş ürün bulunamadı. Ürün silinmiş olabilir veya farklı parametrelerle kaydedilmiş olabilir.');
@@ -18059,7 +18059,7 @@ const GalvanizliTelNetsis = () => {
                       Kaydedilmiş Ürünü Düzenle
                     </button>
                   ) : selectedRequest.status === 'silinmis' ? (
-                    // Silinmiş status - show reopen option
+                    // Silinmiş Durum - Göster reopen option
                     <button
                       onClick={async () => {
                         if (window.confirm('Bu silinmiş talebi yeniden açmak istediğinizden emin misiniz?\n\nTalep "Beklemede" durumuna geçecek ve tekrar işlenebilir hale gelecektir.')) {
@@ -18071,7 +18071,7 @@ const GalvanizliTelNetsis = () => {
                               body: JSON.stringify({ status: 'pending' })
                             });
                             
-                            // Update local state
+                            // Güncelle local State
                             setRequests(prev => prev.map(req => 
                               req.id === selectedRequest.id 
                                 ? { ...req, status: 'pending' }
@@ -18104,7 +18104,7 @@ const GalvanizliTelNetsis = () => {
                       Talebi Yeniden Aç
                     </button>
                   ) : (
-                    // Rejected or other status - no action buttons
+                    // Reddedildi or other Durum - no action buttons
                     null
                   )}
                 </div>
@@ -18311,7 +18311,7 @@ const GalvanizliTelNetsis = () => {
                 <button
                   onClick={() => {
                     setShowEditConfirmModal(false);
-                    // If there's a queue resolve function waiting, call it with cancel
+                    // If there's a queue resolve function waiting, call it ile İptal
                     if (window.editConfirmResolve) {
                       window.editConfirmResolve(false);
                       window.editConfirmResolve = null;
@@ -19137,7 +19137,7 @@ const GalvanizliTelNetsis = () => {
                     key={index} 
                     className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-3 cursor-pointer hover:bg-orange-100 transition-colors"
                     onClick={() => {
-                      // User clicked on a specific product
+                      // User clicked on a specific Ürün
                       setShowDuplicateConfirmModal(false);
                       handleSelectExistingMmGt(product);
                       setShowExistingMmGtModal(false);
@@ -19181,7 +19181,7 @@ const GalvanizliTelNetsis = () => {
                       if (pendingSaveData) {
                         setShowDuplicateConfirmModal(false);
                         
-                        // Fetch existing YM STs from database for Excel generation
+                        // Getir existing YM STs den database için Excel generation
                         const existingYmStsForExcel = [];
                         for (const duplicate of duplicateProducts.filter(p => p.type === 'YM ST')) {
                           try {
@@ -19197,7 +19197,7 @@ const GalvanizliTelNetsis = () => {
                           }
                         }
                         
-                        // Keep non-duplicate YM STs and add existing ones for Excel
+                        // Keep non-duplicate YM STs and Ekle existing ones için Excel
                         const ymStsForSave = pendingSaveData.allYmSts.filter(ymSt => 
                           ymSt.source === 'database' || 
                           !duplicateProducts.some(dup => dup.type === 'YM ST' && dup.stok_kodu === ymSt.stok_kodu)
@@ -19208,11 +19208,11 @@ const GalvanizliTelNetsis = () => {
                           ...existingYmStsForExcel
                         ];
                         
-                        // Update the selected YM STs for Excel generation
+                        // Güncelle the selected YM STs için Excel generation
                         const originalSelectedYmSts = [...selectedYmSts];
                         const originalAutoGeneratedYmSts = [...autoGeneratedYmSts];
                         
-                        // Temporarily update YM STs for Excel generation
+                        // Temporarily Güncelle YM STs için Excel generation
                         setSelectedYmSts(ymStsForExcel.filter(ym => ym.source === 'database'));
                         setAutoGeneratedYmSts(ymStsForExcel.filter(ym => ym.source !== 'database'));
                         
@@ -19306,24 +19306,24 @@ const GalvanizliTelNetsis = () => {
                   </button>
                   <button
                     onClick={async () => {
-                      // Add selected YM STs to the main selection
+                      // Ekle selected YM STs a the main selection
                       const ymStsToAdd = selectedYmStsForAdd.filter(ymSt =>
                         !selectedYmSts.find(selected => selected.stok_kodu === ymSt.stok_kodu)
                       );
 
-                      // Validate special diameters before adding
+                      // Doğrula special diameters before adding
                       const specialDiameters = [1.88, 2.37];
                       const allowedProducts = {
                         1.88: 'YM.GT.NIT.0193.00',
                         2.37: 'YM.GT.NIT.0241.00'
                       };
 
-                      // Construct current product code
+                      // Construct current Ürün code
                       const cap = parseFloat(mmGtData.cap) || 0;
                       const capFormatted = Math.round(cap * 100).toString().padStart(4, '0');
                       const currentProductBase = `YM.GT.${mmGtData.kod_2}.${capFormatted}`;
 
-                      // Filter out special diameter YM.STs that are not allowed for this product
+                      // Filtrele out special Çap YM.STs that are not allowed için this Ürün
                       const validYmSts = [];
                       const blockedYmSts = [];
 
@@ -19343,7 +19343,7 @@ const GalvanizliTelNetsis = () => {
                         validYmSts.push(ymSt);
                       }
 
-                      // Show warning if any YM.STs were blocked
+                      // Göster warning if any YM.STs were blocked
                       if (blockedYmSts.length > 0) {
                         const blockedCodes = blockedYmSts.map(ym => ym.stok_kodu).join(', ');
                         toast.warning(`Bu çaplar zırhlı tel üretimine özeldir ve eklenemedi: ${blockedCodes}`, {
@@ -19352,22 +19352,22 @@ const GalvanizliTelNetsis = () => {
                         });
                       }
 
-                      // Add only valid YM STs
+                      // Ekle only Geçerli YM STs
                       const newYmSts = validYmSts.map(ymSt => ({ ...ymSt, source: 'database' }));
                       setSelectedYmSts(prev => [...prev, ...newYmSts]);
 
-                      // Close modal and clear selection
+                      // Kapat Modal and Temizle selection
                       setShowYmStSelectionModal(false);
                       setSelectedYmStsForAdd([]);
                       setYmStSearchQuery('');
 
-                      // Wait for state update then load recipe data
+                      // Wait için State Güncelle then Yükle Reçete Veri
                       setTimeout(async () => {
                         if (newYmSts.length > 0) {
                           await loadExistingRecipeData(newYmSts);
                           toast.success(`${validYmSts.length} YM ST eklendi ve reçete verileri yüklendi`);
                         } else if (blockedYmSts.length > 0) {
-                          // All selected items were blocked
+                          // All selected Öğeler were blocked
                           toast.info('Hiçbir YM ST eklenemedi - seçilen tüm çaplar kısıtlı');
                         }
                       }, 100);
@@ -19400,8 +19400,8 @@ const GalvanizliTelNetsis = () => {
                         const isSelected = selectedYmStsForAdd.find(selected => selected.stok_kodu === ymSt.stok_kodu);
                         const isAlreadyInMain = selectedYmSts.find(selected => selected.stok_kodu === ymSt.stok_kodu);
 
-                        // Determine if this is a suggested item
-                        // Suggested items are sorted first, so check cap difference
+                        // Determine if this is a suggested Öğe
+                        // Suggested Öğeler are sorted first, so Kontrol et cap difference
                         const cap = parseFloat(mmGtData.cap) || 0;
                         const ymStCap = parseFloat(ymSt.cap) || 0;
                         const capDifference = Math.abs(ymStCap - cap);
@@ -19783,7 +19783,7 @@ const GalvanizliTelNetsis = () => {
                 <div className="mt-2 flex justify-end">
                   <button
                     onClick={() => {
-                      // If completion popup is showing, don't allow clearing
+                      // If completion Popup is showing, don't allow clearing
                       if (showQueueCompletionPopup) {
                         toast.warning('Önce kuyruk tamamlanma penceresini kapatın');
                         return;
@@ -19904,10 +19904,10 @@ const GalvanizliTelNetsis = () => {
                       setIsLoading(true);
                       
                       if (pendingChanges.changes.length > 0) {
-                        // Update existing product directly - NO queue system needed for editing
+                        // Güncelle existing Ürün directly - NO queue system needed için editing
                         const allYmSts = [...selectedYmSts, ...autoGeneratedYmSts];
                         
-                        // Extract existing sequence from the existing product's stok_kodu
+                        // Extract existing sequence den the existing Ürün's stok_kodu
                         const existingStokKodu = selectedExistingMmGt.stok_kodu;
                         const sequencePart = existingStokKodu.split('.').pop(); // Get last part (e.g., "00")
                         const existingSequence = parseInt(sequencePart); // Convert to number
@@ -19918,7 +19918,7 @@ const GalvanizliTelNetsis = () => {
                           productId: selectedExistingMmGt.id
                         });
                         
-                        // Update existing product using existing sequence (no new product creation)
+                        // Güncelle existing Ürün using existing sequence (no new Ürün creation)
                         const saveResult = await proceedWithSave(allYmSts, existingSequence);
                         
                         if (saveResult) {
@@ -19998,7 +19998,7 @@ const GalvanizliTelNetsis = () => {
                       <button
                         onClick={async () => {
                           try {
-                            // Set loading state and progress
+                            // Ayarla Yükleniyor State and progress
                             setExcelGenerationProgress(prev => ({
                               ...prev,
                               [task.id]: { loading: true, progress: 0 }
@@ -20028,13 +20028,13 @@ const GalvanizliTelNetsis = () => {
                             
                             await generateExcelForTask(task);
                             
-                            // Complete progress
+                            // Tamamlandı progress
                             setExcelGenerationProgress(prev => ({
                               ...prev,
                               [task.id]: { loading: false, progress: 100 }
                             }));
                             
-                            // Clear progress after a short delay
+                            // Temizle progress after a short delay
                             setTimeout(() => {
                               setExcelGenerationProgress(prev => {
                                 const newState = { ...prev };
@@ -20045,7 +20045,7 @@ const GalvanizliTelNetsis = () => {
                           } catch (error) {
                             console.error('Excel export error:', error);
                             toast.error('Excel dosyası oluşturulamadı: ' + error.message);
-                            // Clear loading state on error
+                            // Temizle Yükleniyor State on Hata
                             setExcelGenerationProgress(prev => {
                               const newState = { ...prev };
                               delete newState[task.id];
@@ -20098,13 +20098,13 @@ const GalvanizliTelNetsis = () => {
                     <button
                       onClick={async () => {
                         try {
-                          // Set loading state and progress for combined export
+                          // Ayarla Yükleniyor State and progress için combined export
                           setExcelGenerationProgress(prev => ({
                             ...prev,
                             combined: { loading: true, progress: 0 }
                           }));
                           
-                          // Simulate progress updates for combined export
+                          // Simulate progress updates için combined export
                           setTimeout(() => {
                             setExcelGenerationProgress(prev => ({
                               ...prev,
@@ -20128,13 +20128,13 @@ const GalvanizliTelNetsis = () => {
                           
                           await generateCombinedExcelForTasks(completedQueueTasks);
                           
-                          // Complete progress
+                          // Tamamlandı progress
                           setExcelGenerationProgress(prev => ({
                             ...prev,
                             combined: { loading: false, progress: 100 }
                           }));
                           
-                          // Clear progress after a short delay
+                          // Temizle progress after a short delay
                           setTimeout(() => {
                             setExcelGenerationProgress(prev => {
                               const newState = { ...prev };
@@ -20145,7 +20145,7 @@ const GalvanizliTelNetsis = () => {
                         } catch (error) {
                           console.error('Combined Excel export error:', error);
                           toast.error('Birleştirilmiş Excel dosyası oluşturulamadı: ' + error.message);
-                          // Clear loading state on error
+                          // Temizle Yükleniyor State on Hata
                           setExcelGenerationProgress(prev => {
                             const newState = { ...prev };
                             delete newState.combined;
@@ -20195,7 +20195,7 @@ const GalvanizliTelNetsis = () => {
                 onClick={() => {
                   setShowQueueCompletionPopup(false);
                   setCompletedQueueTasks([]);
-                  // Clear completed tasks from queue
+                  // Temizle Tamamlandı tasks den queue
                   setTaskQueue(prev => prev.filter(t => t.status !== 'completed'));
                   taskQueueRef.current = taskQueueRef.current.filter(t => t.status !== 'completed');
                 }}

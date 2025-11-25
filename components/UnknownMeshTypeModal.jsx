@@ -15,14 +15,14 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
   const currentMeshType = meshTypes[currentIndex] || '';
   const totalTypes = meshTypes.length;
 
-  // Determine if current type is Q type for simplified input
+  // Determine if current Tip is Q Tip için simplified Girdi
   const isQType = currentMeshType.startsWith('Q');
 
   const handleInputChange = (field, value) => {
-    // Convert comma to period for decimal inputs
+    // Çevir comma a Periyot için decimal inputs
     const normalizedValue = value.replace(',', '.');
 
-    // For Q types, when setting diameter or spacing, set both boy and en values
+    // için Q types, zaman setting Çap or spacing, Ayarla both boy and en values
     if (isQType) {
       if (field === 'diameter' || field === 'boyCap') {
         setSpecifications(prev => ({
@@ -44,7 +44,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
       }));
     }
     
-    // Clear error when user starts typing
+    // Temizle Hata zaman user starts typing
     if (errors[field]) {
       setErrors(prev => ({
         ...prev,
@@ -56,7 +56,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
   const validateForm = () => {
     const newErrors = {};
 
-    // For Q types, only validate the displayed fields
+    // için Q types, only Doğrula the displayed fields
     if (isQType) {
       const diameter = parseFloat(specifications.boyCap);
       const aralik = parseFloat(specifications.boyAralik);
@@ -77,7 +77,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
         newErrors.aralik = 'Göz aralığı 5-100 cm arasında olmalıdır';
       }
     } else {
-      // Validate all fields for R and TR types
+      // Doğrula all fields için R and TR types
       Object.entries(specifications).forEach(([key, value]) => {
         const numValue = parseFloat(value);
         if (!value || value.trim() === '') {
@@ -88,7 +88,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
       });
     }
 
-    // Additional validation for reasonable ranges
+    // Additional validation için reasonable ranges
     const boyCap = parseFloat(specifications.boyCap);
     const enCap = parseFloat(specifications.enCap);
     const boyAralik = parseFloat(specifications.boyAralik);
@@ -118,20 +118,20 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
 
     setSaving(true);
     try {
-      // Normalize hasir tipi for storage - Q692/692 becomes Q692
+      // Normalize hasir tipi için storage - Q692/692 becomes Q692
       let normalizedHasirTipi = currentMeshType;
       if (currentMeshType.match(/^Q(\d+)\/(\d+)$/)) {
         const match = currentMeshType.match(/^Q(\d+)\/(\d+)$/);
         if (match[1] === match[2]) {
-          // Q692/692 -> Q692 for storage
+          // Q692/692 -> Q692 için storage
           normalizedHasirTipi = `Q${match[1]}`;
         }
       } else if (currentMeshType.match(/^Q(\d+)$/)) {
-        // Already in correct format
+        // Already in correct Formatla
         normalizedHasirTipi = currentMeshType;
       }
 
-      // Determine type from the normalized format
+      // Determine Tip den the normalized Formatla
       let type = 'Q';
       if (normalizedHasirTipi.startsWith('R')) type = 'R';
       else if (normalizedHasirTipi.startsWith('TR')) type = 'TR';
@@ -141,7 +141,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
       const number = normalizedHasirTipi.replace(/[A-Z]+/, '');
       const description = `${type} type ${typeLabel} - ${number}${type === 'Q' ? ` (used for Q${number}/${number} combinations)` : 'kg/m³'}`;
 
-      // Convert strings to numbers
+      // Çevir strings a numbers
       const meshConfig = {
         hasirTipi: normalizedHasirTipi, // Use normalized format for storage
         boyCap: parseFloat(specifications.boyCap),
@@ -154,7 +154,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
 
       await onSave(meshConfig);
 
-      // Reset form for next mesh type
+      // Sıfırla Form için İleri mesh Tip
       setSpecifications({
         boyCap: '',
         enCap: '',
@@ -163,11 +163,11 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
       });
       setErrors({});
 
-      // The parent component will update the meshTypes list
-      // Keep currentIndex at 0 since the saved type is removed from the list
+      // The parent Bileşen will Güncelle the meshTypes Liste
+      // Keep currentIndex at 0 since the saved Tip is removed den the Liste
       setCurrentIndex(0);
 
-      // If no more types remain, close modal
+      // If no more types remain, Kapat Modal
       if (meshTypes.length <= 1) {
         onClose();
       }
@@ -227,7 +227,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
 
         <div className="space-y-4">
           {isQType ? (
-            // Simplified inputs for Q types - single diameter and spacing
+            // Simplified inputs için Q types - single Çap and spacing
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -272,7 +272,7 @@ const UnknownMeshTypeModal = ({ isOpen, onClose, meshTypes = [], onSave, onRemov
               </div>
             </>
           ) : (
-            // Full inputs for R and TR types - different values for boy and en
+            // Full inputs için R and TR types - different values için boy and en
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

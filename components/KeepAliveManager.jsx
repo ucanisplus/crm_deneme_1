@@ -1,4 +1,4 @@
-// KeepAlive Manager Component - Handles server warmup and keepalive
+// KeepAlive Manager Bileşen - Handles server warmup and keepalive
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -14,20 +14,20 @@ export default function KeepAliveManager() {
   });
   const [isMounted, setIsMounted] = useState(false);
 
-  // Ensure component only works on client side
+  // Ensure Bileşen only works on client side
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // Start keepalive when user logs in
+  // Başlangıç keepalive zaman user logs in
   useEffect(() => {
     if (user) {
       console.log('👤 User logged in, starting hybrid server management...');
       
-      // Start the keepalive system
+      // Başlangıç the keepalive system
       startKeepAlive();
       
-      // Warmup Render server in background
+      // Warmup Render et server in background
       warmupRender().then(() => {
         setServerStatus(prev => ({
           ...prev,
@@ -41,7 +41,7 @@ export default function KeepAliveManager() {
         }));
       });
 
-      // Update status periodically
+      // Güncelle Durum periodically
       const statusInterval = setInterval(() => {
         setServerStatus(prev => ({
           ...prev,
@@ -54,7 +54,7 @@ export default function KeepAliveManager() {
         clearInterval(statusInterval);
       };
     } else {
-      // Stop keepalive when user logs out
+      // Stop keepalive zaman user logs out
       stopKeepAlive();
       setServerStatus({
         vercel: 'inactive',
@@ -71,12 +71,12 @@ export default function KeepAliveManager() {
     };
   }, []);
 
-  // Don't render anything on server side
+  // Don't Render et anything on server side
   if (!isMounted) {
     return null;
   }
 
-  // Only show status in development or when explicitly needed
+  // Only Göster Durum in development or zaman explicitly needed
   const showStatus = process.env.NODE_ENV === 'development' || 
                     (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('debug'));
 

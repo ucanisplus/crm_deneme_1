@@ -31,7 +31,7 @@ const CelikHasirPlanlama = () => {
   const { user, hasPermission, permissions, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  // Core state management
+  // Core State yönetimi
   const [currentSession, setCurrentSession] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [productionOrders, setProductionOrders] = useState([]);
@@ -41,7 +41,7 @@ const CelikHasirPlanlama = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [realTimeData, setRealTimeData] = useState(null);
 
-  // Excel Upload state
+  // Excel Upload State
   const [uploadedFile, setUploadedFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showColumnMapping, setShowColumnMapping] = useState(false);
@@ -50,11 +50,11 @@ const CelikHasirPlanlama = () => {
   const [headerRowIndex, setHeaderRowIndex] = useState(1);
   const fileInputRef = useRef(null);
 
-  // Session Management state
+  // Session Management State
   const [showCreateSession, setShowCreateSession] = useState(false);
   const [newSessionName, setNewSessionName] = useState('');
 
-  // Define required columns for production planning
+  // Define Gerekli columns için Üretim planning
   const REQUIRED_COLUMNS = [
     { key: 'firma', label: 'Firma', required: true },
     { key: 'stok_karti', label: 'Stok Kartı', required: true },
@@ -80,21 +80,21 @@ const CelikHasirPlanlama = () => {
     { id: 'MG208-2', name: 'MG208-2', maxCapacity: 24 }
   ], []);
 
-  // Helper to check if column is auto-detected
+  // Helper a Kontrol et if column is auto-detected
   const isAutoDetected = (field, mappedIndex) => {
     if (!parsedData?.headers) return false;
     const autoMapping = autoDetectColumns(parsedData.headers);
     return Object.entries(autoMapping).find(([idx, key]) => key === field && idx === mappedIndex.toString()) !== undefined;
   };
 
-  // Handle column mapping change
+  // İşle column mapping Değiştir
   const handleMappingChange = (field, columnIndex) => {
     const newMappings = { ...columnMappings };
-    // Remove any existing mapping for this field
+    // Kaldır any existing mapping için this Alan
     Object.entries(newMappings).forEach(([idx, mappedField]) => {
       if (mappedField === field) delete newMappings[idx];
     });
-    // Add new mapping if not -1
+    // Ekle new mapping değilse -1
     if (columnIndex !== '-1') {
       newMappings[columnIndex] = field;
     }
@@ -121,7 +121,7 @@ const CelikHasirPlanlama = () => {
     }
   }, [currentSession]);
 
-  // Initialize component
+  // Başlat Bileşen
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -286,7 +286,7 @@ const CelikHasirPlanlama = () => {
       const { headers, data } = parsedData;
       const processedOrders = [];
 
-      // Process each row
+      // İşlem each row
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
         if (!row || row.length === 0) continue;
@@ -296,7 +296,7 @@ const CelikHasirPlanlama = () => {
           order[columnKey] = row[index] || '';
         });
 
-        // Parse numeric values
+        // Parse et numeric values
         order.boy = parseInt(order.boy || 500);
         order.en = parseInt(order.en || 215);
         order.boy_cap = parseFloat(order.boy_cap || 4.5);
@@ -312,7 +312,7 @@ const CelikHasirPlanlama = () => {
         }
       }
 
-      // Send to backend
+      // Send a backend
       const response = await fetchWithAuth(API_URLS.production.uploadExcel, {
         method: 'POST',
         body: JSON.stringify({
@@ -334,7 +334,7 @@ const CelikHasirPlanlama = () => {
       toast.success(`✅ ${processedOrders.length} sipariş başarıyla planlandı!`);
       toast.success(`📊 ${scheduleResult.total_production_days || 0} gün üretim süresi`);
 
-      // Reset and switch to dashboard
+      // Sıfırla and switch a dashboard
       handleReset();
       setActiveTab('dashboard');
       await loadScheduleData();
@@ -365,7 +365,7 @@ const CelikHasirPlanlama = () => {
     let totalWeight = 0;
     let totalTime = 0;
 
-    // Initialize machine stats
+    // Başlat Makine stats
     MACHINES.forEach(machine => {
       machineStats[machine.id] = {
         id: machine.id,
@@ -379,7 +379,7 @@ const CelikHasirPlanlama = () => {
       };
     });
 
-    // Process schedules
+    // İşlem schedules
     schedules.forEach(schedule => {
       const machine = schedule.assigned_machine_id;
       if (machineStats[machine]) {
@@ -390,13 +390,13 @@ const CelikHasirPlanlama = () => {
       totalTime += schedule.production_time_minutes || 0;
     });
 
-    // Calculate utilization
+    // Hesapla utilization
     Object.values(machineStats).forEach(machine => {
       machine.totalHours = Math.round(machine.totalTime / 60);
       machine.utilizationPercent = Math.round((machine.totalTime / machine.maxCapacity) * 100);
     });
 
-    // Process customer stats
+    // İşlem customer stats
     orders.forEach(order => {
       const customer = order.firma || 'BILINMEYEN';
       if (!customerStats[customer]) {
@@ -448,7 +448,7 @@ const CelikHasirPlanlama = () => {
       const processedData = processScheduleData(schedules, orders);
       setRealTimeData(processedData);
 
-      // Group schedules by machine
+      // Group schedules ile Makine
       const schedulesById = {};
       MACHINES.forEach(machine => {
         schedulesById[machine.id] = [];
@@ -473,14 +473,14 @@ const CelikHasirPlanlama = () => {
     }
   }, [currentSession?.id, MACHINES, processScheduleData]);
 
-  // Load schedule data when session changes
+  // Yükle schedule Veri zaman session changes
   useEffect(() => {
     if (currentSession) {
       loadScheduleData();
     }
   }, [currentSession, loadScheduleData]);
 
-  // Render Functions
+  // Render et Functions
   const renderExcelUpload = () => (
     <div className="space-y-6">
       <Card>

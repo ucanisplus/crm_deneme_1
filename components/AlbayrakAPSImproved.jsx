@@ -19,12 +19,12 @@ import { toast } from 'react-toastify';
 export default function AlbayrakAPSImproved() {
   const { user } = useAuth();
   
-  // State management
+  // State yönetimi
   const [activeTab, setActiveTab] = useState('calculator');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  // Production Time Calculator State
+
+  // Üretim Süresi Hesaplayıcı State
   const [calculator, setCalculator] = useState({
     product: '',
     quantity: '',
@@ -40,7 +40,7 @@ export default function AlbayrakAPSImproved() {
     result: null
   });
   
-  // Schedule Optimizer State
+  // Çizelge Optimize Edici State
   const [optimizer, setOptimizer] = useState({
     orders: [
       {
@@ -56,14 +56,14 @@ export default function AlbayrakAPSImproved() {
     result: null
   });
   
-  // Factory Status State
+  // Fabrika Durum State
   const [factoryStatus, setFactoryStatus] = useState(null);
   const [capacityData, setCapacityData] = useState(null);
-  
-  // Saved Schedules State
+
+  // Kaydedilmiş Çizelgeler State
   const [savedSchedules, setSavedSchedules] = useState([]);
 
-  // CORRECT Product types for Albayrak Demir Çelik
+  // Albayrak Demir Çelik için DOĞRU Ürün tipleri
   const productTypes = [
     { 
       value: 'galvanizli_tel', 
@@ -130,7 +130,7 @@ export default function AlbayrakAPSImproved() {
     { value: 4, label: 'Patron Önceliği', color: 'bg-red-100 text-red-700', icon: '👑' }
   ];
 
-  // Panel specifications
+  // Panel özellikleri
   const panelTypes = [
     { value: 'double', label: 'Double Panel', description: '2 yatay tel sistemi' },
     { value: 'single', label: 'Single Panel', description: '1 yatay tel sistemi' },
@@ -142,7 +142,7 @@ export default function AlbayrakAPSImproved() {
     { value: 'antrasit', label: 'Antrasit (RAL 7016)', color: 'bg-gray-800' }
   ];
 
-  // API Configuration
+  // API Konfigürasyonu
   const API_BASE = 'https://crm-factory-backend.onrender.com/api/aps';
   
   const makeAPICall = async (endpoint, options = {}) => {
@@ -167,7 +167,7 @@ export default function AlbayrakAPSImproved() {
     }
   };
 
-  // Load data on mount
+  // Mount sırasında veri yükle
   useEffect(() => {
     loadFactoryStatus();
     loadCapacityData();
@@ -259,7 +259,7 @@ export default function AlbayrakAPSImproved() {
     }
   };
 
-  // Utility Functions
+  // Yardımcı Fonksiyonlar
   const formatDuration = (hours) => {
     if (hours < 1) {
       return `${Math.round(hours * 60)} dakika`;

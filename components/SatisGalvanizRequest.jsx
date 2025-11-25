@@ -12,7 +12,7 @@ import { toast } from 'react-toastify';
 const SatisGalvanizRequest = () => {
   const { user, hasPermission } = useAuth();
   
-  // Memoize permission check to prevent infinite loops in table rendering
+  // Memoize permission Kontrol et a prevent infinite loops in table rendering
   const canManageRequests = useMemo(() => 
     hasPermission('manage:galvanizli-tel-requests'), 
     [hasPermission]
@@ -23,30 +23,30 @@ const SatisGalvanizRequest = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   
-  // Requests list state
+  // Requests Liste State
   const [requests, setRequests] = useState([]);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   
-  // Filtering and sorting state
+  // Filtering and sorting State
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortField, setSortField] = useState('created_at');
   const [sortDirection, setSortDirection] = useState('desc');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Pagination state
+  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
-  // Request details modal state
+  // İstek details Modal State
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   
-  // Delete confirmation modal state
+  // Sil confirmation Modal State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [requestToDelete, setRequestToDelete] = useState(null);
   
-  // Product search and viewing state
+  // Ürün Ara and viewing State
   const [showProductSearchModal, setShowProductSearchModal] = useState(false);
   const [existingProducts, setExistingProducts] = useState([]);
   const [productSearchQuery, setProductSearchQuery] = useState('');
@@ -59,11 +59,11 @@ const SatisGalvanizRequest = () => {
     kaplama: ''
   });
   
-  // Duplicate product warning state
+  // Duplicate Ürün warning State
   const [duplicateProduct, setDuplicateProduct] = useState(null);
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   
-  // Default form values
+  // Default Form values
   const defaultRequestData = {
     cap: '2.50',           // Default: 2.50mm (valid range: 0.8-8)
     kod_2: 'NIT',          // Default: NIT
@@ -82,7 +82,7 @@ const SatisGalvanizRequest = () => {
     elongation: ''          // Elongation (Optional)
   };
 
-  // Form data for MM GT request - load from sessionStorage or use defaults
+  // Form Veri için MM GT İstek - Yükle den sessionStorage or use defaults
   const [requestData, setRequestData] = useState(() => {
     try {
       const savedData = sessionStorage.getItem('galvanizRequestFormData');
@@ -93,7 +93,7 @@ const SatisGalvanizRequest = () => {
     }
   });
   
-  // Tolerans işaret durumları - load from sessionStorage or use defaults
+  // Tolerans işaret durumları - Yükle den sessionStorage or use defaults
   const [toleransMaxSign, setToleransMaxSign] = useState(() => {
     try {
       const saved = sessionStorage.getItem('galvanizToleranceMaxSign');
@@ -118,11 +118,11 @@ const SatisGalvanizRequest = () => {
     sepetli: false
   });
   
-  // Bulk selection state
+  // Bulk selection State
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   
-  // Save form data to sessionStorage whenever it changes
+  // Kaydet Form Veri a sessionStorage whenever it changes
   useEffect(() => {
     try {
       sessionStorage.setItem('galvanizRequestFormData', JSON.stringify(requestData));
@@ -131,7 +131,7 @@ const SatisGalvanizRequest = () => {
     }
   }, [requestData]);
 
-  // Save tolerance signs to sessionStorage whenever they change
+  // Kaydet tolerance signs a sessionStorage whenever they Değiştir
   useEffect(() => {
     try {
       sessionStorage.setItem('galvanizToleranceMaxSign', toleransMaxSign);
@@ -148,7 +148,7 @@ const SatisGalvanizRequest = () => {
     }
   }, [toleransMinSign]);
 
-  // Fetch existing requests when user is loaded
+  // Getir existing requests zaman user is loaded
   useEffect(() => {
     if (user && user.id) {
       fetchRequests();
@@ -156,17 +156,17 @@ const SatisGalvanizRequest = () => {
     }
   }, [user]);
   
-  // Reset to first page when filters change
+  // Sıfırla a first page zaman filters Değiştir
   useEffect(() => {
     setCurrentPage(1);
   }, [statusFilter, searchQuery, sortField, sortDirection]);
   
-  // Remove real-time duplicate checking - will check on submit instead
+  // Kaldır real-Zaman duplicate checking - will Kontrol et on Gönder instead
   
-  // Fetch requests from API
+  // Getir requests den API
   const fetchRequests = async () => {
     try {
-      // Don't fetch if user is not loaded
+      // Don't Getir if user is not loaded
       if (!user || !user.id) {
         console.log('User not loaded yet, skipping fetchRequests');
         return;
@@ -174,13 +174,13 @@ const SatisGalvanizRequest = () => {
       
       setIsLoadingRequests(true);
       
-      // Get only user's requests
+      // Al only user's requests
       let url = `${API_URLS.galSalRequests}?created_by=${user.id}`;
       
       const response = await fetchWithAuth(url);
       
       if (!response || !response.ok) {
-        // Try fetching without created_by filter if it fails
+        // Dene fetching without created_by Filtrele if it fails
         console.log('Failed with created_by filter, trying without...');
         const allRequestsResponse = await fetchWithAuth(API_URLS.galSalRequests);
         
@@ -189,7 +189,7 @@ const SatisGalvanizRequest = () => {
         }
         
         const allRequestsData = await allRequestsResponse.json();
-        // Filter on client side
+        // Filtrele on client side
         const requestsData = allRequestsData.filter(req => req.created_by === user.id);
         setRequests(requestsData || []);
       } else {
@@ -197,7 +197,7 @@ const SatisGalvanizRequest = () => {
         setRequests(requestsData || []);
       }
       
-      // Update selectedRequest if it's currently open to refresh the modal with latest data
+      // Güncelle selectedRequest if it's currently Aç a refresh the Modal ile latest Veri
       if (selectedRequest && showDetailsModal) {
         const updatedRequest = requestsData.find(req => req.id === selectedRequest.id);
         if (updatedRequest) {
@@ -212,10 +212,10 @@ const SatisGalvanizRequest = () => {
     }
   };
 
-  // Check if products associated with requests still exist
+  // Kontrol et if products associated ile requests still exist
   const checkForDeletedProducts = async (requestsData) => {
     try {
-      // Get all MM GT products to check against
+      // Al all MM GT products a Kontrol et against
       const response = await fetchWithAuth(API_URLS.galMmGt);
       if (!response || !response.ok) {
         console.warn('Could not fetch products to check for deleted items');
@@ -225,17 +225,17 @@ const SatisGalvanizRequest = () => {
       const allProducts = await response.json();
       const requestsToUpdate = [];
       
-      // Check each request to see if its associated product still exists
+      // Kontrol et each İstek a see if its associated Ürün still exists
       for (const request of requestsData) {
-        // Skip requests that are already marked as "Silinmiş"
+        // Skip requests that are already marked olarak "Silinmiş"
         if (request.status === 'silinmis') {
           continue;
         }
         
-        // Find matching product using different matching strategies
+        // Bul matching Ürün using different matching strategies
         let productExists = false;
         
-        // Strategy 1: Try to match by final_product_key if available
+        // Strategy 1: Dene a match ile final_product_key if Mevcut
         if (request.final_product_key) {
           productExists = allProducts.some(product => {
             const productKey = generateProductKeyFromProduct(product);
@@ -243,17 +243,17 @@ const SatisGalvanizRequest = () => {
           });
         }
         
-        // Strategy 2: Try to match by original stok_kodu
+        // Strategy 2: Dene a match ile original stok_kodu
         if (!productExists && request.stok_kodu) {
           productExists = allProducts.some(product => product.stok_kodu === request.stok_kodu);
         }
         
-        // Strategy 3: Try to match by final_stok_adi if available  
+        // Strategy 3: Dene a match ile final_stok_adi if Mevcut
         if (!productExists && request.final_stok_adi) {
           productExists = allProducts.some(product => product.stok_adi === request.final_stok_adi);
         }
         
-        // Strategy 4: Match by product specifications (fallback)
+        // Strategy 4: Match ile Ürün specifications (fallback)
         if (!productExists) {
           productExists = allProducts.some(product => {
             return (
@@ -269,13 +269,13 @@ const SatisGalvanizRequest = () => {
           });
         }
         
-        // If product doesn't exist, mark request as "Silinmiş"
+        // If Ürün doesn't exist, mark İstek olarak "Silinmiş"
         if (!productExists) {
           requestsToUpdate.push(request.id);
         }
       }
       
-      // Update requests that have deleted products
+      // Güncelle requests that have Silindi products
       if (requestsToUpdate.length > 0) {
         console.log(`Found ${requestsToUpdate.length} requests with deleted products, updating status...`);
         
@@ -291,7 +291,7 @@ const SatisGalvanizRequest = () => {
           }
         }
         
-        // Refresh requests to show updated statuses
+        // Refresh requests a Göster updated statuses
         setTimeout(() => {
           fetchRequests();
         }, 1000);
@@ -301,14 +301,14 @@ const SatisGalvanizRequest = () => {
     }
   };
 
-  // Generate product key from product data for comparison
+  // Generate Ürün key den Ürün Veri için comparison
   const generateProductKeyFromProduct = (product) => {
     if (!product) return '';
     
     return `${product.cap || ''}_${product.kod_2 || ''}_${product.kaplama || ''}_${product.min_mukavemet || ''}_${product.max_mukavemet || ''}_${product.kg || ''}_${product.ic_cap || ''}_${product.dis_cap || ''}_${product.tolerans_plus || ''}_${product.tolerans_minus || ''}_${product.shrink || ''}_${product.unwinding || ''}`;
   };
   
-  // Fetch existing products from MM GT database
+  // Getir existing products den MM GT database
   const fetchExistingProducts = async () => {
     try {
       setIsLoadingProducts(true);
@@ -323,21 +323,21 @@ const SatisGalvanizRequest = () => {
       setExistingProducts(productsData || []);
     } catch (error) {
       console.error('Ürün listesi alınamadı:', error);
-      // Don't show error toast for products, it's not critical
+      // Don't Göster Hata Toast için products, it's not critical
     } finally {
       setIsLoadingProducts(false);
     }
   };
   
-  // Check for duplicate product when submitting
+  // Kontrol et için duplicate Ürün zaman submitting
   const checkForDuplicateProduct = async () => {
     try {
-      // Generate stok_adi for the current request to compare (including bag amount and packaging options)
+      // Generate stok_adi için the current İstek a compare (including bag amount and packaging options)
       const bagAmount = requestData.cast_kont && requestData.cast_kont.trim() !== ''
         ? `/${requestData.cast_kont}`
         : '';
 
-      // ✅ FIXED: Generate tolerance text with actual signs (same logic as generateStokKoduAndAdi)
+      // ✅ FIXED: Generate tolerance text ile actual signs (same logic olarak generateStokKoduAndAdi)
       const plusValue = parseFloat(requestData.tolerans_plus) || 0;
       const minusValue = parseFloat(requestData.tolerans_minus) || 0;
       const actualPlusValue = toleransMaxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
@@ -359,7 +359,7 @@ const SatisGalvanizRequest = () => {
 
       const currentStokAdi = `Galvanizli Tel ${parseFloat(requestData.cap).toFixed(2)} mm ${toleranceText} ${requestData.kaplama} gr/m² ${requestData.min_mukavemet}-${requestData.max_mukavemet} MPa ID:${requestData.ic_cap} cm OD:${requestData.dis_cap} cm ${requestData.kg}${bagAmount} kg${paketlemeEkleri}`;
       
-      // Check 1: Find matching products in existing MM GT database by stok_adi
+      // Kontrol et 1: Bul matching products in existing MM GT database ile stok_adi
       console.log('🔍 Duplicate check - Current stok_adi:', currentStokAdi);
       console.log('🔍 Duplicate check - Checking against', existingProducts.length, 'existing products');
       
@@ -380,16 +380,16 @@ const SatisGalvanizRequest = () => {
         return true; // Found duplicate in products
       }
       
-      // Check 2: Find matching in existing requests (all users' requests) by stok_adi
+      // Kontrol et 2: Bul matching in existing requests (all users' requests) ile stok_adi
       try {
-        // Fetch ALL requests, not just current user's
+        // Getir ALL requests, not just current user's
         const allRequestsResponse = await fetchWithAuth(API_URLS.galSalRequests);
         if (allRequestsResponse && allRequestsResponse.ok) {
           const allRequests = await allRequestsResponse.json();
           
-          // Find matching request by stok_adi
+          // Bul matching İstek ile stok_adi
           const matchingRequest = allRequests.find(request => {
-            // Skip completed or rejected requests
+            // Skip Tamamlandı or Reddedildi requests
             if (request.status === 'completed' || request.status === 'rejected') {
               return false;
             }
@@ -419,7 +419,7 @@ const SatisGalvanizRequest = () => {
         }
       } catch (error) {
         console.error('Error checking existing requests:', error);
-        // Continue even if request check fails
+        // Continue even if İstek Kontrol et fails
       }
       
       setDuplicateProduct(null);
@@ -430,7 +430,7 @@ const SatisGalvanizRequest = () => {
     }
   };
   
-  // Permission check
+  // Permission Kontrol et
   if (!hasPermission('access:galvanizli-tel-request')) {
     return (
       <div className="p-4 text-center">
@@ -441,19 +441,19 @@ const SatisGalvanizRequest = () => {
     );
   }
   
-  // Handle form input changes without immediate validation
+  // İşle Form Girdi changes without immediate validation
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let normalizedValue = value;
     
-    // Convert comma to point for decimal values and ensure proper format
+    // Çevir comma a point için decimal values and ensure proper Formatla
     if (name === 'cap' || name === 'kaplama' || name === 'min_mukavemet' || 
         name === 'max_mukavemet' || name === 'kg' || 
         name === 'tolerans_plus' || name === 'tolerans_minus') {
       normalizedValue = normalizeInputValue(value);
     }
     
-    // Special case: When coating type changes to PAD, set kaplama value to 50 if it's default NIT value
+    // Special case: zaman coating Tip changes a PAD, Ayarla kaplama Değer a 50 if it's default NIT Değer
     if (name === 'kod_2' && value === 'PAD' && requestData.kaplama === '100') {
       toast.info('PAD kaplama türü için kaplama değeri otomatik olarak 50 ayarlanacaktır.');
       setRequestData({
@@ -464,15 +464,15 @@ const SatisGalvanizRequest = () => {
       return;
     }
     
-    // Update state without validation - we'll validate on form submission
+    // Güncelle State without validation - we'll Doğrula on Form submission
     setRequestData({
       ...requestData,
       [name]: normalizedValue
     });
   };
   
-  // ✅ UPDATED: Cap input change - no longer auto-calculates dis_cap
-  // User now enters both IC and DIS manually via combined selector
+  // ✅ UPDATED: Cap Girdi Değiştir - no longer auto-calculates dis_cap
+  // User Şimdi enters both IC and DIS manually via combined selector
   const handleCapChange = (e) => {
     const value = normalizeInputValue(e.target.value);
 
@@ -483,18 +483,18 @@ const SatisGalvanizRequest = () => {
   };
   
   // ✅ REMOVED: handleIcCapChange
-  // User now enters both IC and DIS manually via combined selector
-  // No need for separate IC CAP handler with auto-calculation
+  // User Şimdi enters both IC and DIS manually via combined selector
+  // No need için separate IC CAP handler ile auto-calculation
 
-  // Comma to point conversion handler for onKeyDown
+  // Comma a point conversion handler için onKeyDown
   const handleCommaToPoint = (e, field) => {
-    // Prevent +/- characters from being entered in tolerance fields
+    // Prevent +/- characters den being entered in tolerance fields
     if ((field === 'tolerans_plus' || field === 'tolerans_minus') && (e.key === '+' || e.key === '-')) {
       e.preventDefault();
       return;
     }
     
-    // Convert comma to point for decimal input
+    // Çevir comma a point için decimal Girdi
     if (e.key === ',') {
       e.preventDefault();
       const target = e.target;
@@ -505,29 +505,29 @@ const SatisGalvanizRequest = () => {
       target.value = newValue;
       target.setSelectionRange(start + 1, start + 1);
       
-      // Trigger change event
+      // Trigger Değiştir event
       const event = new Event('input', { bubbles: true });
       target.dispatchEvent(event);
     }
   };
 
-  // Format date for display
+  // Formatla Tarih için display
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     return date.toLocaleString('tr-TR');
   };
   
-  // Filter and sort requests
+  // Filtrele and Sırala requests
   const getFilteredAndSortedRequests = (applyPagination = true) => {
     let filteredRequests = [...requests];
     
-    // Apply status filter
+    // Apply Durum Filtrele
     if (statusFilter !== 'all') {
       filteredRequests = filteredRequests.filter(request => request.status === statusFilter);
     }
     
-    // Apply search query with partial matching
+    // Apply Ara Sorgu ile partial matching
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
       filteredRequests = filteredRequests.filter(request => 
@@ -550,23 +550,23 @@ const SatisGalvanizRequest = () => {
       let aValue = a[sortField];
       let bValue = b[sortField];
       
-      // Handle null values
+      // İşle null values
       if (aValue === null) return 1;
       if (bValue === null) return -1;
       
-      // Handle date fields
+      // İşle Tarih fields
       if (sortField === 'created_at' || sortField === 'processed_at') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
       }
       
-      // Handle numeric fields
+      // İşle numeric fields
       if (sortField === 'cap' || sortField === 'kaplama' || sortField === 'kg' || sortField === 'cast_kont') {
         aValue = parseFloat(aValue);
         bValue = parseFloat(bValue);
       }
       
-      // Apply sort direction
+      // Apply Sırala direction
       const modifier = sortDirection === 'asc' ? 1 : -1;
       
       if (aValue < bValue) return -1 * modifier;
@@ -583,28 +583,28 @@ const SatisGalvanizRequest = () => {
     return filteredRequests;
   };
   
-  // Get total pages
+  // Al total pages
   const getTotalPages = () => {
     const totalItems = getFilteredAndSortedRequests(false).length;
     return Math.ceil(totalItems / itemsPerPage);
   };
 
-  // Show delete confirmation modal
+  // Göster Sil confirmation Modal
   const confirmDelete = (request) => {
     if (request.status === 'approved') {
-      // Special handling for approved requests with warning
+      // Special handling için Onaylandı requests ile warning
       if (window.confirm('Bu onaylanmış talebi silmek istediğinizden emin misiniz?\n\nBu ürünler zaten veritabanına kaydedilmiş olabilir. Onaylanmış talepleri takip etmek istiyorsanız bu kayıtları saklamanız önerilir.')) {
         setRequestToDelete(request);
         deleteRequest();
       }
     } else {
-      // Regular confirmation for non-approved requests
+      // Regular confirmation için non-Onaylandı requests
       setRequestToDelete(request);
       setShowDeleteModal(true);
     }
   };
   
-  // Delete request
+  // Sil İstek
   const deleteRequest = async () => {
     if (!requestToDelete) return;
     
@@ -620,10 +620,10 @@ const SatisGalvanizRequest = () => {
       }
       
       toast.success('Talep başarıyla silindi');
-      // Close the modal
+      // Kapat the Modal
       setShowDeleteModal(false);
       setRequestToDelete(null);
-      // Refresh request list
+      // Refresh İstek Liste
       await fetchRequests();
     } catch (error) {
       console.error('Talep silme hatası:', error);
@@ -633,7 +633,7 @@ const SatisGalvanizRequest = () => {
     }
   };
   
-  // Handle select all requests
+  // İşle Seç all requests
   const handleSelectAllRequests = () => {
     const currentPageRequests = getFilteredAndSortedRequests().slice(
       (currentPage - 1) * itemsPerPage,
@@ -645,12 +645,12 @@ const SatisGalvanizRequest = () => {
       // Deselect all
       setSelectedRequestIds([]);
     } else {
-      // Select all on current page
+      // Seç all on current page
       setSelectedRequestIds(allIds);
     }
   };
   
-  // Handle toggle individual request selection
+  // İşle Değiştir individual İstek selection
   const handleToggleRequestSelection = (requestId) => {
     setSelectedRequestIds(prev => {
       if (prev.includes(requestId)) {
@@ -661,7 +661,7 @@ const SatisGalvanizRequest = () => {
     });
   };
   
-  // Handle bulk delete
+  // İşle bulk Sil
   const handleBulkDelete = async () => {
     if (selectedRequestIds.length === 0) {
       toast.warning('Lütfen silmek için en az bir talep seçin');
@@ -676,7 +676,7 @@ const SatisGalvanizRequest = () => {
     try {
       setIsDeletingBulk(true);
       
-      // Delete selected requests
+      // Sil selected requests
       const deletePromises = selectedRequestIds.map(async (id) => {
         const response = await fetchWithAuth(`${API_URLS.galSalRequests}/${id}`, {
           method: 'DELETE'
@@ -698,7 +698,7 @@ const SatisGalvanizRequest = () => {
     }
   };
 
-  // Permanently delete "Silinmiş" request from database
+  // Permanently Sil "Silinmiş" İstek den database
   const permanentlyDeleteRequest = async (request) => {
     if (request.status !== 'silinmis') {
       toast.error('Sadece "Silinmiş" durumundaki talepler kalıcı olarak silinebilir');
@@ -730,7 +730,7 @@ const SatisGalvanizRequest = () => {
     }
   };
   
-  // Update request status
+  // Güncelle İstek Durum
   const updateRequestStatus = async (requestId, newStatus) => {
     try {
       setIsLoading(true);
@@ -751,7 +751,7 @@ const SatisGalvanizRequest = () => {
       }
       
       toast.success('Talep durumu başarıyla güncellendi');
-      // Refresh request list
+      // Refresh İstek Liste
       await fetchRequests();
     } catch (error) {
       console.error('Talep durumu güncelleme hatası:', error);
@@ -761,11 +761,11 @@ const SatisGalvanizRequest = () => {
     }
   };
   
-  // Validate request data with comprehensive error messages
+  // Doğrula İstek Veri ile comprehensive Hata messages
   const validateRequestData = () => {
     const validationErrors = [];
     
-    // Validate diameter (cap)
+    // Doğrula Çap (cap)
     const capValue = parseFloat(requestData.cap);
     if (isNaN(capValue)) {
       validationErrors.push('Çap için geçerli bir sayısal değer giriniz (0.8 ile 8 arasında).');
@@ -773,7 +773,7 @@ const SatisGalvanizRequest = () => {
       validationErrors.push(`Çap değeri 0.8 ile 8.1 arasında olmalıdır. Girilen değer: ${requestData.cap}`);
     }
     
-    // Validate coating (kaplama) based on type (kod_2)
+    // Doğrula coating (kaplama) based on Tip (kod_2)
     const kaplamaValue = parseFloat(requestData.kaplama);
     if (isNaN(kaplamaValue)) {
       validationErrors.push('Kaplama için geçerli bir sayısal değer giriniz.');
@@ -785,7 +785,7 @@ const SatisGalvanizRequest = () => {
       }
     }
     
-    // Validate tolerances
+    // Doğrula tolerances
     const toleransPlusValue = parseFloat(requestData.tolerans_plus);
     if (isNaN(toleransPlusValue)) {
       validationErrors.push('Tolerans+ için geçerli bir sayısal değer giriniz.');
@@ -800,7 +800,7 @@ const SatisGalvanizRequest = () => {
       validationErrors.push(`Tolerans- değeri 0 veya daha büyük olmalıdır. Girilen değer: ${requestData.tolerans_minus}`);
     }
     
-    // Validate weight (kg)
+    // Doğrula Ağırlık (kg)
     const kgValue = parseFloat(requestData.kg);
     if (isNaN(kgValue)) {
       validationErrors.push('Ağırlık için geçerli bir sayısal değer giriniz (250 ile 1250 arasında).');
@@ -811,11 +811,11 @@ const SatisGalvanizRequest = () => {
     return validationErrors;
   };
   
-  // Get the next sequence number for packaging variants
-  // Products with same core specs but different packaging should get incremented sequence
+  // Al the İleri sequence Sayı için packaging variants
+  // Products ile same core specs but different packaging should Al incremented sequence
   const getNextSequenceForPackagingVariant = async (data) => {
     try {
-      // Core specs that define the product (excluding packaging)
+      // Core specs that define the Ürün (excluding packaging)
       const coreSpecs = {
         cap: parseFloat(data.cap),
         kod_2: data.kod_2,
@@ -830,20 +830,20 @@ const SatisGalvanizRequest = () => {
         cast_kont: data.cast_kont || ''
       };
       
-      // Check both MM GT database and existing requests for products with same core specs
+      // Kontrol et both MM GT database and existing requests için products ile same core specs
       const capFormatted = Math.round(parseFloat(data.cap) * 100).toString().padStart(4, '0');
       const basePattern = `GT.${data.kod_2}.${capFormatted}`;
       
       let maxSequence = -1;
       
-      // Check existing MM GT products
+      // Kontrol et existing MM GT products
       try {
         const mmGtResponse = await fetchWithAuth(`${API_URLS.galMmGt}`);
         if (mmGtResponse && mmGtResponse.ok) {
           const mmGtProducts = await mmGtResponse.json();
           
           mmGtProducts.forEach(product => {
-            // Check if this product has the same core specs
+            // Kontrol et if this Ürün has the same core specs
             if (product.stok_kodu && product.stok_kodu.startsWith(basePattern)) {
               const productCoreSpecs = {
                 cap: parseFloat(product.cap),
@@ -878,14 +878,14 @@ const SatisGalvanizRequest = () => {
         console.error('Error checking MM GT products:', error);
       }
       
-      // Check existing sales requests
+      // Kontrol et existing sales requests
       try {
         const requestsResponse = await fetchWithAuth(API_URLS.galSalRequests);
         if (requestsResponse && requestsResponse.ok) {
           const existingRequests = await requestsResponse.json();
           
           existingRequests.forEach(request => {
-            // Skip completed or rejected requests
+            // Skip Tamamlandı or Reddedildi requests
             if (request.status === 'completed' || request.status === 'rejected') {
               return;
             }
@@ -924,7 +924,7 @@ const SatisGalvanizRequest = () => {
         console.error('Error checking existing requests:', error);
       }
       
-      // Return next sequence number
+      // Return İleri sequence Sayı
       return maxSequence + 1;
       
     } catch (error) {
@@ -933,32 +933,32 @@ const SatisGalvanizRequest = () => {
     }
   };
   
-  // Generate stok kodu and stok adi for the request
+  // Generate stok kodu and stok adi için the İstek
   const generateStokKoduAndAdi = async (data) => {
     try {
-      // Determine the correct sequence based on existing products with same core specs but different packaging
+      // Determine the correct sequence based on existing products ile same core specs but different packaging
       const sequence = await getNextSequenceForPackagingVariant(data);
       const capFormatted = Math.round(parseFloat(data.cap) * 100).toString().padStart(4, '0');
       const stokKodu = `GT.${data.kod_2}.${capFormatted}.${sequence.toString().padStart(2, '0')}`;
       
-      // Generate stok adi with optional bag amount
+      // Generate stok adi ile İsteğe bağlı bag amount
       const bagAmount = data.cast_kont && data.cast_kont.trim() !== '' 
         ? `/${data.cast_kont}` 
         : '';
-      // Generate stok adi with actual tolerance signs
+      // Generate stok adi ile actual tolerance signs
       const plusValue = parseFloat(data.tolerans_plus) || 0;
       const minusValue = parseFloat(data.tolerans_minus) || 0;
       
-      // Apply signs to get the actual values
+      // Apply signs a Al the actual values
       const actualPlusValue = toleransMaxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
       const actualMinusValue = toleransMinSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
       
-      // Determine which value is mathematically higher/lower
-      // Higher value goes to plus column, lower value goes to minus column
+      // Determine which Değer is mathematically higher/lower
+      // Higher Değer goes a plus column, lower Değer goes a minus column
       const higherValue = Math.max(actualPlusValue, actualMinusValue);
       const lowerValue = Math.min(actualPlusValue, actualMinusValue);
       
-      // Format tolerance text with proper signs
+      // Formatla tolerance text ile proper signs
       const toleranceText = `${lowerValue}/${higherValue >= 0 ? '+' : ''}${higherValue}`;
       
       // Paketleme eklerini oluştur
@@ -977,36 +977,36 @@ const SatisGalvanizRequest = () => {
       return { stokKodu, stokAdi };
     } catch (error) {
       console.error('Error generating stok kodu/adi:', error);
-      // Return null if generation fails - the request can still be saved without these
+      // Return null if generation fails - the İstek can still be saved without these
       return { stokKodu: null, stokAdi: null };
     }
   };
 
-  // Submit the request
+  // Gönder the İstek
   const submitRequest = async (e) => {
     e.preventDefault();
     
-    // Check if user is loaded
+    // Kontrol et if user is loaded
     if (!user || !user.id) {
       toast.error('Kullanıcı bilgisi yüklenemedi. Lütfen sayfayı yenileyin.');
       return;
     }
     
-    // Validate request data
+    // Doğrula İstek Veri
     const validationErrors = validateRequestData();
     if (validationErrors.length > 0) {
       // Display all validation errors at once
       setError(`Lütfen aşağıdaki hataları düzeltiniz:\n\n${validationErrors.map(err => `• ${err}`).join('\n')}`);
       
-      // Also show the first error as a toast
+      // Also Göster the first Hata olarak a Toast
       toast.error('Formdaki hataları düzeltiniz', { autoClose: 5000 });
       return;
     }
     
-    // Check for duplicate product before submitting
+    // Kontrol et için duplicate Ürün before submitting
     const hasDuplicate = await checkForDuplicateProduct();
     
-    // If duplicate exists, show warning modal instead of submitting
+    // If duplicate exists, Göster warning Modal instead of submitting
     if (hasDuplicate) {
       setShowDuplicateWarning(true);
       return;
@@ -1020,7 +1020,7 @@ const SatisGalvanizRequest = () => {
       // Generate stok kodu and stok adi
       const { stokKodu, stokAdi } = await generateStokKoduAndAdi(requestData);
       
-      // Create request object with only fields that exist in the database
+      // Oluştur İstek Nesne ile only fields that exist in the database
       const request = {
         cap: requestData.cap,
         kod_2: requestData.kod_2,
@@ -1045,7 +1045,7 @@ const SatisGalvanizRequest = () => {
         stok_adi: stokAdi                 // Generated stok adi
       };
       
-      // Send the request to the API
+      // Send the İstek a the API
       const response = await fetchWithAuth(API_URLS.galSalRequests, {
         method: 'POST',
         headers: {
@@ -1063,15 +1063,15 @@ const SatisGalvanizRequest = () => {
         throw new Error(`Talep oluşturulurken hata: ${errorText}`);
       }
       
-      // Get the response data
+      // Al the Yanıt Veri
       const data = await response.json();
       
-      // Send email notification through isolated backend endpoint
-      // This is wrapped in try-catch to ensure talep creation succeeds even if email fails
+      // Send email Bildirim through isolated backend Endpoint
+      // This is wrapped in Dene-Yakala a ensure talep creation succeeds even if email fails
       try {
         console.log('📧 Sending email notification for request:', data.id);
         
-        // Get the backend URL based on the environment
+        // Al the backend URL based on the environment
         const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://crm-deneme-backend.vercel.app/api';
         
         const emailResponse = await fetch(`${backendUrl}/send-galvaniz-notification`, {
@@ -1096,13 +1096,13 @@ const SatisGalvanizRequest = () => {
           }
         }
       } catch (emailError) {
-        // Email error doesn't affect the main flow
+        // Email Hata doesn't affect the main flow
         console.error('⚠️ E-posta gönderme hatası (ignored):', emailError);
       }
       
       console.log('✅ Talep başarıyla oluşturuldu');
       
-      // Only clear optional fields after successful submission, keep the main values
+      // Only Temizle İsteğe bağlı fields after successful submission, keep the main values
       setRequestData(prev => ({
         ...prev,
         cast_kont: '',
@@ -1110,10 +1110,10 @@ const SatisGalvanizRequest = () => {
         elongation: ''
       }));
       
-      // Refresh the request list
+      // Refresh the İstek Liste
       fetchRequests();
       
-      // Show success message
+      // Göster Başarılı Mesaj
       setSuccessMessage('Talep başarıyla oluşturuldu.');
       toast.success('Talep başarıyla oluşturuldu.');
       
@@ -1126,7 +1126,7 @@ const SatisGalvanizRequest = () => {
     }
   };
   
-  // Get status badge color
+  // Al Durum badge color
   const getStatusBadgeColor = (status) => {
     switch (status) {
       case 'pending':
@@ -1146,7 +1146,7 @@ const SatisGalvanizRequest = () => {
     }
   };
   
-  // Get status text
+  // Al Durum text
   const getStatusText = (status) => {
     switch (status) {
       case 'pending':
@@ -1166,11 +1166,11 @@ const SatisGalvanizRequest = () => {
     }
   };
   
-  // Get filtered products based on search and filters
+  // Al filtered products based on Ara and filters
   const getFilteredProducts = () => {
     let filtered = [...existingProducts];
     
-    // Apply search query
+    // Apply Ara Sorgu
     if (productSearchQuery.trim() !== '') {
       const query = productSearchQuery.toLowerCase();
       filtered = filtered.filter(product => 
@@ -1180,9 +1180,9 @@ const SatisGalvanizRequest = () => {
       );
     }
     
-    // Apply filters with partial matching
+    // Apply filters ile partial matching
     if (productFilter.cap !== '') {
-      // Allow partial matching for cap - convert to string and check if it starts with the filter value
+      // Allow partial matching için cap - Çevir a String and Kontrol et if it starts ile the Filtrele Değer
       filtered = filtered.filter(product => 
         product.cap.toString().startsWith(productFilter.cap)
       );
@@ -1193,19 +1193,19 @@ const SatisGalvanizRequest = () => {
     }
     
     if (productFilter.kaplama !== '') {
-      // Allow partial matching for kaplama - convert to string and check if it starts with the filter value
+      // Allow partial matching için kaplama - Çevir a String and Kontrol et if it starts ile the Filtrele Değer
       filtered = filtered.filter(product => 
         product.kaplama.toString().startsWith(productFilter.kaplama)
       );
     }
     
-    // Sort by stok_kodu
+    // Sırala ile stok_kodu
     filtered.sort((a, b) => a.stok_kodu.localeCompare(b.stok_kodu));
     
     return filtered;
   };
   
-  // Copy stok kodu to clipboard
+  // Copy stok kodu a clipboard
   const copyStokKodu = (stokKodu) => {
     navigator.clipboard.writeText(stokKodu);
     toast.success(`Stok kodu kopyalandı: ${stokKodu}`);
@@ -1247,7 +1247,7 @@ const SatisGalvanizRequest = () => {
       
       {/* Main content - Toggle between form and requests list */}
       {showRequestsModal ? (
-        // Requests list panel
+        // Requests Liste panel
         <div className="bg-white rounded-lg">
           <h2 className="text-xl font-semibold mb-4 text-gray-700 flex items-center">
             <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1596,7 +1596,7 @@ const SatisGalvanizRequest = () => {
                         <div className="flex items-center space-x-1">
                           {[...Array(getTotalPages())].map((_, i) => {
                             const pageNum = i + 1;
-                            // Show only current page, first, last, and 1 page before and after current
+                            // Göster only current page, first, last, and 1 page before and after current
                             if (
                               pageNum === 1 || 
                               pageNum === getTotalPages() || 
@@ -1660,7 +1660,7 @@ const SatisGalvanizRequest = () => {
           </div>
         </div>
       ) : (
-        // Request form panel
+        // İstek Form panel
         <div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* Left column - Basic information */}
@@ -1751,7 +1751,7 @@ const SatisGalvanizRequest = () => {
                   value={`${requestData.ic_cap}-${requestData.dis_cap}`}
                   onChange={(e) => {
                     if (e.target.value === 'custom') {
-                      // Custom entry selected - show input fields
+                      // Custom entry selected - Göster Girdi fields
                       const customIc = prompt('İç Çap (cm) girin:');
                       const customDis = prompt('Dış Çap (cm) girin:');
                       if (customIc && customDis) {
@@ -1776,7 +1776,7 @@ const SatisGalvanizRequest = () => {
                   <option value="50-90">ID: 50 cm - OD: 90 cm</option>
                   <option value="55-105">ID: 55 cm - OD: 105 cm</option>
                   {(() => {
-                    // Show custom option if current values are not standard
+                    // Göster custom option if current values are not standard
                     const standardOptions = ['45-75', '50-90', '55-105'];
                     const currentValue = `${requestData.ic_cap}-${requestData.dis_cap}`;
                     const isCustom = !standardOptions.includes(currentValue);
@@ -2137,13 +2137,13 @@ const SatisGalvanizRequest = () => {
                     <p className="text-sm font-medium text-gray-500">Tolerans</p>
                     <p className="text-base text-gray-900">
                       {(() => {
-                        // Apply mathematical correction to display tolerance values correctly
+                        // Apply mathematical correction a display tolerance values correctly
                         const plusValue = parseFloat(selectedRequest.tolerans_plus) || 0;
                         const minusValue = parseFloat(selectedRequest.tolerans_minus) || 0;
                         const maxSign = selectedRequest.tolerans_max_sign || '+';
                         const minSign = selectedRequest.tolerans_min_sign || '-';
                         
-                        // Apply signs to get actual values
+                        // Apply signs a Al actual values
                         const actualPlusValue = maxSign === '-' ? -Math.abs(plusValue) : Math.abs(plusValue);
                         const actualMinusValue = minSign === '-' ? -Math.abs(minusValue) : Math.abs(minusValue);
                         
@@ -2151,7 +2151,7 @@ const SatisGalvanizRequest = () => {
                         const higherValue = Math.max(actualPlusValue, actualMinusValue);
                         const lowerValue = Math.min(actualPlusValue, actualMinusValue);
                         
-                        // Format with proper signs
+                        // Formatla ile proper signs
                         const lowerText = lowerValue >= 0 ? `+${lowerValue.toFixed(2)}` : lowerValue.toFixed(2);
                         const higherText = higherValue >= 0 ? `+${higherValue.toFixed(2)}` : higherValue.toFixed(2);
                         
@@ -2164,7 +2164,7 @@ const SatisGalvanizRequest = () => {
                     <div className="text-base text-gray-900">
                       {(() => {
                         const packaging = [];
-                        // Extract packaging info from stok_adi if available
+                        // Extract packaging info den stok_adi if Mevcut
                         if (selectedRequest.stok_adi) {
                           if (selectedRequest.stok_adi.includes('-Shrink')) packaging.push('Shrink');
                           if (selectedRequest.stok_adi.includes('-Plt')) packaging.push('Paletli');
@@ -2562,13 +2562,13 @@ const SatisGalvanizRequest = () => {
                   <div className="text-base text-gray-900">
                     {(() => {
                       const packaging = [];
-                      // Extract packaging info from stok_adi
+                      // Extract packaging info den stok_adi
                       if (selectedProduct.stok_adi) {
                         if (selectedProduct.stok_adi.includes('-Shrink')) packaging.push('Shrink');
                         if (selectedProduct.stok_adi.includes('-Plt')) packaging.push('Paletli');
                         if (selectedProduct.stok_adi.includes('-Spt')) packaging.push('Sepetli');
                       }
-                      // Fallback to shrink field if no packaging suffixes found
+                      // Fallback a shrink Alan if no packaging suffixes found
                       if (packaging.length === 0 && selectedProduct.shrink) {
                         packaging.push(selectedProduct.shrink === 'evet' || selectedProduct.shrink === 'Yes' ? 'Shrink' : 'Shrink Yok');
                       }
@@ -2691,10 +2691,10 @@ const SatisGalvanizRequest = () => {
                             body: JSON.stringify({ status: 'pending' })
                           });
                           
-                          // Update the duplicate product status
+                          // Güncelle the duplicate Ürün Durum
                           setDuplicateProduct(prev => ({ ...prev, request_status: 'pending' }));
                           
-                          // Refresh requests list
+                          // Refresh requests Liste
                           fetchRequests();
                           
                           toast.success('Talep başarıyla yeniden açıldı');

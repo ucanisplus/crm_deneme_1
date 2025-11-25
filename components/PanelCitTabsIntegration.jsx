@@ -1,14 +1,14 @@
-// Integration example for PanelCitHesaplama.jsx
-// This shows how to add the Profil Hesaplama tab between Special Panel and Results
+// Integration example için PanelCitHesaplama.jsx
+// This shows how a Ekle the Profil Hesaplama tab between Special Panel and Results
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProfilHesaplama from "./ProfilHesaplama";
 
-// Assume these are the states and props needed for the component
+// Assume these are the states and Props needed için the Bileşen
 const MainComponent = () => {
   const [activeTab, setActiveTab] = useState('main-panel');
   
-  // Other state variables and functions...
+  // Other State variables and functions...
   
   return (
     <div>

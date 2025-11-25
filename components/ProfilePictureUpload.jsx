@@ -11,7 +11,7 @@ const ProfilePictureUpload = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
 
-  // Handle file selection
+  // İşle file selection
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -25,7 +25,7 @@ const ProfilePictureUpload = () => {
     setSelectedFile(file);
     setError('');
 
-    // Create preview URL
+    // Oluştur preview URL
     const fileReader = new FileReader();
     fileReader.onload = () => {
       setPreviewUrl(fileReader.result);
@@ -33,7 +33,7 @@ const ProfilePictureUpload = () => {
     fileReader.readAsDataURL(file);
   };
 
-  // Handle file upload to Supabase
+  // İşle file upload a Supabase
   const handleUpload = async () => {
     if (!selectedFile || !user) return;
 
@@ -44,7 +44,7 @@ const ProfilePictureUpload = () => {
       // Import the uploadFile function
       const { uploadFile } = await import('@/lib/supabaseStorage');
       
-      // Upload file to Supabase Storage
+      // Upload file a Supabase Storage
       const uploadedUrl = await uploadFile(
         selectedFile, 
         'profile-pictures', 
@@ -67,7 +67,7 @@ const ProfilePictureUpload = () => {
         throw new Error('Profil resmi güncellenemedi');
       }
 
-      // You would typically reload the user data or update the context here
+      // You would typically reload the user Veri or Güncelle the Context here
       window.location.reload(); // Simple reload for now
     } catch (error) {
       console.error('Upload error:', error);
@@ -77,7 +77,7 @@ const ProfilePictureUpload = () => {
     }
   };
 
-  // Cancel upload
+  // İptal upload
   const cancelUpload = () => {
     setSelectedFile(null);
     setPreviewUrl(null);

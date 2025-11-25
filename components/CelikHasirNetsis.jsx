@@ -1,4 +1,4 @@
-// Çelik Hasır Netsis Integration Component
+// Çelik Hasır Netsis Integration Bileşen
 import React, { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -25,7 +25,7 @@ import {
   ChevronUp
 } from 'lucide-react';
 
-// Updated filmaşin map from database (priority 0=main recipe, 1-5=alternatives)
+// Updated filmaşin Map et den database (priority 0=main Reçete, 1-5=alternatives)
 const FILMASIN_PRIORITY_MAP = {
   4.20: [{ diameter: 6.0, quality: '1008' }, { diameter: 5.5, quality: '1008' }], // 0,1
   4.25: [{ diameter: 6.0, quality: '1008' }, { diameter: 5.5, quality: '1008' }], // 0,1
@@ -57,27 +57,27 @@ const FILMASIN_PRIORITY_MAP = {
   12.00: [{ diameter: 13.0, quality: '1010' }, { diameter: 13.0, quality: '1008' }] // 0,1
 };
 
-// Helper function to find closest bigger diameter in the matrix when exact match doesn't exist
+// Helper function a Bul closest bigger Çap in the matrix zaman exact match doesn't exist
 const getClosestBiggerDiameter = (targetDiameter) => {
   const availableDiameters = Object.keys(FILMASIN_PRIORITY_MAP).map(d => parseFloat(d)).sort((a, b) => a - b);
 
-  // Find the smallest diameter that is bigger than or equal to target
+  // Bul the smallest Çap that is bigger than or equal a target
   for (const diameter of availableDiameters) {
     if (diameter >= targetDiameter) {
       return diameter;
     }
   }
 
-  // If no bigger diameter found, return the largest available
+  // If no bigger Çap found, return the largest Mevcut
   return availableDiameters[availableDiameters.length - 1];
 };
 
-// Fast hardcoded filmaşin selection (same logic as old working version)
-// Now with fallback to closest bigger diameter for missing values
+// Fast hardcoded filmaşin selection (same logic olarak old working version)
+// Şimdi ile fallback a closest bigger Çap için missing values
 const getFilmasinByPriority = (targetDiameter, priority) => {
   let priorityList = FILMASIN_PRIORITY_MAP[targetDiameter];
 
-  // If exact diameter not found, use closest bigger diameter
+  // If exact Çap not found, use closest bigger Çap
   if (!priorityList) {
     const closestDiameter = getClosestBiggerDiameter(targetDiameter);
     priorityList = FILMASIN_PRIORITY_MAP[closestDiameter];
@@ -85,7 +85,7 @@ const getFilmasinByPriority = (targetDiameter, priority) => {
   }
 
   if (!priorityList || priority >= priorityList.length) {
-    // Return null to indicate no alternative exists for this priority
+    // Return null a indicate no alternative exists için this priority
     return null;
   }
 
@@ -100,17 +100,17 @@ const getFilmasinByPriority = (targetDiameter, priority) => {
   };
 };
 
-// Fast filmaşin selection function for main recipes
+// Fast filmaşin selection function için main recipes
 const getFilmasinKodu = (diameter) => {
   const filmasin = getFilmasinByPriority(diameter, 0);
   return filmasin ? filmasin.code : '';
 };
 
-// Helper function to get available priorities for a target diameter
+// Helper function a Al Mevcut priorities için a target Çap
 const getAvailablePriorities = (targetDiameter) => {
   let priorityList = FILMASIN_PRIORITY_MAP[targetDiameter];
 
-  // If exact diameter not found, use closest bigger diameter
+  // If exact Çap not found, use closest bigger Çap
   if (!priorityList) {
     const closestDiameter = getClosestBiggerDiameter(targetDiameter);
     priorityList = FILMASIN_PRIORITY_MAP[closestDiameter];
@@ -121,35 +121,35 @@ const getAvailablePriorities = (targetDiameter) => {
   return priorityList.map((_, index) => index);
 };
 
-// Cache for mesh config lookups to avoid repeated 404 requests
+// Cache için mesh config lookups a avoid repeated 404 requests
 const meshConfigCache = new Map();
 const failedMeshConfigCache = new Set();
 
-// Helper function to safely convert dimensions to 4-digit codes without NaN
+// Helper function a safely Çevir dimensions a 4-digit codes without NaN
 const safeCapToCode = (capValue) => {
   const numValue = parseFloat(capValue || 0) || 0;
   return String(Math.round(numValue * 100)).padStart(4, '0');
 };
 
-// Fallback formula function for missing database values
+// Fallback formula function için missing database values
 const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) => {
   try {
-    // Check cache first to avoid repeated requests
+    // Kontrol et cache first a avoid repeated requests
     let meshConfig = null;
     if (meshConfigCache.has(hasirTipi)) {
       meshConfig = meshConfigCache.get(hasirTipi);
     } else if (failedMeshConfigCache.has(hasirTipi)) {
-      // Skip request - we know it fails
+      // Skip İstek - we know it fails
       console.log(`Using cached fallback for ${hasirTipi} (known 404)`);
     } else {
-      // First time - try to fetch mesh configuration
+      // First Zaman - Dene a Getir mesh configuration
       try {
         const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(hasirTipi)}`);
         if (response.ok) {
           meshConfig = await response.json();
           meshConfigCache.set(hasirTipi, meshConfig);
         } else if (response.status === 404) {
-          // Cache the failed lookup to avoid future requests
+          // Cache the Başarısız lookup a avoid future requests
           failedMeshConfigCache.add(hasirTipi);
           console.log(`No mesh config found for ${hasirTipi}, cached for future (using defaults)`);
         } else {
@@ -161,7 +161,7 @@ const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) =>
       }
     }
     
-    // Use database config or fallback to hardcoded values
+    // Use database config or fallback a hardcoded values
     const boyAralik = meshConfig?.boy_aralik || getDefaultSpacing(hasirTipi, 'boy');
     const enAralik = meshConfig?.en_aralik || getDefaultSpacing(hasirTipi, 'en');
     
@@ -177,11 +177,11 @@ const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) =>
       }
     }
     
-    // Initialize with base calculation
+    // Başlat ile base calculation
     let cubukSayisiBoy = Math.floor((uzunlukEn / boyAralik) + 1);
     let cubukSayisiEn = Math.floor((uzunlukBoy / enAralik) + 1);
     
-    // Apply type-specific rules
+    // Apply Tip-specific rules
     const isStandardSize = (uzunlukBoy >= 490 && uzunlukBoy <= 510) && 
                           (uzunlukEn >= 210 && uzunlukEn <= 220);
     
@@ -220,7 +220,7 @@ const calculateFallbackCubukSayisi = async (hasirTipi, uzunlukBoy, uzunlukEn) =>
   }
 };
 
-// Helper function to get default spacing when mesh_type_configs is not available
+// Helper function a Al default spacing zaman mesh_type_configs is not Mevcut
 const getDefaultSpacing = (hasirTipi, direction) => {
   if (hasirTipi.startsWith('R')) {
     return direction === 'boy' ? 15 : 25;
@@ -232,13 +232,13 @@ const getDefaultSpacing = (hasirTipi, direction) => {
   return 15; // Default fallback
 };
 
-// Simple helper to avoid repeated parseFloat operations - PERFORMANCE OPTIMIZATION
+// Simple helper a avoid repeated parseFloat operations - PERFORMANCE OPTIMIZATION
 const safeFloat = (value) => parseFloat(value) || 0;
 const safeInt = (value) => parseInt(value) || 0;
 
-// Helper to get clean kg value from product with fallback calculation
+// Helper a Al clean kg Değer den Ürün ile fallback calculation
 const getCleanKgValue = (product) => {
-  // Try multiple sources for kg value
+  // Dene multiple sources için kg Değer
   const sources = [product.adetKg, product.totalKg, product.kg, product.toplamKg, product.toplamAgirlik];
   for (const source of sources) {
     const parsed = parseFloat(source);
@@ -247,7 +247,7 @@ const getCleanKgValue = (product) => {
     }
   }
   
-  // If still invalid, calculate basic kg using wire diameter and length
+  // If still Geçersiz, Hesapla basic kg using wire Çap and Uzunluk
   const boyCap = safeFloat(product.boyCap);
   const enCap = safeFloat(product.enCap);
   const uzunlukBoy = safeFloat(product.uzunlukBoy);
@@ -256,7 +256,7 @@ const getCleanKgValue = (product) => {
   const cubukSayisiEn = safeInt(product.cubukSayisiEn);
   
   if (boyCap > 0 && enCap > 0 && uzunlukBoy > 0 && uzunlukEn > 0 && cubukSayisiBoy > 0 && cubukSayisiEn > 0) {
-    // Basic wire weight calculation
+    // Basic wire Ağırlık calculation
     const boyWireLength = cubukSayisiBoy * uzunlukEn / 100;
     const enWireLength = cubukSayisiEn * uzunlukBoy / 100;
     const totalWireLength = boyWireLength + enWireLength;
@@ -276,7 +276,7 @@ const getCleanKgValue = (product) => {
   return 0.1; // Minimum meaningful weight
 };
 
-// Simplified optimization logic for fallback
+// Simplified optimization logic için fallback
 const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, initialEn, boyAralik, enAralik, hasirTuru) => {
   // Q Perde: Fixed EN at 18, optimize BOY
   if (hasirTipi.startsWith('Q') && hasirTuru === 'Perde') {
@@ -297,7 +297,7 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
     return { cubukSayisiBoy: bestBoy, cubukSayisiEn: 18 };
   }
   
-  // For other types, try basic optimization within ±3 range
+  // için other types, Dene basic optimization within ±3 range
   let bestCombination = { cubukSayisiBoy: initialBoy, cubukSayisiEn: initialEn };
   let bestScore = -999;
   
@@ -306,7 +306,7 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
       const solFiliz = (uzunlukEn - ((boy - 1) * boyAralik)) / 2;
       const onFiliz = (uzunlukBoy - ((en - 1) * enAralik)) / 2;
 
-      // Type-specific sol/sag filiz limits
+      // Tip-specific sol/sag filiz limits
       let maxSolFiliz = 9; // Default for Q, R types
       if (hasirTipi.startsWith('TR')) {
         maxSolFiliz = 16; // TR type allows up to 16
@@ -330,20 +330,20 @@ const applyFilizOptimization = (hasirTipi, uzunlukBoy, uzunlukEn, initialBoy, in
   return bestCombination;
 };
 
-// Unified function to fetch database data with fallback formula
+// Unified function a Getir database Veri ile fallback formula
 const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) => {
   
   try {
-    // Small delay to allow database transaction to commit if this is called right after save
+    // Small delay a allow database transaction a commit if this is called right after Kaydet
     if (stokKodular.length > 0) {
       console.log('⏳ Adding 1 second delay to allow database transaction to commit...');
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
-    // Fetch products from database based on IDs or stok_kodu
+    // Getir products den database based on IDs or stok_kodu
     const allProducts = [];
     
-    // When searching by productIds, use backend IDs parameter to fetch only specific products
+    // zaman searching ile productIds, use backend IDs parameter a Getir only specific products
     if (productIds.length > 0) {
       const tableTypes = ['mm', 'ncbk', 'ntel'];
       
@@ -353,7 +353,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
           if (tableType === 'ncbk') url = `${API_URLS.celikHasirNcbk}`;
           else if (tableType === 'ntel') url = `${API_URLS.celikHasirNtel}`;
           
-          // Use backend 'ids' parameter to fetch only the specific IDs we need
+          // Use backend 'ids' parameter a Getir only the specific IDs we need
           const idsParam = productIds.join(',');
           const response = await fetchWithAuth(`${url}?ids=${encodeURIComponent(idsParam)}`);
           if (response.ok) {
@@ -365,15 +365,15 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
         }
       }
     }
-    // When searching by stok_kodu, get MM product + related NCBK/NTEL records
+    // zaman searching ile stok_kodu, Al MM Ürün + related NCBK/NTEL records
     else if (stokKodular.length > 0) {
-      // First get MM products - search directly by stok_kodu to avoid large API calls
+      // First Al MM products - Ara directly ile stok_kodu a avoid large API calls
       try {
         const filteredMmProducts = [];
         
-        // Fetch each product individually to avoid large API responses
+        // Getir each Ürün individually a avoid large API responses
         for (const stokKodu of stokKodular) {
-          // First try: Direct search by stok_kodu
+          // First Dene: Direct Ara ile stok_kodu
           let mmResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=${encodeURIComponent(stokKodu)}`);
           let mmProducts = [];
           
@@ -406,7 +406,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
         console.log(`Found ${filteredMmProducts.length} products in MM table matching stok_kodu:`, filteredMmProducts.map(p => p.stok_kodu));
         allProducts.push(...filteredMmProducts);
         
-        // For each MM product, find related NCBK and NTEL records via recipe data
+        // için each MM Ürün, Bul related NCBK and NTEL records via Reçete Veri
         for (const mmProduct of filteredMmProducts) {
           try {
             const recipeResponse = await fetchWithAuth(`${API_URLS.celikHasirMmRecete}?mamul_kodu=${encodeURIComponent(mmProduct.stok_kodu)}`);
@@ -414,17 +414,17 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
               const recipeData = await recipeResponse.json();
               console.log(`Found ${recipeData.length} recipe entries for ${mmProduct.stok_kodu}`);
               
-              // Debug: Check what mamul_kodu values we actually have
+              // Debug: Kontrol et what mamul_kodu values we actually have
               const uniqueMamulKodus = [...new Set(recipeData.map(r => r.mamul_kodu))];
               console.log(`DEBUG: Unique mamul_kodu values in recipe data:`, uniqueMamulKodus);
               console.log(`DEBUG: Looking for mamul_kodu === "${mmProduct.stok_kodu}"`);
               console.log(`DEBUG: First few recipe entries:`, recipeData.slice(0, 3).map(r => ({ mamul_kodu: r.mamul_kodu, bilesen_kodu: r.bilesen_kodu })));
               
-              // Filter recipe data to only this specific product's recipe
+              // Filtrele Reçete Veri a only this specific Ürün's Reçete
               const thisProductRecipe = recipeData.filter(recipe => recipe.mamul_kodu === mmProduct.stok_kodu);
               console.log(`Filtered to ${thisProductRecipe.length} recipe entries specifically for ${mmProduct.stok_kodu}`);
               
-              // Extract NCBK and NTEL codes from this product's recipe only
+              // Extract NCBK and NTEL codes den this Ürün's Reçete only
               const ncbkCodes = new Set();
               const ntelCodes = new Set();
               
@@ -438,7 +438,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
                 }
               });
               
-              // Fetch NCBK records
+              // Getir NCBK records
               if (ncbkCodes.size > 0) {
                 const ncbkResponse = await fetchWithAuth(API_URLS.celikHasirNcbk);
                 if (ncbkResponse.ok) {
@@ -449,7 +449,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
                 }
               }
               
-              // Fetch NTEL records
+              // Getir NTEL records
               if (ntelCodes.size > 0) {
                 const ntelResponse = await fetchWithAuth(API_URLS.celikHasirNtel);
                 if (ntelResponse.ok) {
@@ -469,14 +469,14 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
       }
     }
     
-    // Now enhance each product with recipe data and apply fallback when needed
+    // Şimdi enhance each Ürün ile Reçete Veri and apply fallback zaman needed
     const enhancedProducts = await Promise.all(
       allProducts.map(async (product) => {
         try {
-          // Fetch recipe data
+          // Getir Reçete Veri
           const recipeData = await fetchProductRecipeData(product.stok_kodu, product.id);
           
-          // Extract hasir_tipi from stok_adi if needed
+          // Extract hasir_tipi den stok_adi if needed
           let actualHasirTipi = product.hasir_tipi || '';
           if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
             const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+(?:\/\d+)?|R\d+(?:\/\d+)?|TR\d+(?:\/\d+)?)/i);
@@ -488,7 +488,7 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
           // Clean İngilizce İsim
           const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
           
-          // Check if we have cubuk sayisi values from recipe data
+          // Kontrol et if we have cubuk sayisi values den Reçete Veri
           let cubukSayisiBoy = recipeData?.boyCount || product.ic_cap_boy_cubuk_ad || 0;
           let cubukSayisiEn = recipeData?.enCount || product.dis_cap_en_cubuk_ad || 0;
           
@@ -503,8 +503,8 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             recipeDataIsNull: recipeData === null
           });
           
-          // Apply fallback formula if cubuk sayisi values are missing or invalid
-          // OR if recipe data couldn't be fetched (null means API failed or no recipe found)
+          // Apply fallback formula if cubuk sayisi values are missing or Geçersiz
+          // OR if Reçete Veri couldn't be fetched (null means API Başarısız or no Reçete found)
           const shouldApplyFallback = !cubukSayisiBoy || !cubukSayisiEn || cubukSayisiBoy <= 0 || cubukSayisiEn <= 0 || recipeData === null;
           
           if (shouldApplyFallback) {
@@ -523,16 +523,16 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             console.log(`🔧 FETCH DEBUG - Using database/recipe values: boy:${cubukSayisiBoy}, en:${cubukSayisiEn}`);
           }
           
-          // Calculate duration if missing (you can add duration fallback calculation here)
+          // Hesapla Süre if missing (you can Ekle Süre fallback calculation here)
           let duration = recipeData?.duration || 0;
           if (!duration || duration <= 0) {
-            // Apply duration calculation fallback if needed
-            // duration = calculateFallbackDuration(...);
+            // Apply Süre calculation fallback if needed
+            // Süre = calculateFallbackDuration(...);
           }
           
-          // Transform to Excel format
+          // Dönüştür a Excel Formatla
           return {
-            // Map database fields to expected Excel generation format
+            // Map et database fields a expected Excel generation Formatla
             boyCap: product.cap || 0,
             enCap: product.cap2 || 0,
             hasirTipi: actualHasirTipi,
@@ -547,18 +547,18 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
             cubukSayisiEn,
             hasirSayisi: product.hasir_sayisi || 1,
             hasirTuru: product.hasir_turu || 'Standart',
-            // Add existing stok kodu for saved products
+            // Ekle existing stok kodu için saved products
             existingStokKodu: product.stok_kodu,
             // Store cleaned İngilizce İsim
             existingIngilizceIsim: cleanIngilizceIsim,
-            // Store original database ID for reference
+            // Store original database ID için reference
             databaseId: product.id,
-            // Recipe data
+            // Reçete Veri
             recipeData
           };
         } catch (error) {
           console.error(`Error processing product ${product.stok_kodu}:`, error);
-          // Return basic product data even if enhancement fails
+          // Return basic Ürün Veri even if enhancement fails
           return {
             hasirTipi: product.hasir_tipi || '',
             uzunlukBoy: product.ebat_boy || 0,
@@ -579,11 +579,11 @@ const fetchDatabaseDataWithFallback = async (productIds = [], stokKodular = []) 
   }
 };
 
-// Helper function to fetch recipe data for a product
+// Helper function a Getir Reçete Veri için a Ürün
 const fetchProductRecipeData = async (stokKodu, productId) => {
   try {
     console.log(`🔍 RECIPE DEBUG - Fetching recipe data for ${stokKodu} from ${API_URLS.celikHasirMmRecete}`);
-    // Fetch from recipe table
+    // Getir den Reçete table
     const response = await fetchWithAuth(`${API_URLS.celikHasirMmRecete}?mamul_kodu=${encodeURIComponent(stokKodu)}`);
     console.log(`🔍 RECIPE DEBUG - Response status for ${stokKodu}:`, response.status);
     
@@ -595,7 +595,7 @@ const fetchProductRecipeData = async (stokKodu, productId) => {
         allEntries: recipeData.map(r => ({ mamul_kodu: r.mamul_kodu, bilesen_kodu: r.bilesen_kodu, aciklama: r.aciklama, miktar: r.miktar }))
       });
       
-      // Parse recipe data to extract boy and en cubuk counts
+      // Parse et Reçete Veri a extract boy and en cubuk counts
       let boyCount = 0;
       let enCount = 0;
       let duration = 0;
@@ -627,16 +627,16 @@ const fetchProductRecipeData = async (stokKodu, productId) => {
 };
 
 const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsUpdate }, ref) => {
-  // OPTIMIZATION: Add refs for request cancellation and caching
+  // OPTIMIZATION: Ekle refs için İstek cancellation and caching
   const fetchControllerRef = useRef(null);
   const cacheRef = useRef(new Map()); // Simple cache for API responses
   const lastFetchTimeRef = useRef(0);
   
-  // Check for optimized data from advanced optimization screen
+  // Kontrol et için optimized Veri den advanced optimization screen
   const [products, setProducts] = useState(optimizedProducts);
   
   useEffect(() => {
-    // Check if we're returning from advanced optimization
+    // Kontrol et if we're returning den advanced optimization
     const urlParams = new URLSearchParams(window.location.search);
     const optimizedData = urlParams.get('optimizedData');
     
@@ -644,7 +644,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       try {
         const decodedData = JSON.parse(decodeURIComponent(optimizedData));
         setProducts(decodedData);
-        // Update parent component if callback provided
+        // Güncelle parent Bileşen if Callback provided
         if (onProductsUpdate) {
           onProductsUpdate(decodedData);
         }
@@ -667,7 +667,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     };
   }, []);
 
-  // Filter out empty rows - a row is considered empty if hasirTipi, uzunlukBoy, or uzunlukEn is missing
+  // Filtrele out empty rows - a row is considered empty if hasirTipi, uzunlukBoy, or uzunlukEn is missing
   const validProducts = products.filter(product => 
     product.hasirTipi && 
     product.hasirTipi.trim() !== '' &&
@@ -679,7 +679,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const { user, hasPermission } = useAuth();
   const router = useRouter();
   
-  // Ana state değişkenleri
+  // Ana State değişkenleri
   const [isLoading, setIsLoading] = useState(false);
   const [showDatabaseModal, setShowDatabaseModal] = useState(false);
   const [activeDbTab, setActiveDbTab] = useState('mm'); // 'mm', 'ncbk', 'ntel'
@@ -691,7 +691,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [viewingProduct, setViewingProduct] = useState(null);
   const [showDangerZone, setShowDangerZone] = useState(false);
   
-  // Bulk delete progress tracking
+  // Bulk Sil progress tracking
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteProgress, setBulkDeleteProgress] = useState({ current: 0, total: 0, operation: '', currentItem: '' });
   
@@ -702,10 +702,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [dbSortBy, setDbSortBy] = useState('stok_kodu'); // stok_kodu, stok_adi, cap, length_cm, created_at
   const [dbSortOrder, setDbSortOrder] = useState('asc'); // asc, desc
   
-  // Multi-select functionality states
+  // Multi-Seç functionality states
   const [selectedDbItems, setSelectedDbItems] = useState([]);      // Selected product IDs
   
-  // Loading states
+  // Yükleniyor states
   const [isLoadingDb, setIsLoadingDb] = useState(false);
   const [isFilteringDb, setIsFilteringDb] = useState(false); // Loading state specifically for filter changes
   const [dbLoadingProgress, setDbLoadingProgress] = useState({ current: 0, total: 3, operation: '' });
@@ -718,7 +718,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [deletingProductId, setDeletingProductId] = useState(null); // Individual product deletion tracking
   const [deleteProgress, setDeleteProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' }); // Delete progress tracking
 
-  // Global operation duration calculator
+  // Global operation Süre calculator
   const calculateOperationDuration = (operationType, product) => {
     switch(operationType) {
       case 'NCBK':
@@ -761,70 +761,70 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // NCBK duration calculation - Formula calibrated to match exact machine speeds
+  // NCBK Süre calculation - Formula calibrated a match exact Makine speeds
   const calculateNCBKDuration = (length_cm, diameter_mm) => {
     const length_m = length_cm / 100; // Convert cm to m
 
-    // Calibrated formula: Speed = 205 - (diameter - 5.0) × 10.0
-    // Matches exact calibrated speeds for 5.5-10mm range
-    // For >10mm: reduction factor decreases (non-linear behavior for thick wire)
+    // Calibrated formula: Speed = 205 - (Çap - 5.0) × 10.0
+    // Matches exact calibrated speeds için 5.5-10mm range
+    // için >10mm: reduction factor decreases (non-linear behavior için thick wire)
 
     const isOptimalLength = (length_cm >= 180 && length_cm <= 500);
 
     let speed_m_per_min;
     if (isOptimalLength) {
-      // Optimal length (180-500cm): Calibrated to match exact machine speeds
+      // Optimal Uzunluk (180-500cm): Calibrated a match exact Makine speeds
       if (diameter_mm <= 10.0) {
-        // Linear formula matches perfectly for 5.5-10mm
+        // Linear formula matches perfectly için 5.5-10mm
         speed_m_per_min = 205 - (diameter_mm - 5.0) * 10.0;
       } else {
-        // For >10mm: use calibrated discrete values with interpolation
+        // için >10mm: use calibrated discrete values ile interpolation
         // 10mm=155, 11mm=150, 12mm=145, 13mm=140
         const baseSpeed = 155; // Speed at 10mm
         const reduction = 5.0;  // Slower reduction for thick wire
         speed_m_per_min = baseSpeed - (diameter_mm - 10.0) * reduction;
       }
     } else {
-      // Non-optimal length: proportionally slower (80% of optimal speed)
+      // Non-optimal Uzunluk: proportionally slower (80% of optimal speed)
       const optimalSpeed = diameter_mm <= 10.0
         ? 205 - (diameter_mm - 5.0) * 10.0
         : 155 - (diameter_mm - 10.0) * 5.0;
       speed_m_per_min = optimalSpeed * 0.80;
     }
 
-    // Clamp to reasonable bounds
+    // Clamp a reasonable bounds
     speed_m_per_min = Math.max(100, Math.min(250, speed_m_per_min));
 
-    // Calculate duration in minutes for 1 piece
+    // Hesapla Süre in minutes için 1 piece
     const duration_minutes = length_m / speed_m_per_min;
 
-    // Pure cutting time + 0.05 seconds buffer
+    // Pure cutting Zaman + 0.05 seconds buffer
     const duration_seconds = duration_minutes * 60 + 0.05;
     return parseFloat((duration_seconds / 60).toFixed(5));
   };
 
-  // NTEL duration calculation - Formula calibrated to match exact wire drawing speeds
+  // NTEL Süre calculation - Formula calibrated a match exact wire drawing speeds
   const calculateNTELDuration = (diameter_mm) => {
-    // Validate input parameter
+    // Doğrula Girdi parameter
     const diameter = parseFloat(diameter_mm);
     if (isNaN(diameter) || diameter <= 0) {
       console.warn('Invalid diameter for NTEL duration calculation:', diameter_mm);
       return 0.01; // Return default small duration instead of 0 or NaN
     }
 
-    // Calibrated formula: Speed = 11.0 - (diameter - 5.0) × 0.4
-    // Matches exact calibrated speeds for 5.5-8.0mm range
-    // For >8mm: reduction factor decreases (non-linear behavior for thick wire)
+    // Calibrated formula: Speed = 11.0 - (Çap - 5.0) × 0.4
+    // Matches exact calibrated speeds için 5.5-8.0mm range
+    // için >8mm: reduction factor decreases (non-linear behavior için thick wire)
 
     let speed_m_per_s;
     if (diameter <= 8.0) {
-      // Linear formula matches perfectly for 5.5-8.0mm
+      // Linear formula matches perfectly için 5.5-8.0mm
       speed_m_per_s = 11.0 - (diameter - 5.0) * 0.4;
     } else {
-      // For >8mm: use calibrated discrete values with interpolation
+      // için >8mm: use calibrated discrete values ile interpolation
       // 8mm=9.8, 9mm=9.6, 10mm=9.2, 11mm=9.0, 12mm=8.7, 13mm=8.5
       const baseSpeed = 9.8; // Speed at 8mm
-      // Non-linear reduction: slower decrease for thick wire
+      // Non-linear reduction: slower decrease için thick wire
       if (diameter <= 9.0) {
         speed_m_per_s = baseSpeed - (diameter - 8.0) * 0.2;  // 9mm: 9.8 - 0.2 = 9.6 ✓
       } else if (diameter <= 11.0) {
@@ -834,18 +834,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     }
 
-    // Clamp to reasonable wire drawing speeds
+    // Clamp a reasonable wire drawing speeds
     speed_m_per_s = Math.max(7.0, Math.min(12.0, speed_m_per_s));
 
-    // For 1 meter: 1m ÷ speed m/s = time in seconds + 0.05 buffer
+    // için 1 meter: 1m ÷ speed m/s = Zaman in seconds + 0.05 buffer
     const duration_seconds = (1 / speed_m_per_s) + 0.05;
     const duration_minutes = duration_seconds / 60;
     return parseFloat(duration_minutes.toFixed(5));
   };
 
-  // YOTOCH duration calculation (Reliability: 98.7%)
+  // YOTOCH Süre calculation (Reliability: 98.7%)
   const calculateYOTOCHDuration = (boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn) => {
-    // Validate inputs
+    // Doğrula inputs
     const boyVal = parseFloat(boy_mm) || 0;
     const enVal = parseFloat(en_mm) || 0;
     const diameterVal = parseFloat(diameter_mm) || 0;
@@ -870,23 +870,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return parseFloat(result.toFixed(5));
   };
 
-  // OTOCH duration calculation (60% of YOTOCH - 40% faster)
+  // OTOCH Süre calculation (60% of YOTOCH - 40% faster)
   const calculateOTOCHDuration = (boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn) => {
-    // Validate inputs
+    // Doğrula inputs
     const boyVal = parseFloat(boy_mm) || 0;
     const enVal = parseFloat(en_mm) || 0;
     const diameterVal = parseFloat(diameter_mm) || 0;
     const cubukBoyVal = parseInt(cubukSayisiBoy) || 0;
     const cubukEnVal = parseInt(cubukSayisiEn) || 0;
     
-    // CRITICAL FIX: For NCBK/NTEL products (wire/rod), en_mm can be 0 - this is normal
-    // Only validate that boy_mm and diameter_mm are valid
+    // CRITICAL FIX: için NCBK/NTEL products (wire/rod), en_mm can be 0 - this is normal
+    // Only Doğrula that boy_mm and diameter_mm are Geçerli
     if (boyVal <= 0 || diameterVal <= 0) {
       console.warn('Invalid OTOCH parameters (boy or diameter invalid):', { boy_mm, en_mm, diameter_mm, cubukSayisiBoy, cubukSayisiEn });
       return 0.00001; // Return default small duration
     }
     
-    // For wire/rod products with en_mm = 0, use simplified calculation
+    // için wire/rod products ile en_mm = 0, use simplified calculation
     if (enVal === 0) {
       const wireLength = boyVal; // Length of the wire/rod
       const wireFactor = Math.pow(diameterVal, 1.1);
@@ -914,7 +914,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ntel: []
   });
   
-  // Store total counts from X-Total-Count header for pagination display
+  // Store total counts den X-Total-Count header için pagination display
   const [totalCounts, setTotalCounts] = useState({
     mm: 0,
     ncbk: 0,
@@ -926,11 +926,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const [excelProgress, setExcelProgress] = useState({ current: 0, total: 0, operation: '' });
   const [cancelExcelGeneration, setCancelExcelGeneration] = useState(false);
   
-  // Database save progress
+  // Database Kaydet progress
   const [isSavingToDatabase, setIsSavingToDatabase] = useState(false);
   const [databaseProgress, setDatabaseProgress] = useState({ current: 0, total: 0, operation: '', currentProduct: '' });
 
-  // New popup states for enhanced database checking
+  // New Popup states için enhanced database checking
   const [showExcelOptionsModal, setShowExcelOptionsModal] = useState(false);
   const [showPreSaveConfirmModal, setShowPreSaveConfirmModal] = useState(false);
   const [preSaveConfirmData, setPreSaveConfirmData] = useState({ newProducts: [], existingProducts: [] });
@@ -942,7 +942,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const getFilteredAndSortedProducts = useCallback(() => {
     let products = savedProducts[activeDbTab] || [];
     
-    // Apply search text filter
+    // Apply Ara text Filtrele
     if (dbSearchText && dbSearchText.trim()) {
       const searchTerm = dbSearchText.toLowerCase().trim();
       products = products.filter(product => 
@@ -952,7 +952,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       );
     }
     
-    // Apply hasir tipi filter
+    // Apply hasir tipi Filtrele
     if (dbFilterHasirTipi && dbFilterHasirTipi !== 'All') {
       products = products.filter(product => {
         const stokAdi = product.stok_adi || '';
@@ -969,14 +969,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       });
     }
     
-    // Apply hasir turu filter (for MM products)
+    // Apply hasir turu Filtrele (için MM products)
     if (dbFilterHasirTuru && dbFilterHasirTuru !== 'All' && activeDbTab === 'mm') {
       products = products.filter(product => {
-        // Use the hasir_turu field from the database, or calculate it from dimensions if missing
+        // Use the hasir_turu Alan den the database, or Hesapla it den dimensions if missing
         let hasirTuru = product.hasir_turu;
         
         if (!hasirTuru || hasirTuru === 'MM') {
-          // Calculate hasir_turu based on logic from the codebase
+          // Hesapla hasir_turu based on logic den the codebase
           const stokAdi = product.stok_adi || '';
           const uzunlukBoy = parseFloat(product.ebat_boy || 0);
           
@@ -1039,7 +1039,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return products;
   }, [savedProducts, activeDbTab, dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder]);
 
-  // Database multi-select functions
+  // Database multi-Seç functions
   const handleToggleDbSelection = (itemId) => {
     setSelectedDbItems(prev => 
       prev.includes(itemId) 
@@ -1057,23 +1057,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     );
   };
 
-  // Retry helper function for 504/500 errors
+  // Retry helper function için 504/500 errors
   const fetchWithRetry = async (url, options, maxRetries = 3, baseDelay = 2000, progressCallback = null) => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const response = await fetchWithAuth(url, options);
         
-        // If successful, return response
+        // If successful, return Yanıt
         if (response.ok) {
           return response;
         }
         
-        // If it's a 504 or 500 error, retry
+        // If it's a 504 or 500 Hata, retry
         if ((response.status === 504 || response.status === 500) && attempt < maxRetries) {
           const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
           console.log(`⏳ Request failed with ${response.status}, retrying in ${delay}ms... (attempt ${attempt}/${maxRetries})`);
           
-          // Update progress indicator if callback provided
+          // Güncelle progress indicator if Callback provided
           if (progressCallback) {
             progressCallback(`⏳ Sunucu zaman aşımı, tekrar denenecek... (${attempt}/${maxRetries})`);
           }
@@ -1082,7 +1082,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           return;
         }
         
-        // If it's not a retryable error or max retries reached, return the response
+        // If it's not a retryable Hata or max retries reached, return the Yanıt
         return response;
         
       } catch (error) {
@@ -1090,7 +1090,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const delay = baseDelay * Math.pow(2, attempt - 1);
           console.log(`⏳ Network error, retrying in ${delay}ms... (attempt ${attempt}/${maxRetries})`);
           
-          // Update progress indicator if callback provided
+          // Güncelle progress indicator if Callback provided
           if (progressCallback) {
             progressCallback(`⏳ Ağ hatası, tekrar denenecek... (${attempt}/${maxRetries})`);
           }
@@ -1103,14 +1103,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Fallback function for recipe deletion if bulk endpoint doesn't exist
+  // Fallback function için Reçete deletion if bulk Endpoint doesn't exist
   const deleteRecipesFallback = async (recipeApiUrl, encodedStokKodu) => {
     const getRecipeResponse = await fetchWithAuth(`${recipeApiUrl}?mamul_kodu=${encodedStokKodu}`);
     if (getRecipeResponse.ok) {
       const recipes = await getRecipeResponse.json();
       console.log(`🔄 Fallback: Found ${recipes.length} recipes to delete individually`);
       
-      // Delete recipes one by one (old method)
+      // Sil recipes one ile one (old method)
       const deletionResults = await Promise.allSettled(
         recipes.filter(recipe => recipe.id).map(async (recipe) => {
           try {
@@ -1127,7 +1127,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Bulk delete function for selected items - OPTIMIZED VERSION
+  // Bulk Sil function için selected Öğeler - OPTIMIZED VERSION
   const handleBulkDeleteSelected = async () => {
     if (selectedDbItems.length === 0) {
       toast.error('Silinecek ürün seçiniz');
@@ -1144,7 +1144,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const failedDeletions = [];
 
     try {
-      // Get the selected products with their stok_kodu
+      // Al the selected products ile their stok_kodu
       const selectedProducts = selectedDbItems.map(itemId => {
         const product = savedProducts[activeDbTab].find(p => p.id === itemId);
         return { id: itemId, stok_kodu: product?.stok_kodu, product };
@@ -1158,7 +1158,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.log(`🗑️ Starting bulk deletion of ${selectedProducts.length} products for ${activeDbTab}`);
       setDeleteProgress({ current: 0, total: selectedProducts.length, operation: `${selectedProducts.length} ürün siliniyor...`, currentProduct: activeDbTab.toUpperCase() });
 
-      // Process deletions sequentially to avoid overwhelming the backend
+      // İşlem deletions sequentially a avoid overwhelming the backend
       for (const { id, stok_kodu, product } of selectedProducts) {
         try {
           console.log(`🗑️ Deleting product: ${stok_kodu}`);
@@ -1169,7 +1169,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             currentProduct: stok_kodu 
           });
 
-          // Step 1: Delete recipes using bulk deletion by mamul_kodu
+          // Step 1: Sil recipes using bulk deletion ile mamul_kodu
           let recipeApiUrl = '';
           if (activeDbTab === 'mm') recipeApiUrl = API_URLS.celikHasirMmRecete;
           else if (activeDbTab === 'ncbk') recipeApiUrl = API_URLS.celikHasirNcbkRecete;
@@ -1194,7 +1194,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 const result = await deleteRecipesResponse.json();
                 console.log(`✅ Deleted ${result.deletedCount || 'N/A'} recipes for ${stok_kodu}`);
               } else if (deleteRecipesResponse.status === 404) {
-                // Fallback: Use old method if bulk endpoint doesn't exist
+                // Fallback: Use old method if bulk Endpoint doesn't exist
                 console.log(`ℹ️ Bulk endpoint not found, using fallback for recipes: ${stok_kodu}`);
                 await deleteRecipesFallback(recipeApiUrl, encodedStokKodu);
               } else {
@@ -1202,7 +1202,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               }
             } catch (recipeError) {
               console.warn(`⚠️ Recipe deletion error for ${stok_kodu}:`, recipeError.message);
-              // Try fallback method
+              // Dene fallback method
               try {
                 const encodedStokKodu = encodeURIComponent(stok_kodu);
                 await deleteRecipesFallback(recipeApiUrl, encodedStokKodu);
@@ -1212,7 +1212,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             }
           }
 
-          // Step 2: Delete the main product record by stok_kodu
+          // Step 2: Sil the main Ürün record ile stok_kodu
           const tabEndpoints = {
             mm: API_URLS.celikHasirMm,
             ncbk: API_URLS.celikHasirNcbk,
@@ -1237,13 +1237,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log(`✅ Successfully deleted product ${stok_kodu}`);
             deletedCount++;
             
-            // Update UI state immediately
+            // Güncelle UI State immediately
             setSavedProducts(prev => ({
               ...prev,
               [activeDbTab]: prev[activeDbTab].filter(p => p.id !== id)
             }));
           } else if (deleteProductResponse.status === 404) {
-            // Fallback: Use old method if bulk endpoint doesn't exist
+            // Fallback: Use old method if bulk Endpoint doesn't exist
             console.log(`ℹ️ Bulk product endpoint not found, using fallback for: ${stok_kodu}`);
             const fallbackResponse = await fetchWithRetry(`${tabEndpoints[activeDbTab]}/${id}`, {
               method: 'DELETE',
@@ -1267,7 +1267,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             throw new Error(`Product deletion failed: ${deleteProductResponse.status} ${deleteProductResponse.statusText}`);
           }
 
-          // Small delay to avoid overwhelming backend
+          // Small delay a avoid overwhelming backend
           await new Promise(resolve => setTimeout(resolve, 300));
 
         } catch (error) {
@@ -1276,7 +1276,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // Show results to user
+      // Göster results a user
       if (deletedCount > 0) {
         toast.success(`✅ Başarılı: ${deletedCount} ürün silindi`, {
           position: "top-right",
@@ -1285,7 +1285,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
         setSelectedDbItems([]);
         
-        // Update sequence table if we deleted CH products
+        // Güncelle sequence table if we Silindi CH products
         if (activeDbTab === 'mm') {
           try {
             await updateSequenceAfterDeletion(activeDbTab);
@@ -1295,7 +1295,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        // Force refresh data
+        // Force refresh Veri
         cacheRef.current.clear();
         await fetchSavedProducts(false, true);
       }
@@ -1333,25 +1333,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setIsDeletingBulkDb(false);
       setDeleteProgress({ current: 0, total: 0, operation: '', currentProduct: '' });
       
-      // CRITICAL: Reset batch sequence counters after deletions
+      // CRITICAL: Sıfırla batch sequence counters after deletions
       console.log('🔄 CRITICAL: Resetting batch sequence counters after deletions');
       resetBatchSequenceCounter(); // Clear any cached sequence numbers
       
-      // CRITICAL: Force refresh database cache after deletions to update sequence tracking
+      // CRITICAL: Force refresh database cache after deletions a Güncelle sequence tracking
       console.log('🔄 CRITICAL: Refreshing database cache after deletions to update sequences');
       await fetchSavedProducts(false, true); // Force fresh data with cache busting - resetData=true
       
-      // CRITICAL: Refresh sequence data to get updated sequence numbers after deletion
+      // CRITICAL: Refresh sequence Veri a Al updated sequence numbers after deletion
       console.log('🔄 CRITICAL: Refreshing sequence data after deletions');
       await fetchSequences(); // Refresh sequence state with fresh data
       
-      // CRITICAL: Re-initialize batch sequence with fresh database state
+      // CRITICAL: Re-Başlat batch sequence ile fresh database State
       console.log('🔄 CRITICAL: Re-initializing batch sequence after deletion cache refresh');
       await initializeBatchSequence();
     }
   };
 
-  // Bulk Excel export for selected items
+  // Bulk Excel export için selected Öğeler
   const handleBulkExportSelected = async () => {
     if (selectedDbItems.length === 0) {
       toast.error('Dışa aktarılacak ürün seçiniz');
@@ -1361,7 +1361,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     try {
       console.log(`Exporting ${selectedDbItems.length} selected products from ${activeDbTab} table`);
       
-      // Get selected products from already loaded data
+      // Al selected products den already loaded Veri
       const selectedProducts = savedProducts[activeDbTab].filter(product => 
         selectedDbItems.includes(product.id)
       );
@@ -1373,9 +1373,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       console.log(`Found ${selectedProducts.length} selected products in loaded data`);
       
-      // Transform database products for Excel generation (same format as database response)
+      // Dönüştür database products için Excel generation (same Formatla olarak database Yanıt)
       const transformedProducts = selectedProducts.map(product => {
-        // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect
+        // Extract hasir_tipi den stok_adi zaman hasir_tipi Alan is incorrect
         let actualHasirTipi = product.hasir_tipi || '';
         if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
           const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+(?:\/\d+)?|R\d+(?:\/\d+)?|TR\d+(?:\/\d+)?)/i);
@@ -1384,20 +1384,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        // Parse göz aralığı from database if available, otherwise calculate
+        // Parse et göz aralığı den database if Mevcut, otherwise Hesapla
         const dbGozAraligi = product.goz_araligi || '';
         let boyAraligi, enAraligi, gozAraligi;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
-          // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
+          // Use database Değer (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
-          // Replace Turkish comma with period before parsing
+          // Replace Turkish comma ile Periyot before parsing
           boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(actualHasirTipi, 'boy');
           enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(actualHasirTipi, 'en');
-          // Normalize to period format for Excel
+          // Normalize a Periyot Formatla için Excel
           gozAraligi = `${boyAraligi}x${enAraligi}`;
         } else {
-          // Fallback to calculation if database value missing
+          // Fallback a calculation if database Değer missing
           boyAraligi = calculateGozAraligi(actualHasirTipi, 'boy');
           enAraligi = calculateGozAraligi(actualHasirTipi, 'en');
           gozAraligi = `${boyAraligi}x${enAraligi}`;
@@ -1418,7 +1418,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           enAraligi: enAraligi,
           gozAraligi: gozAraligi,
           existingStokKodu: product.stok_kodu,
-          // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
+          // Don't use existingIngilizceIsim - let generateIngilizceIsim Oluştur it fresh
           isOptimized: true,
           source: 'database',
           skipDatabaseRefresh: true  // Flag to prevent generateExcelFiles from re-fetching
@@ -1449,9 +1449,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     initializeData();
   }, []);
   
-  // Refetch data when filters change (server-side filtering)
+  // Refetch Veri zaman filters Değiştir (server-side filtering)
   useEffect(() => {
-    // Only fetch if database modal is open to avoid unnecessary requests
+    // Only Getir if database Modal is Aç a avoid unnecessary requests
     if (showDatabaseModal) {
       setIsFilteringDb(true); // Show filter loading indicator immediately
       const debounceTimer = setTimeout(async () => {
@@ -1471,9 +1471,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   }, [dbSearchText, dbFilterHasirTipi, dbFilterHasirTuru, dbSortBy, dbSortOrder]);
 
-  // Force update when savedProducts or validProducts change to ensure counts are accurate
+  // Force Güncelle zaman savedProducts or validProducts Değiştir a ensure counts are accurate
   useEffect(() => {
-    // Only log and update counts if there are actually products in the form
+    // Only log and Güncelle counts if there are actually products in the Form
     if (validProducts.length > 0) {
       console.log('Count update triggered - optimized products:', validProducts.length, 
                   'unoptimized:', validProducts.filter(p => !isProductOptimized(p)).length);
@@ -1485,7 +1485,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const fetchSavedProducts = async (isRetry = false, resetData = false, isCritical = false) => {
     console.log(`🔄 FETCH SAVED PRODUCTS - Called with isRetry: ${isRetry}, resetData: ${resetData}, isCritical: ${isCritical}`);
     
-    // Cancel previous request if exists
+    // İptal previous İstek varsa
     if (fetchControllerRef.current) {
       console.log(`🔄 FETCH SAVED PRODUCTS - Aborting previous request`);
       fetchControllerRef.current.abort();
@@ -1504,35 +1504,35 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       console.log('🚀 OPTIMIZED: Fetching all saved products from database...', { isRetry, resetData });
       
-      // Add timestamp for debugging
+      // Ekle timestamp için debugging
       const fetchStartTime = Date.now();
       
-      // Build query parameters for filters
+      // Build Sorgu parameters için filters
       const buildQueryParams = () => {
         const params = new URLSearchParams();
         
-        // Add search filter
+        // Ekle Ara Filtrele
         if (dbSearchText.trim()) {
           params.append('search', dbSearchText.trim());
         }
         
-        // Add hasır tipi filter
+        // Ekle hasır tipi Filtrele
         if (dbFilterHasirTipi && dbFilterHasirTipi !== 'All') {
           params.append('hasir_tipi_filter', dbFilterHasirTipi);
         }
         
-        // Add hasır türü filter
+        // Ekle hasır türü Filtrele
         if (dbFilterHasirTuru && dbFilterHasirTuru !== 'All') {
           params.append('hasir_turu_filter', dbFilterHasirTuru);
         }
         
-        // Add sorting
+        // Ekle sorting
         if (dbSortBy) {
           params.append('sort_by', dbSortBy);
           params.append('sort_order', dbSortOrder);
         }
         
-        // Add pagination params (fetch all for now)
+        // Ekle pagination Parametreler (Getir all için Şimdi)
         params.append('limit', '10000'); // Large limit to get all filtered results
         params.append('page', '1');
         
@@ -1541,14 +1541,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       const queryString = buildQueryParams();
       
-      // Add timestamp to force fresh data when resetData is true
+      // Ekle timestamp a force fresh Veri zaman resetData is true
       const timestampParam = resetData ? `&_t=${Date.now()}` : '';
       const urlSuffix = queryString ? `?${queryString}${timestampParam}` : (resetData ? `?_t=${Date.now()}` : '');
       
-      // Load data with progress tracking, request cancellation, and timeout
+      // Yükle Veri ile progress tracking, İstek cancellation, and timeout
       setDbLoadingProgress({ current: 1, total: 3, operation: 'CH ürünleri getiriliyor...' });
       
-      // Use parallel requests with timeout and signal
+      // Use parallel requests ile timeout and signal
       const timeoutPromise = (promise, timeout = 60000) => 
         Promise.race([
           promise,
@@ -1563,7 +1563,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         timeoutPromise(fetchWithAuth(`${API_URLS.celikHasirNtel}${urlSuffix}`, { signal }))
       ]);
       
-      // Check if request was cancelled
+      // Kontrol et if İstek was İptal edildi
       if (signal.aborted) {
         console.log('Request was cancelled');
         return;
@@ -1571,12 +1571,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       setDbLoadingProgress({ current: 3, total: 3, operation: 'Veriler işleniyor...' });
 
-      // Handle results with fallbacks
+      // İşle results ile fallbacks
       const mmResponse = mmResult.status === 'fulfilled' ? mmResult.value : null;
       const ncbkResponse = ncbkResult.status === 'fulfilled' ? ncbkResult.value : null;
       const ntelResponse = ntelResult.status === 'fulfilled' ? ntelResult.value : null;
 
-      // Log API failures but continue with available data
+      // Log API failures but continue ile Mevcut Veri
       const failedAPIs = [];
       if (mmResult.status === 'rejected') {
         console.warn('MM API failed:', mmResult.reason);
@@ -1591,23 +1591,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         failedAPIs.push('NTEL');
       }
 
-      // CRITICAL FIX: During critical operations (save/analysis), ALL APIs must succeed
+      // CRITICAL FIX: During critical operations (Kaydet/analysis), ALL APIs must succeed
       // During normal browsing, we can tolerate partial failures
       if (isCritical) {
-        // For critical operations, any API failure is unacceptable
+        // için critical operations, any API failure is unacceptable
         if (failedAPIs.length > 0) {
           const errorMsg = `Veritabanı bağlantı hatası: ${failedAPIs.join(', ')} verileri yüklenemedi. Lütfen tekrar deneyin.`;
           toast.error(errorMsg);
           throw new Error(errorMsg);
         }
       } else {
-        // For non-critical operations, only throw if MM (most important) fails
+        // için non-critical operations, only Fırlat if MM (most important) fails
         if (mmResult.status === 'rejected') {
           throw new Error(`Critical MM API failed: ${mmResult.reason}`);
         }
       }
 
-      // Extract data and total counts from responses
+      // Extract Veri and total counts den responses
       const mmData = mmResponse?.ok ? await mmResponse.json() : [];
       const mmTotal = mmResponse?.ok ? parseInt(mmResponse.headers.get('X-Total-Count') || mmData.length) : (savedProducts.mm?.length || 0);
       
@@ -1623,7 +1623,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ntel: ntelData
       };
       
-      // Store total counts for pagination display
+      // Store total counts için pagination display
       setTotalCounts({
         mm: mmTotal,
         ncbk: ncbkTotal,
@@ -1636,8 +1636,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         toast.warning(`Bazı veriler güncellenemedi: ${failedAPIs.join(', ')}`);
       }
       
-      // Store all data - no pagination
-      // Force state update by creating new object reference if resetData is true
+      // Store all Veri - no pagination
+      // Force State Güncelle ile creating new Nesne reference if resetData is true
       if (resetData) {
         console.log('🔄 Forcing complete data refresh due to resetData=true');
         setSavedProducts({
@@ -1649,11 +1649,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         setSavedProducts(allData);
       }
       
-      // Reset error states on successful fetch
+      // Sıfırla Hata states on successful Getir
       setBackendError(null);
       setRetryCount(0);
       
-      // Display current page vs total for pagination
+      // Display current page vs total için pagination
       const mmDisplay = mmTotal === mmData.length ? `MM(${mmTotal})` : `MM(${mmData.length}/${mmTotal})`;
       const ncbkDisplay = ncbkTotal === ncbkData.length ? `NCBK(${ncbkTotal})` : `NCBK(${ncbkData.length}/${ncbkTotal})`;
       const ntelDisplay = ntelTotal === ntelData.length ? `NTEL(${ntelTotal})` : `NTEL(${ntelData.length}/${ntelTotal})`;
@@ -1661,12 +1661,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const fetchEndTime = Date.now();
       console.log(`✅ Başarıyla yüklendi - Toplam: ${mmDisplay}, ${ncbkDisplay}, ${ntelDisplay} ürün (${fetchEndTime - fetchStartTime}ms)`);
       
-      // Log state update for debugging
+      // Log State Güncelle için debugging
       if (resetData) {
         console.log('🔄 State forced to update with resetData=true');
       }
 
-      // CRITICAL FIX: Return the fetched data directly to avoid stale state reads
+      // CRITICAL FIX: Return the fetched Veri directly a avoid stale State reads
       return allData;
 
     } catch (error) {
@@ -1691,7 +1691,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           canRetry: false
         });
       } else {
-        // Final error state
+        // Final Hata State
         setBackendError({
           type: 'connection',
           message: isNetworkError ? 
@@ -1721,7 +1721,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const data = await response.json();
         const sequenceMap = {};
         data.forEach(seq => {
-          // BULLETPROOF cap_code normalization - handle NULL, undefined, "null", whitespace, etc.
+          // BULLETPROOF cap_code normalization - İşle NULL, undefined, "null", whitespace, etc.
           let normalizedCapCode = '';
           if (seq.cap_code !== null && seq.cap_code !== undefined && seq.cap_code !== 'null' && seq.cap_code !== 'NULL') {
             normalizedCapCode = String(seq.cap_code).trim();
@@ -1736,12 +1736,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Create backup sequence row and sync sequences with database
+  // Oluştur backup sequence row and sync sequences ile database
   const ensureBackupSequenceAndSync = async () => {
     try {
       console.log('*** Starting backup sequence creation and sync process');
       
-      // Get fresh sequences data directly from API instead of relying on state
+      // Al fresh sequences Veri directly den API instead of relying on State
       let currentSequences = {};
       try {
         const response = await fetchWithAuth(API_URLS.celikHasirSequence);
@@ -1749,7 +1749,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const data = await response.json();
           console.log('*** RAW SEQUENCE DATA:', JSON.stringify(data.filter(s => s.kod_2 && s.kod_2.includes('OZL')), null, 2));
           data.forEach(seq => {
-            // BULLETPROOF cap_code normalization - handle NULL, undefined, "null", whitespace, etc.
+            // BULLETPROOF cap_code normalization - İşle NULL, undefined, "null", whitespace, etc.
             let normalizedCapCode = '';
             if (seq.cap_code !== null && seq.cap_code !== undefined && seq.cap_code !== 'null' && seq.cap_code !== 'NULL') {
               normalizedCapCode = String(seq.cap_code).trim();
@@ -1766,7 +1766,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.error('*** Error fetching fresh sequences:', error);
       }
 
-      // Check if backup sequence exists - use exact key match to avoid picking up wrong rows
+      // Kontrol et if backup sequence exists - use exact key match a avoid picking up wrong rows
       const ozlSequenceKey = 'CH_OZL_';
       const ozlBackupKey = 'CH_OZL_BACKUP_';
       
@@ -1782,7 +1782,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         backupSequence = currentSequences[ozlBackupKey];
         console.log('*** Found backup sequence:', ozlBackupKey, 'value:', backupSequence);
       } else {
-        // Create backup sequence row if it doesn't exist
+        // Oluştur backup sequence row if it doesn't exist
         console.log('*** Creating backup sequence row for CHOZL');
         try {
           const backupSequenceData = {
@@ -1807,7 +1807,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
       
-      // Now check the actual database for highest CHOZL sequence
+      // Şimdi Kontrol et the actual database için highest CHOZL sequence
       console.log('*** Checking database for actual highest CHOZL sequence');
       try {
         const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=1`);
@@ -1823,11 +1823,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               const currentMaxSequence = Math.max(actualSequence, backupSequence);
               console.log('*** Current sequence table max:', currentMaxSequence, 'vs DB highest:', dbHighestSequence);
               
-              // If database has higher sequence, update both actual and backup
+              // If database has higher sequence, Güncelle both actual and backup
               if (dbHighestSequence > currentMaxSequence) {
                 console.log('*** Database sequence is higher! Updating sequence table to:', dbHighestSequence);
                 
-                // Update actual sequence
+                // Güncelle actual sequence
                 const actualUpdateData = {
                   product_type: 'CH',
                   kod_2: 'OZL',
@@ -1835,15 +1835,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   last_sequence: dbHighestSequence
                 };
                 
-                // NOTE: Using POST for now as backend may handle UPSERT logic
-                // This should ideally be PUT/PATCH to avoid creating duplicates
+                // NOTE: Using POST için Şimdi olarak backend may İşle UPSERT logic
+                // This should ideally be PUT/PATCH a avoid creating duplicates
                 await fetchWithAuth(API_URLS.celikHasirSequence, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(actualUpdateData)
                 });
                 
-                // Update backup sequence
+                // Güncelle backup sequence
                 const backupUpdateData = {
                   product_type: 'CH',
                   kod_2: 'OZL_BACKUP',
@@ -1851,8 +1851,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   last_sequence: dbHighestSequence
                 };
                 
-                // NOTE: Using POST for now as backend may handle UPSERT logic
-                // This should ideally be PUT/PATCH to avoid creating duplicates
+                // NOTE: Using POST için Şimdi olarak backend may İşle UPSERT logic
+                // This should ideally be PUT/PATCH a avoid creating duplicates
                 await fetchWithAuth(API_URLS.celikHasirSequence, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -1861,7 +1861,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 
                 console.log('*** Both sequences updated to match database');
                 
-                // Refresh sequences state
+                // Refresh sequences State
                 await fetchSequences();
               } else {
                 console.log('*** Sequence table is up to date');
@@ -1875,7 +1875,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       console.log('*** Backup sequence creation and sync completed');
       
-      // Final refresh of sequences state to ensure it's up to date
+      // Final refresh of sequences State a ensure it's up a Tarih
       await fetchSequences();
     } catch (error) {
       console.error('*** Error in backup sequence management:', error);
@@ -1884,9 +1884,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Ürünün optimize edilip edilmediğini kontrol et
   const isProductOptimized = (product) => {
-    // Check if optimization has been run by checking if the product has the isOptimized flag
-    // This flag should be set by the iyilestir functions
-    // For Excel generation from database, also allow products with existingStokKodu
+    // Kontrol et if optimization has been run ile checking if the Ürün has the isOptimized flag
+    // This flag should be Ayarla ile the iyilestir functions
+    // için Excel generation den database, also allow products ile existingStokKodu
     return product.isOptimized === true || product.existingStokKodu;
   };
 
@@ -1905,20 +1905,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return unoptimized.length > 0;
   };
 
-  // Check for existing products and determine next sequence number - Moved up to avoid hoisting issues
-  // Track batch counter for sequential Stok Kodu generation  
+  // Kontrol et için existing products and determine İleri sequence Sayı - Moved up a avoid hoisting issues
+  // Track batch counter için sequential Stok Kodu generation
   let batchSequenceCounter = null;
   let batchSequenceInitialized = false;
   let productStokKoduCache = new Map(); // Cache to prevent multiple STOK KODU generation for same product
   
-  // Reset batch counter for new batch
+  // Sıfırla batch counter için new batch
   const resetBatchSequenceCounter = () => {
     batchSequenceCounter = null;
     batchSequenceInitialized = false;
     productStokKoduCache.clear(); // Clear cache when resetting batch
   };
 
-  // Initialize batch sequence with database sync - MUST be called before any generateStokKodu calls
+  // Başlat batch sequence ile database sync - MUST be called before any generateStokKodu calls
   const initializeBatchSequence = async () => {
     console.log(`🔢 SEQUENCE DEBUG - initializeBatchSequence called, initialized: ${batchSequenceInitialized}, counter: ${batchSequenceCounter}`);
     
@@ -1929,7 +1929,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     let maxSequence = 2443; // Default fallback
 
-    // Use exact key match to avoid picking up rows with NULL cap_code
+    // Use exact key match a avoid picking up rows ile NULL cap_code
     const ozlSequenceKey = 'CH_OZL_';
     const ozlBackupKey = 'CH_OZL_BACKUP_';
 
@@ -1949,18 +1949,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     let preliminaryMaxSequence = Math.max(actualSequence, backupSequence);
     console.log('*** Preliminary max sequence from table:', preliminaryMaxSequence, 'from actual:', actualSequence, 'backup:', backupSequence);
     
-    // Check actual database for highest existing CHOZL to make sure we don't generate duplicates
+    // Kontrol et actual database için highest existing CHOZL a make sure we don't generate duplicates
     try {
       console.log('*** Checking database for highest existing CHOZL sequence to avoid duplicates');
-      // Add timestamp to bypass any caching
+      // Ekle timestamp a bypass any caching
       const dbCheckResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=5&_t=${Date.now()}`);
       if (dbCheckResponse?.ok) {
         const dbData = await dbCheckResponse.json();
         console.log('*** initializeBatchSequence - DB check response structure:', dbData);
-        // Handle both possible response structures
+        // İşle both possible Yanıt structures
         const productList = dbData.data || dbData;
         if (Array.isArray(productList) && productList.length > 0) {
-          // Debug: Check actual field names in response
+          // Debug: Kontrol et actual Alan names in Yanıt
           console.log('*** First product fields:', Object.keys(productList[0]));
           console.log('*** First product stok_kodu variants:', {
             stok_kodu: productList[0].stok_kodu,
@@ -1970,7 +1970,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
           let highestDbSequence = 0;
           productList.forEach((product, idx) => {
-            // Try multiple field name variants
+            // Dene multiple Alan name variants
             const stokKodu = product.stok_kodu || product.stokKodu || product.STOK_KODU;
             if (!stokKodu) {
               console.warn(`*** Product ${idx} has no stok_kodu field:`, product);
@@ -1991,14 +1991,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           maxSequence = Math.max(preliminaryMaxSequence, highestDbSequence);
           console.log('*** Final max sequence after DB check:', maxSequence, 'table:', preliminaryMaxSequence, 'db:', highestDbSequence);
           
-          // If database has higher, we should update the sequence table
+          // If database has higher, we should Güncelle the sequence table
           if (highestDbSequence > preliminaryMaxSequence) {
             console.log('*** Database is ahead! Need to update sequence table to:', highestDbSequence);
             console.log('*** SKIPPING POST operation to prevent duplicate sequence rows');
             console.log('*** The existing PUT operations in updateSequences() will handle the sync');
             // REMOVED: The POST operation here was creating duplicate rows
-            // The actual sequence updates are properly handled by updateSequences() 
-            // using PUT operations with specific row IDs
+            // The actual sequence updates are properly handled ile updateSequences()
+            // using PUT operations ile specific row IDs
           }
         } else {
           maxSequence = preliminaryMaxSequence;
@@ -2032,7 +2032,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
         
         if (isStandard) {
-          // For standard products: CH.STD.0450.XX
+          // için standard products: CH.STD.0450.XX
           const baseCode = `CH.STD.${diameterCode}`;
           const existingProducts = savedProducts.mm.filter(p => 
             p.stok_kodu && p.stok_kodu.startsWith(baseCode)
@@ -2052,9 +2052,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const nextSequence = maxSequence + 1;
           return `CH.STD.${diameterCode}.${String(nextSequence).padStart(2, '0')}`;
         } else {
-          // For özel products: CHOZL0001, CHOZL0002, etc.
+          // için özel products: CHOZL0001, CHOZL0002, etc.
           
-          // This function should only CHECK for existing products, not generate new codes
+          // This function should only Kontrol et için existing products, not generate new codes
           // New products should use generateNewStokKodu function instead
           console.warn('WARNING: checkForExistingProducts called for code generation - use generateNewStokKodu instead');
           return 'CH.STD.0700.00'; // Default fallback
@@ -2076,13 +2076,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return '';
   }
 
-  // Generate new stok kodu for genuinely new products only
+  // Generate new stok kodu için genuinely new products only
   function generateNewStokKodu(product, productType, batchIndex = 0) {
     if (productType === 'CH') {
-      // Create unique cache key for this product
+      // Oluştur unique cache key için this Ürün
       const productKey = `${product.hasirTipi}-${product.boyCap}-${product.enCap}-${product.uzunlukBoy}-${product.uzunlukEn}-${formatGozAraligi(product)}`;
       
-      // Return cached STOK KODU if already generated for this product
+      // Return cached STOK KODU if already generated için this Ürün
       if (productStokKoduCache.has(productKey)) {
         const cachedCode = productStokKoduCache.get(productKey);
         console.log('*** USING CACHED STOK KODU ***');
@@ -2091,10 +2091,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return cachedCode;
       }
       
-      // Batch should already be initialized by initializeBatchSequence()
+      // Batch should already be initialized ile initializeBatchSequence()
       if (!batchSequenceInitialized) {
         console.error('*** ERROR: Batch sequence not initialized! Call initializeBatchSequence() first.');
-        // Fallback - use basic sequence table lookup without database check - use exact key match
+        // Fallback - use basic sequence table lookup without database Kontrol et - use exact key match
         const ozlSequenceKey = 'CH_OZL_';
         const ozlBackupKey = 'CH_OZL_BACKUP_';
 
@@ -2114,11 +2114,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log('*** FALLBACK: Batch initialized with sequence table only:', batchSequenceCounter);
       }
       
-      // Increment counter ONLY when creating NEW product (not cached)
+      // Increment counter ONLY zaman creating NEW Ürün (not cached)
       batchSequenceCounter++;
       const generatedCode = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
       
-      // Cache the generated code for this product
+      // Cache the generated code için this Ürün
       productStokKoduCache.set(productKey, generatedCode);
       
       console.log('*** NEW STOK KODU GENERATION ***');
@@ -2132,7 +2132,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return 'CH.STD.0700.00'; // Default fallback
   }
 
-  // Stok kodu oluştur - Enhanced with database-aware incrementality  
+  // Stok kodu oluştur - Enhanced ile database-aware incrementality
   function generateStokKodu(product, productType, batchIndex = 0) {
     console.log(`🔢 STOK KODU DEBUG - Generating for:`, {
       productType,
@@ -2150,7 +2150,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const diameterCode = String(Math.round(diameter * 100)).padStart(4, '0');
       
       if (isStandard) {
-        // For standard products: CH.STD.0450.XX
+        // için standard products: CH.STD.0450.XX
         const baseCode = `CH.STD.${diameterCode}`;
         const existingProducts = savedProducts.mm.filter(p => 
           p.stok_kodu && p.stok_kodu.startsWith(baseCode)
@@ -2170,16 +2170,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const nextSequence = maxSequence + 1;
         return `CH.STD.${diameterCode}.${String(nextSequence).padStart(2, '0')}`;
       } else {
-        // For özel products: use the new generation function
+        // için özel products: use the new generation function
         return generateNewStokKodu(product, productType, batchIndex);
       }
     }
     return 'CH.STD.0700.00'; // Default fallback
   }
 
-  // Format decimal for display - Turkish format with comma or point
+  // Formatla decimal için display - Turkish Formatla ile comma or point
   const formatDecimalForDisplay = (value, useComma = true) => {
-    // Handle undefined, null, empty string, and NaN cases
+    // İşle undefined, null, empty String, and NaN cases
     if (value === undefined || value === null || value === '' || (typeof value === 'number' && isNaN(value))) {
       return '0';
     }
@@ -2187,13 +2187,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const num = parseFloat(value);
     if (isNaN(num)) return '0';
     
-    // Remove trailing zeros and format
+    // Kaldır trailing zeros and Formatla
     let formatted = num.toString();
     if (formatted.includes('.')) {
       formatted = formatted.replace(/\.?0+$/, '');
     }
     
-    // Replace dot with comma for Turkish format if requested
+    // Replace dot ile comma için Turkish Formatla if requested
     if (useComma && formatted.includes('.')) {
       formatted = formatted.replace('.', ',');
     }
@@ -2204,11 +2204,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Stok adı oluştur - Fixed formatting
   const generateStokAdi = (product, productType) => {
     if (productType === 'CH') {
-      // Try to get göz aralığı data from multiple sources
+      // Dene a Al göz aralığı Veri den multiple sources
       let boyAraligi = product.boyAraligi || product.boyAralik;
       let enAraligi = product.enAraligi || product.enAralik;
       
-      // If not available on product, use calculateGozAraligi function as fallback
+      // değilse Mevcut on Ürün, use calculateGozAraligi function olarak fallback
       if (!boyAraligi || !enAraligi) {
         const hasirTipi = product.hasirTipi;
         const isFromDatabase = product.source === 'database' || product.skipDatabaseRefresh;
@@ -2224,7 +2224,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
       
-      // Format göz aralığı
+      // Formatla göz aralığı
       let gozAraligi = '';
       if (boyAraligi && enAraligi) {
         gozAraligi = `${boyAraligi}x${enAraligi}`;
@@ -2234,10 +2234,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         gozAraligi = product.goz_araligi;
       }
       
-      // Normalize hasır tipi to correct format (Q257/257, R257, TR257)
+      // Normalize hasır tipi a correct Formatla (Q257/257, R257, TR257)
       const normalizedHasirTipi = normalizeHasirTipi(product.hasirTipi);
       
-      // CRITICAL FIX: Handle undefined boyCap/enCap properly to prevent NaN in stok_adi
+      // CRITICAL FIX: İşle undefined boyCap/enCap properly a prevent NaN in stok_adi
       const boyCapValue = parseFloat(product.boyCap) || 0;
       const enCapValue = parseFloat(product.enCap) || 0;
       const formattedBoyCap = formatDecimalForDisplay(boyCapValue, true);
@@ -2246,7 +2246,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const formattedEn = parseInt(product.uzunlukEn || 0) || 0;
       
       
-      // Create the standard format used in database saves
+      // Oluştur the standard Formatla used in database saves
       const stokAdi = `${normalizedHasirTipi} Çap(${formattedBoyCap}x${formattedEnCap} mm) Ebat(${formattedBoy}x${formattedEn} cm)${gozAraligi ? ` Göz Ara(${gozAraligi} cm)` : ''}`;
       
       return stokAdi;
@@ -2277,13 +2277,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     });
     const newProducts = [];
     
-    // Helper function to normalize Stok Adı for comparison
+    // Helper function a normalize Stok Adı için comparison
     // This handles variations like "5x5" vs "5,0x5,0" vs "5.0x5.0" and "15*25" vs "15x25"
     const normalizeStokAdiForComparison = (stokAdi) => {
       if (!stokAdi) return '';
       
       return stokAdi
-        // Replace all decimal variations with a standard format
+        // Replace all decimal variations ile a standard Formatla
         .replace(/(\d+)[,.]0(?=\D|$)/g, '$1') // Convert 5,0 or 5.0 to 5
         .replace(/(\d+),(\d+)/g, '$1.$2')     // Convert 5,5 to 5.5
         // Normalize göz aralığı separators
@@ -2294,21 +2294,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     };
     
     for (const product of validProducts) {
-      // Generate the Stok Adı for this product
+      // Generate the Stok Adı için this Ürün
       const productStokAdi = generateStokAdi(product, 'CH');
       const normalizedProductStokAdi = normalizeStokAdiForComparison(productStokAdi);
       
-      // Check if product exists using multiple strategies
+      // Kontrol et if Ürün exists using multiple strategies
       let productExists = false;
       
-      // Strategy 1: Match by exact Stok Adı AND wire counts
+      // Strategy 1: Match ile exact Stok Adı AND wire counts
       productExists = savedProducts.mm.some(p =>
         p.stok_adi === productStokAdi &&
         parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
         parseInt(p.dis_cap_en_cubuk_ad || 0) === parseInt(product.cubukSayisiEn || 0)
       );
 
-      // Strategy 2: Match by normalized Stok Adı AND wire counts (handles decimal variations)
+      // Strategy 2: Match ile normalized Stok Adı AND wire counts (handles decimal variations)
       if (!productExists) {
         productExists = savedProducts.mm.some(p => {
           const normalizedDbStokAdi = normalizeStokAdiForComparison(p.stok_adi);
@@ -2322,7 +2322,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
       
-      // Strategy 3: Fallback - Match by product specifications with proper hasir_tipi normalization
+      // Strategy 3: Fallback - Match ile Ürün specifications ile proper hasir_tipi normalization
       if (!productExists) {
         const normalizeHasirTipiForComparison = (hasirTipi) => {
           if (!hasirTipi) return '';
@@ -2349,7 +2349,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
       
-      // Only add if product doesn't exist
+      // Only Ekle if Ürün doesn't exist
       if (!productExists) {
         newProducts.push(product);
       } else {
@@ -2361,19 +2361,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return newProducts;
   }, [validProducts, savedProducts]);
 
-  // Get products that are already saved in database (opposite of getProductsToSave)
+  // Al products that are already saved in database (opposite of getProductsToSave)
   const getSavedProductsList = useCallback(() => {
     if (!validProducts?.length || !savedProducts?.mm?.length) return [];
 
     const savedProductsList = [];
     console.log('DEBUG: getSavedProductsList - checking', validProducts.length, 'products against', savedProducts.mm.length, 'saved products');
     
-    // Helper function to normalize Stok Adı for comparison (same as in getProductsToSave)
+    // Helper function a normalize Stok Adı için comparison (same olarak in getProductsToSave)
     const normalizeStokAdiForComparison = (stokAdi) => {
       if (!stokAdi) return '';
       
       return stokAdi
-        // Replace all decimal variations with a standard format
+        // Replace all decimal variations ile a standard Formatla
         .replace(/(\d+)[,.]0(?=\D|$)/g, '$1') // Convert 5,0 or 5.0 to 5
         .replace(/(\d+),(\d+)/g, '$1.$2')     // Convert 5,5 to 5.5
         // Normalize göz aralığı separators
@@ -2384,13 +2384,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     };
     
     for (const product of validProducts) {
-      // Generate the Stok Adı for this product
+      // Generate the Stok Adı için this Ürün
       const productStokAdi = generateStokAdi(product, 'CH');
       
-      // Use same logic as analyzeProductsForConfirmation - first try exact Stok Adı
+      // Use same logic olarak analyzeProductsForConfirmation - first Dene exact Stok Adı
       let existingProduct = savedProducts.mm.find(p => p.stok_adi === productStokAdi);
       
-      // Try normalized Stok Adı if exact match not found
+      // Dene normalized Stok Adı if exact match not found
       if (!existingProduct) {
         const normalizedProductStokAdi = normalizeStokAdiForComparison(productStokAdi);
         existingProduct = savedProducts.mm.find(p => {
@@ -2399,7 +2399,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
       }
       
-      // Fallback to specifications matching if not found by Stok Adı with proper hasir_tipi normalization
+      // Fallback a specifications matching değilse found ile Stok Adı ile proper hasir_tipi normalization
       if (!existingProduct) {
         const normalizeHasirTipiForComparison = (hasirTipi) => {
           if (!hasirTipi) return '';
@@ -2421,15 +2421,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
       
       if (existingProduct) {
-        // Product is already saved - use the found existing product
+        // Ürün is already saved - use the found existing Ürün
         
-        // Product is already saved - add it to saved list
-        // Map database fields to expected format for Excel generation
+        // Ürün is already saved - Ekle it a saved Liste
+        // Map et database fields a expected Formatla için Excel generation
         savedProductsList.push({
           ...product,
           existingStokKodu: existingProduct.stok_kodu,
           stokAdi: productStokAdi,
-          // Map database fields to expected Excel generation format
+          // Map et database fields a expected Excel generation Formatla
           boyCap: existingProduct.cap || product.boyCap,
           enCap: existingProduct.cap2 || product.enCap,
           hasirTipi: existingProduct.hasir_tipi || product.hasirTipi,
@@ -2447,11 +2447,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return savedProductsList;
   }, [validProducts, savedProducts]);
 
-  // Analyze products and categorize them into new vs existing with full details
+  // Analyze products and categorize them into new vs existing ile full details
   const analyzeProductsForConfirmation = async () => {
     if (validProducts.length === 0) return { newProducts: [], existingProducts: [], batchDuplicates: [] };
     
-    // Initialize batch sequence before any stok kodu generation
+    // Başlat batch sequence before any stok kodu generation
     await initializeBatchSequence();
     
     const newProducts = [];
@@ -2482,19 +2482,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     }
     
-    // CRITICAL FIX: Force fresh data fetch before analysis to avoid stale cache
-    // This prevents deleted products from appearing as "existing" when trying to re-add them
+    // CRITICAL FIX: Force fresh Veri Getir before analysis a avoid stale cache
+    // This prevents Silindi products den appearing olarak "existing" zaman trying a re-Ekle them
     console.log('DEBUG: Fetching FRESH data for product analysis to avoid stale cache...');
     const freshSavedProducts = await fetchSavedProducts(false, true, true); // Force fresh data with cache busting AND mark as critical - returns data directly to avoid stale state
     
-    // Debug: Log the fresh savedProducts structure and check for CHOZL2448 specifically
+    // Debug: Log the fresh savedProducts structure and Kontrol et için CHOZL2448 specifically
     console.log('DEBUG: freshSavedProducts in analyzeProductsForConfirmation:', {
       mm: freshSavedProducts.mm?.length || 0,
       ncbk: freshSavedProducts.ncbk?.length || 0,
       ntel: freshSavedProducts.ntel?.length || 0
     });
     
-    // CRITICAL DEBUG: Check if CHOZL2448 still exists in fresh data after deletion
+    // CRITICAL DEBUG: Kontrol et if CHOZL2448 still exists in fresh Veri after deletion
     const chozl2448Products = freshSavedProducts.mm.filter(p => p.stok_kodu && p.stok_kodu.includes('CHOZL2448'));
     console.log('🚨 CRITICAL DEBUG: CHOZL2448 products still in freshSavedProducts after deletion:', chozl2448Products.length);
     if (chozl2448Products.length > 0) {
@@ -2507,12 +2507,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
     }
     
-    // Helper function to normalize Stok Adı for comparison (same as in getProductsToSave)
+    // Helper function a normalize Stok Adı için comparison (same olarak in getProductsToSave)
     const normalizeStokAdiForComparison = (stokAdi) => {
       if (!stokAdi) return '';
       
       return stokAdi
-        // Replace all decimal variations with a standard format
+        // Replace all decimal variations ile a standard Formatla
         .replace(/(\d+)[,.]0(?=\D|$)/g, '$1') // Convert 5,0 or 5.0 to 5
         .replace(/(\d+),(\d+)/g, '$1.$2')     // Convert 5,5 to 5.5
         // Normalize göz aralığı separators
@@ -2522,13 +2522,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         .trim();
     };
     
-    // Second pass: check unique products against database
+    // Second pass: Kontrol et unique products against database
     for (const product of batchUniqueProducts) {
-      // Generate the Stok Adı for this product
+      // Generate the Stok Adı için this Ürün
       const productStokAdi = generateStokAdi(product, 'CH');
       console.log('DEBUG: Looking for product with stok_adi:', productStokAdi);
       
-      // Find ALL existing products by exact Stok Adı AND wire counts using FRESH data
+      // Bul ALL existing products ile exact Stok Adı AND wire counts using FRESH Veri
       let allMatchingProducts = freshSavedProducts.mm.filter(p =>
         p.stok_adi === productStokAdi &&
         parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
@@ -2536,7 +2536,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       );
       let existingProduct = allMatchingProducts[0]; // Take first one for backward compatibility
 
-      // Debug: Show all exact matches
+      // Debug: Göster all exact matches
       if (allMatchingProducts.length > 0) {
         console.log(`DEBUG: Found ${allMatchingProducts.length} exact match(es) for: "${productStokAdi}"`);
         allMatchingProducts.forEach((p, index) => {
@@ -2544,7 +2544,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         });
       }
       
-      // Try normalized Stok Adı AND wire counts if exact match not found
+      // Dene normalized Stok Adı AND wire counts if exact match not found
       if (!existingProduct) {
         const normalizedProductStokAdi = normalizeStokAdiForComparison(productStokAdi);
         allMatchingProducts = freshSavedProducts.mm.filter(p => {
@@ -2561,7 +2561,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log(`  Match ${index + 1}: ${p.stok_kodu} - "${p.stok_adi}"`);
           });
         } else {
-          // If still not found, show some similar products for debugging
+          // If still not found, Göster some similar products için debugging
           const similarProducts = freshSavedProducts.mm.filter(p => {
             const normalized = normalizeStokAdiForComparison(p.stok_adi);
             return normalized.includes(productStokAdi.toLowerCase().substring(0, 8)); // First 8 chars
@@ -2577,7 +2577,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
       
-      // Fallback to specifications matching if not found by Stok Adı with proper hasir_tipi normalization
+      // Fallback a specifications matching değilse found ile Stok Adı ile proper hasir_tipi normalization
       if (!existingProduct) {
         const normalizeHasirTipiForComparison = (hasirTipi) => {
           if (!hasirTipi) return '';
@@ -2603,10 +2603,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (existingProduct) {
         console.log('DEBUG: Found existing product:', existingProduct.stok_adi, existingProduct.stok_kodu);
         
-        // Find ALL products that match ONLY the physical specifications (ignore Stok Adı completely)
-        // This will catch products with identical specs but different Stok Adı formatting
+        // Bul ALL products that match ONLY the physical specifications (ignore Stok Adı completely)
+        // This will Yakala products ile identical specs but different Stok Adı formatting
 
-        // Start with products already found by exact/normalized stok_adi match, then add spec-based matches
+        // Başlangıç ile products already found ile exact/normalized stok_adi match, then Ekle spec-based matches
         const specBasedMatches = freshSavedProducts.mm.filter(p => {
           const dimensionMatch = Math.abs(parseFloat(p.ebat_boy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.01 &&
                                  Math.abs(parseFloat(p.ebat_en || 0) - parseFloat(product.uzunlukEn || 0)) < 0.01;
@@ -2615,7 +2615,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const normalizeDecimal = (value) => {
             if (!value && value !== 0) return 0;
             
-            // Handle all decimal format variations found in database
+            // İşle all decimal Formatla variations found in database
             let str = String(value)
               .replace(',', '.')           // "6,5" → "6.5" 
               .replace(/\s+/g, '')         // "6 .5" → "6.5"
@@ -2624,16 +2624,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const num = parseFloat(str);
             if (isNaN(num)) return 0;
             
-            // Handle floating point precision issues - database has values like: 6.5, 7.8, 9.2, 7.5
-            // Don't round decimals as they are exact values in the database
+            // İşle floating point precision issues - database has values like: 6.5, 7.8, 9.2, 7.5
+            // Don't round decimals olarak they are exact values in the database
             return Math.round(num * 100) / 100;
           };
           
-          // Tighter tolerance for diameter matching to handle precision differences
+          // Tighter tolerance için Çap matching a İşle precision differences
           const diameterMatch = Math.abs(normalizeDecimal(p.cap) - normalizeDecimal(product.boyCap)) < 0.001 &&
                                Math.abs(normalizeDecimal(p.cap2) - normalizeDecimal(product.enCap)) < 0.001;
           
-          // Enhanced hasır tipi comparison with format variations (Q257/257 vs Q257)
+          // Enhanced hasır tipi comparison ile Formatla variations (Q257/257 vs Q257)
           const enhancedNormalizeHasirTipi = (hasirTipi) => {
             if (!hasirTipi) return '';
             return String(hasirTipi)
@@ -2643,7 +2643,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               .trim();
           };
           
-          // Check both hasir_tipi field and stok_adi (where Q/R/TR codes are stored)
+          // Kontrol et both hasir_tipi Alan and stok_adi (where Q/R/TR codes are stored)
           const hasirTipiFromField = enhancedNormalizeHasirTipi(p.hasir_tipi);
           const hasirTipiFromStokAdi = enhancedNormalizeHasirTipi(p.stok_adi);
           const productHasirTipi = enhancedNormalizeHasirTipi(product.hasirTipi);
@@ -2673,9 +2673,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               .toLowerCase()
               .trim();
               
-            // Handle single values that need duplication: "15" → "15*15", "1515" → "15*15"
+            // İşle single values that need duplication: "15" → "15*15", "1515" → "15*15"
             if (normalized && !normalized.includes('*')) {
-              // Check if it's a double number like "1515" → "15*15"
+              // Kontrol et if it's a double Sayı like "1515" → "15*15"
               if (normalized.length === 4 && /^\d{4}$/.test(normalized)) {
                 const first = normalized.substring(0, 2);
                 const second = normalized.substring(2, 4);
@@ -2683,13 +2683,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   return `${first}x${second}`;
                 }
               }
-              // Check if it's a double number like "3015" → "30*15" 
+              // Kontrol et if it's a double Sayı like "3015" → "30*15"
               if (normalized.length === 4 && /^\d{4}$/.test(normalized)) {
                 const first = normalized.substring(0, 2);
                 const second = normalized.substring(2, 4);
                 return `${first}x${second}`;
               }
-              // Single value: "15" → "15*15"
+              // Single Değer: "15" → "15*15"
               if (/^\d{1,2}$/.test(normalized)) {
                 return `${normalized}x${normalized}`;
               }
@@ -2700,13 +2700,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           const gozMatch = enhancedNormalizeGozAraligi(p.goz_araligi) === enhancedNormalizeGozAraligi(formatGozAraligi(product));
 
-          // Wire count matching - critical for distinguishing products with same specs but different wire counts
+          // Wire count matching - critical için distinguishing products ile same specs but different wire counts
           const wireCountsMatch = (
             parseInt(p.ic_cap_boy_cubuk_ad || 0) === parseInt(product.cubukSayisiBoy || 0) &&
             parseInt(p.dis_cap_en_cubuk_ad || 0) === parseInt(product.cubukSayisiEn || 0)
           );
 
-          // Enhanced Stok Adı similarity check (typo tolerance)
+          // Enhanced Stok Adı similarity Kontrol et (typo tolerance)
           const calculateSimilarity = (str1, str2) => {
             if (!str1 || !str2) return 0;
             
@@ -2736,13 +2736,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             if (n1 === n2) return 1.0;
             
-            // Levenshtein distance for fuzzy matching
+            // Levenshtein distance için fuzzy matching
             const distance = levenshteinDistance(n1, n2);
             const maxLength = Math.max(n1.length, n2.length);
             return maxLength === 0 ? 1.0 : Math.max(0, (maxLength - distance) / maxLength);
           };
           
-          // Helper function for edit distance calculation
+          // Helper function için edit distance calculation
           const levenshteinDistance = (str1, str2) => {
             const matrix = Array(str2.length + 1).fill().map(() => Array(str1.length + 1).fill(0));
             
@@ -2762,7 +2762,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             return matrix[str2.length][str1.length];
           };
           
-          // Generate expected stok_adi for similarity comparison
+          // Generate expected stok_adi için similarity comparison
           const expectedStokAdi = generateStokAdi(product, 'CH');
           const similarity = calculateSimilarity(p.stok_adi, expectedStokAdi);
           // More flexible similarity for standard vs OZL products - they can have very different stok_adi formats but identical specs
@@ -2770,10 +2770,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const similarityThreshold = isStandardProduct ? 0.60 : 0.80; // Lower threshold for standard products
           const stokAdiMatch = similarity > similarityThreshold;
           
-          // Combine all matching criteria - including wire counts to distinguish products
+          // Combine all matching criteria - including wire counts a distinguish products
           const overallMatch = hasirTipiMatch && dimensionMatch && diameterMatch && gozMatch && wireCountsMatch && stokAdiMatch;
           
-          // Enhanced debug for first product  
+          // Enhanced debug için first Ürün
           if (p.stok_kodu === existingProduct.stok_kodu) {
             console.log('🔍 ENHANCED DUPLICATE DETECTION for', p.stok_kodu);
             console.log('  📊 HASIR TIPI:', { 
@@ -2833,15 +2833,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           return overallMatch;
         });
         
-        // Debug all hasır tipi variations in the database for this comparison
+        // Debug all hasır tipi variations in the database için this comparison
         const allHasirTipiVariations = new Set(freshSavedProducts.mm.map(p => p.hasir_tipi).filter(Boolean));
         console.log('📋 ALL HASIR TIPI VARIATIONS IN DATABASE:', Array.from(allHasirTipiVariations).sort());
         
-        // Combine exact/normalized stok_adi matches with spec-based matches
+        // Combine exact/normalized stok_adi matches ile spec-based matches
         const combinedMatches = new Map();
-        // Add exact/normalized matches first
+        // Ekle exact/normalized matches first
         allMatchingProducts.forEach(p => combinedMatches.set(p.stok_kodu, p));
-        // Add spec-based matches
+        // Ekle spec-based matches
         specBasedMatches.forEach(p => combinedMatches.set(p.stok_kodu, p));
         const finalMatchingProducts = Array.from(combinedMatches.values());
 
@@ -2855,10 +2855,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }))
         );
         
-        // Fallback: if no matches found with smart filtering, try simpler fallback matching
+        // Fallback: if no matches found ile smart filtering, Dene simpler fallback matching
         if (allMatchingProducts.length === 0) {
           console.log('DEBUG: No smart matches found, trying fallback matching...');
-          // Try with just hasir tipi and dimensions (less strict) with proper normalization
+          // Dene ile just hasir tipi and dimensions (less strict) ile proper normalization
           const fallbackMatches = freshSavedProducts.mm.filter(p => {
             const normalizeForFallback = (hasirTipi) => {
               if (!hasirTipi) return '';
@@ -2892,11 +2892,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.log('DEBUG: ⚠️ DUPLICATES FOUND! Multiple products with same specs but different Stok Adı/Kodu');
         }
         
-        // Product exists - add to existing list with stok_kodu and variant info
-        // Create a map of Stok Adı to all related Stok Kodus (same logic as saveToDatabase)
+        // Ürün exists - Ekle a existing Liste ile stok_kodu and variant info
+        // Oluştur a Map et of Stok Adı a all related Stok Kodus (same logic olarak saveToDatabase)
         const stokAdiToStokKodusMap = new Map();
         
-        // Map all existing products by Stok Adı
+        // Map et all existing products ile Stok Adı
         [...freshSavedProducts.mm, ...freshSavedProducts.ncbk, ...freshSavedProducts.ntel].forEach(p => {
           if (p.stok_adi) {
             if (!stokAdiToStokKodusMap.has(p.stok_adi)) {
@@ -2906,7 +2906,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         });
         
-        // Check for NCBK/NTEL variants - CRITICAL FIX: Handle undefined boyCap/enCap
+        // Kontrol et için NCBK/NTEL variants - CRITICAL FIX: İşle undefined boyCap/enCap
         const boyCapFormatted = formatDecimalForDisplay(parseFloat(product.boyCap) || 0, true);
         const enCapFormatted = formatDecimalForDisplay(parseFloat(product.enCap) || 0, true);
         const ncbkStokAdi500 = `YM Nervürlü Çubuk ${boyCapFormatted} mm 500 cm`;
@@ -2940,7 +2940,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       } else {
         console.log('DEBUG: Product not found, creating new:', productStokAdi);
         
-        // Product is new - generate new stok_kodu with proper batch indexing
+        // Ürün is new - generate new stok_kodu ile proper batch indexing
         const newStokKodu = generateNewStokKodu(product, 'CH', modalBatchIndex);
         newProducts.push({
           ...product,
@@ -2966,17 +2966,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const generateIngilizceIsim = (product, productType) => {
     if (productType === 'CH') {
       // İngilizce İsim should be a direct translation of Stok Adı
-      // Get the Turkish Stok Adı first
+      // Al the Turkish Stok Adı first
       const stokAdi = generateStokAdi(product, 'CH');
       
-      // Translate Turkish terms to English and format correctly
+      // Translate Turkish terms a English and Formatla correctly
       let ingilizceIsim = stokAdi
         .replace(/Çap\(/g, 'Dia(')           // Çap -> Dia  
         .replace(/Ebat\(/g, 'Size(')         // Ebat -> Size
         .replace(/Göz Ara\(/g, 'Mesh(')      // Göz Ara -> Mesh
         .replace(/,/g, '.');                 // Turkish decimal comma -> English decimal point
       
-      // Format: "Wire Mesh Q317/317 Dia(7.8x7.8 mm) Size(123x150 cm) Mesh(15x15 cm)"
+      // Formatla: "Wire Mesh Q317/317 Dia(7.8x7.8 mm) Size(123x150 cm) Mesh(15x15 cm)"
       return `Wire Mesh ${ingilizceIsim}`;
     } else if (productType === 'NCBK') {
       const cap = formatDecimalForDisplay(product.cap || 0, false);
@@ -2999,19 +2999,19 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Göz aralığı formatla
   const formatGozAraligi = (product) => {
-    // For database/bulk flows: prioritize stored database values
-    // For new product flows: prioritize UI values
+    // için database/bulk flows: prioritize stored database values
+    // için new Ürün flows: prioritize UI values
     
     const isFromDatabase = product.source === 'database' || product.skipDatabaseRefresh;
     
-    // Check multiple possible field names in priority order
+    // Kontrol et multiple possible Alan names in priority Sipariş
     if (product.boyAraligi && product.enAraligi) {
       return `${product.boyAraligi}x${product.enAraligi}`;
     } else if (product.boyAralik && product.enAralik) {
       return `${product.boyAralik}x${product.enAralik}`;
     } else if (product.gozAraligi) {
       const gozValue = product.gozAraligi.toString();
-      // Check if already formatted (contains x or *)
+      // Kontrol et if already formatted (contains x or *)
       if (gozValue.includes('x') || gozValue.includes('*')) {
         return gozValue.replace('*', 'x'); // Normalize * to x
       } else {
@@ -3019,7 +3019,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     } else if (product.goz_araligi) {
       const gozValue = product.goz_araligi.toString();
-      // Check if already formatted (contains x or *)
+      // Kontrol et if already formatted (contains x or *)
       if (gozValue.includes('x') || gozValue.includes('*')) {
         return gozValue.replace('*', 'x'); // Normalize * to x
       } else {
@@ -3042,39 +3042,39 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Smart hasır tipi normalizer - handles Q/R/TR format variations intelligently
-  // FIXED: Q products should be stored as single Qxxx format in mesh_type_configs table
+  // Smart hasır tipi normalizer - handles Q/R/TR Formatla variations intelligently
+  // FIXED: Q products should be stored olarak single Qxxx Formatla in mesh_type_configs table
   const normalizeHasirTipi = (tipi) => {
     if (!tipi) return '';
 
-    // Handle various input formats and clean the string
+    // İşle various Girdi formats and clean the String
     let cleanTipi = tipi.toString().trim().toUpperCase();
 
-    // Remove any extra whitespace between letters and numbers
+    // Kaldır any extra whitespace between letters and numbers
     cleanTipi = cleanTipi.replace(/\s+/g, '');
 
-    // Handle Q-type combinations (Q221/443) - preserve as-is for different numbers
+    // İşle Q-Tip combinations (Q221/443) - preserve olarak-is için different numbers
     const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
     if (combinationMatch) {
       const first = combinationMatch[1];
       const second = combinationMatch[2];
-      // Return combination format as-is if numbers are different
+      // Return combination Formatla olarak-is if numbers are different
       if (first !== second) {
         return `Q${first}/${second}`;
       }
     }
 
     // Extract the base pattern (Q257, R257, TR257, etc.)
-    // Handle both Q257 and Q257/257 formats
+    // İşle both Q257 and Q257/257 formats
     const match = cleanTipi.match(/^(Q|R|TR)(\d+)(?:\/\d+)?/);
     if (!match) return cleanTipi;
 
     const prefix = match[1];  // Q, R, or TR
     const number = match[2];  // 257, 221, etc.
 
-    // Normalize based on type rules from CSV analysis:
-    // Q types should have double format: Q257/257 (only for single Q-types)
-    // R and TR types should have single format: R257, TR257
+    // Normalize based on Tip rules den CSV analysis:
+    // Q types should have double Formatla: Q257/257 (only için single Q-types)
+    // R and TR types should have single Formatla: R257, TR257
     if (prefix === 'Q') {
       return `${prefix}${number}/${number}`;
     } else {
@@ -3082,28 +3082,28 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Helper function to normalize hasir tipi specifically for mesh config storage
-  // This should store Q products as single format (Q692) not double (Q692/692)
+  // Helper function a normalize hasir tipi specifically için mesh config storage
+  // This should store Q products olarak single Formatla (Q692) not double (Q692/692)
   const normalizeHasirTipiForMeshConfig = (tipi) => {
     if (!tipi) return '';
 
     let cleanTipi = tipi.toString().trim().toUpperCase();
     cleanTipi = cleanTipi.replace(/\s+/g, '');
 
-    // Extract base format: Q692/692 -> Q692, Q257/443 -> Q257/443 (preserve if different)
+    // Extract base Formatla: Q692/692 -> Q692, Q257/443 -> Q257/443 (preserve if different)
     const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
     if (combinationMatch) {
       const first = combinationMatch[1];
       const second = combinationMatch[2];
-      // If same numbers (Q692/692), convert to single format (Q692)
+      // If same numbers (Q692/692), Çevir a single Formatla (Q692)
       if (first === second) {
         return `Q${first}`;
       }
-      // If different numbers (Q257/443), keep as-is
+      // If different numbers (Q257/443), keep olarak-is
       return `Q${first}/${second}`;
     }
 
-    // Handle R and TR types normally
+    // İşle R and TR types normally
     const match = cleanTipi.match(/^(Q|R|TR)(\d+)(?:\/\d+)?/);
     if (!match) return cleanTipi;
 
@@ -3113,7 +3113,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return `${prefix}${number}`;
   };
 
-  // Helper function to prompt user for mesh config data and save to database
+  // Helper function a prompt user için mesh config Veri and Kaydet a database
   const promptAndSaveMeshConfig = async (hasirTipi) => {
     const boyCap = prompt('Boy çapı (mm):');
     const enCap = prompt('En çapı (mm):');
@@ -3121,7 +3121,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     const enAralik = prompt('En aralığı (cm):', hasirTipi.startsWith('Q') ? '15' : hasirTipi.startsWith('TR') ? '15' : '25');
 
     if (boyCap && enCap && boyAralik && enAralik) {
-      // Determine type
+      // Determine Tip
       let type = 'Q';
       if (hasirTipi.startsWith('R')) type = 'R';
       else if (hasirTipi.startsWith('TR')) type = 'TR';
@@ -3129,7 +3129,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // Generate description
       const description = `${type} type ${type === 'Q' ? 'mesh' : type === 'TR' ? 'truss reinforcement mesh' : 'reinforcement mesh'} - ${hasirTipi.replace(/[A-Z]+/, '')}${type === 'Q' ? ` (used for ${hasirTipi}/${hasirTipi.replace(/[A-Z]+/, '')} combinations)` : ''}`;
 
-      // Save to database
+      // Kaydet a database
       try {
         const createResponse = await fetchWithAuth(API_URLS.meshTypeConfigs, {
           method: 'POST',
@@ -3162,20 +3162,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Helper function to check if hasir tipi exists in mesh_type_configs and prompt for data if not
+  // Helper function a Kontrol et if hasir tipi exists in mesh_type_configs and prompt için Veri değilse
   const checkAndPromptForMeshConfig = async (hasirTipi) => {
     if (!hasirTipi) return true;
 
-    // Clean the input
+    // Clean the Girdi
     let cleanTipi = hasirTipi.toString().trim().toUpperCase().replace(/\s+/g, '');
 
-    // CRITICAL FIX: Handle Q combinations (Q257/131) by checking individual base types
+    // CRITICAL FIX: İşle Q combinations (Q257/131) ile checking individual base types
     const combinationMatch = cleanTipi.match(/^Q(\d+)\/(\d+)$/);
     if (combinationMatch) {
       const first = combinationMatch[1];
       const second = combinationMatch[2];
 
-      // If same numbers (Q257/257), check for single Q257
+      // If same numbers (Q257/257), Kontrol et için single Q257
       if (first === second) {
         const singleType = `Q${first}`;
         try {
@@ -3183,7 +3183,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           if (response.ok) {
             return true; // Q257 exists, so Q257/257 is valid
           } else {
-            // Q257 doesn't exist, prompt for it
+            // Q257 doesn't exist, prompt için it
             const confirmed = window.confirm(`Hasır tipi "${singleType}" veritabanında bulunamadı. Bu ürünün teknik verilerini girmek ister misiniz?`);
             if (confirmed) {
               return await promptAndSaveMeshConfig(singleType);
@@ -3196,7 +3196,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           return false;
         }
       } else {
-        // Different numbers (Q257/131), check if both Q257 AND Q131 exist
+        // Different numbers (Q257/131), Kontrol et if both Q257 AND Q131 exist
         try {
           const [response1, response2] = await Promise.all([
             fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(`Q${first}`)}`),
@@ -3207,12 +3207,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             return true; // Both Q257 and Q131 exist, combination is valid
           }
 
-          // Determine which base types are missing and prompt only for those
+          // Determine which base types are missing and prompt only için those
           const missing = [];
           if (!response1.ok) missing.push(`Q${first}`);
           if (!response2.ok) missing.push(`Q${second}`);
 
-          // Only prompt for the missing base types, not the combination
+          // Only prompt için the missing base types, not the combination
           for (const missingType of missing) {
             const normalizedMissingType = missingType;
             const confirmed = window.confirm(`Hasır tipi "${normalizedMissingType}" veritabanında bulunamadı. Bu ürünün teknik verilerini girmek ister misiniz?`);
@@ -3231,17 +3231,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     }
 
-    // For single types (Q257, R257, TR257, etc.), use the existing logic
+    // için single types (Q257, R257, TR257, etc.), use the existing logic
     const normalizedHasirTipi = normalizeHasirTipiForMeshConfig(hasirTipi);
 
     try {
       const response = await fetchWithAuth(`${API_URLS.meshTypeConfigs}/${encodeURIComponent(normalizedHasirTipi)}`);
 
       if (response.ok) {
-        // Config exists, return true to continue
+        // Config exists, return true a continue
         return true;
       } else if (response.status === 404) {
-        // Config doesn't exist, show popup to get data
+        // Config doesn't exist, Göster Popup a Al Veri
         const confirmed = window.confirm(`Hasır tipi "${normalizedHasirTipi}" veritabanında bulunamadı. Bu ürünün teknik verilerini girmek ister misiniz?`);
 
         if (confirmed) {
@@ -3259,22 +3259,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Helper function to convert decimal point to comma for Excel
+  // Helper function a Çevir decimal point a comma için Excel
   const toExcelDecimal = (value) => {
     if (value === null || value === undefined || value === '') {
       console.warn(`📊 EXCEL DECIMAL - Empty value detected, returning empty string`);
       return '';
     }
-    // CRITICAL: Check for NaN values before converting
+    // CRITICAL: Kontrol et için NaN values before converting
     const num = parseFloat(value);
     if (isNaN(num)) {
       console.error(`❌ EXCEL DECIMAL - NaN detected! Input value: "${value}", type: ${typeof value}`);
       return '0,00001'; // Default safe value
     }
-    // Convert to string and replace decimal point with comma
+    // Çevir a String and replace decimal point ile comma
     const result = String(num).replace('.', ',');
     
-    // Log if the value seems suspicious (excluding legitimate 0 values)
+    // Log if the Değer seems suspicious (excluding legitimate 0 values)
     if (num < 0 || num > 1000000) {
       console.warn(`⚠️ EXCEL DECIMAL - Suspicious value: ${num} -> "${result}"`);
     }
@@ -3282,17 +3282,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     return result;
   };
 
-  // Helper function to format numbers without trailing zeros for Excel
+  // Helper function a Formatla numbers without trailing zeros için Excel
   const toExcelNumber = (value) => {
     if (value === null || value === undefined || value === '') return '';
-    // Convert to number to remove trailing zeros, then to string, then replace decimal point with comma
+    // Çevir a Sayı a Kaldır trailing zeros, then a String, then replace decimal point ile comma
     const num = parseFloat(value);
     if (isNaN(num)) return '0,00001'; // Return default 5 decimal format for NaN values
-    // Format to 5 decimal places and replace decimal point with comma
+    // Formatla a 5 decimal places and replace decimal point ile comma
     return String(num.toFixed(5)).replace('.', ',');
   };
 
-  // Extract hasir_tipi from stok_adi field
+  // Extract hasir_tipi den stok_adi Alan
   const extractHasirTipiFromStokAdi = (stokAdi) => {
     if (!stokAdi) return null;
     
@@ -3322,12 +3322,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return;
       }
 
-      // Reset cancellation flag and start progress indicator
+      // Sıfırla cancellation flag and Başlangıç progress indicator
       setCancelExcelGeneration(false);
       setIsGeneratingExcel(true);
       setExcelProgress({ current: 0, total: 4, operation: 'Veritabanı analizi yapılıyor...' });
 
-      // CRITICAL FIX: Reuse cached analysis from preSaveConfirmData to avoid inconsistent results
+      // CRITICAL FIX: Reuse cached analysis den preSaveConfirmData a avoid inconsistent results
       // If preSaveConfirmData is empty or stale, then perform fresh analysis
       let analysisResult;
       if (preSaveConfirmData && (preSaveConfirmData.newProducts?.length > 0 || preSaveConfirmData.existingProducts?.length > 0)) {
@@ -3341,13 +3341,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         analysisResult = await analyzeProductsForConfirmation();
       }
 
-      // Check for cancellation
+      // Kontrol et için cancellation
       if (cancelExcelGeneration) {
         console.log('Excel generation cancelled during analysis');
         return;
       }
 
-      // Use the returned result directly instead of relying on state
+      // Use the returned result directly instead of relying on State
       const existingProductsData = analysisResult?.existingProducts || [];
       const newProductsData = analysisResult?.newProducts || [];
 
@@ -3362,30 +3362,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         } : null
       });
       
-      // Update progress
+      // Güncelle progress
       setExcelProgress({ current: 1, total: 4, operation: 'Mevcut veriler işleniyor...' });
       
-      // OPTIMIZATION: Instead of making hundreds of API calls, use existing savedProducts data
-      // combined with fallback calculations for missing cubuk sayisi values
+      // OPTIMIZATION: Instead of making hundreds of API calls, use existing savedProducts Veri
+      // combined ile fallback calculations için missing cubuk sayisi values
       console.log('KAYNAK PROGRAMI: Using optimized approach with existing data...');
       
       const enhancedProducts = await Promise.all(validProducts.map(async (product) => {
-        // Find matching stock code from analysis
+        // Bul matching Stok code den analysis
         let stokKodu = '';
 
-        // Check existing products first - MUST include wire count matching
+        // Kontrol et existing products first - MUST include wire count matching
         const existingMatch = existingProductsData.find(existing => {
           const hasirTipiMatch = existing.hasirTipi === product.hasirTipi;
           const boyMatch = Math.abs(parseFloat(existing.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
           const enMatch = Math.abs(parseFloat(existing.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
-          // CRITICAL FIX: Add wire count matching to prevent wrong product selection
+          // CRITICAL FIX: Ekle wire count matching a prevent wrong Ürün selection
           const wireCountBoyMatch = parseInt(existing.cubukSayisiBoy || 0) === parseInt(product.cubukSayisiBoy || 0);
           const wireCountEnMatch = parseInt(existing.cubukSayisiEn || 0) === parseInt(product.cubukSayisiEn || 0);
           return hasirTipiMatch && boyMatch && enMatch && wireCountBoyMatch && wireCountEnMatch;
         });
 
         if (existingMatch && existingMatch.existingStokKodus && existingMatch.existingStokKodus.length > 0) {
-          // Use the first matched stock code (already filtered by wire counts in analyzeProductsForConfirmation)
+          // Use the first matched Stok code (already filtered ile wire counts in analyzeProductsForConfirmation)
           const sortedCodes = existingMatch.existingStokKodus.sort((a, b) => {
             const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
             const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
@@ -3395,7 +3395,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
           console.log(`✅ KAYNAK PROGRAMI MATCH: Found existing product ${stokKodu} for ${product.hasirTipi} with wire counts Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
 
-          // Try to find saved product data for cubuk sayisi values
+          // Dene a Bul saved Ürün Veri için cubuk sayisi values
           const savedProduct = savedProducts.mm?.find(p => p.stok_kodu === stokKodu);
           if (savedProduct && savedProduct.cubuk_sayisi_boy && savedProduct.cubuk_sayisi_en) {
             return {
@@ -3407,12 +3407,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             };
           }
         } else {
-          // Check new products - also include wire count matching
+          // Kontrol et new products - also include wire count matching
           const newMatch = newProductsData.find(newProd => {
             const hasirTipiMatch = newProd.hasirTipi === product.hasirTipi;
             const boyMatch = Math.abs(parseFloat(newProd.uzunlukBoy || 0) - parseFloat(product.uzunlukBoy || 0)) < 0.1;
             const enMatch = Math.abs(parseFloat(newProd.uzunlukEn || 0) - parseFloat(product.uzunlukEn || 0)) < 0.1;
-            // CRITICAL FIX: Add wire count matching for new products too
+            // CRITICAL FIX: Ekle wire count matching için new products too
             const wireCountBoyMatch = parseInt(newProd.cubukSayisiBoy || 0) === parseInt(product.cubukSayisiBoy || 0);
             const wireCountEnMatch = parseInt(newProd.cubukSayisiEn || 0) === parseInt(product.cubukSayisiEn || 0);
             return hasirTipiMatch && boyMatch && enMatch && wireCountBoyMatch && wireCountEnMatch;
@@ -3424,18 +3424,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        // Check if Excel-mapped cubuk values exist - only use fallback if missing
+        // Kontrol et if Excel-mapped cubuk values exist - only use fallback if missing
         const hasExcelCubukValues = (product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0);
         
         let finalCubukSayisiBoy, finalCubukSayisiEn;
         
         if (hasExcelCubukValues) {
-          // Use Excel-mapped values - DO NOT calculate fallback
+          // Use Excel-mapped values - DO NOT Hesapla fallback
           console.log(`✅ KAYNAK PROGRAMI: Using Excel-mapped cubuk values for ${product.hasirTipi} - Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
           finalCubukSayisiBoy = product.cubukSayisiBoy;
           finalCubukSayisiEn = product.cubukSayisiEn;
         } else {
-          // Only calculate fallback if Excel values are missing or invalid
+          // Only Hesapla fallback if Excel values are missing or Geçersiz
           console.log(`⚠️ KAYNAK PROGRAMI: Missing Excel cubuk values, calculating fallback for ${product.hasirTipi}`);
           const fallbackResult = await calculateFallbackCubukSayisi(
             product.hasirTipi,
@@ -3457,16 +3457,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       console.log(`KAYNAK PROGRAMI: Enhanced ${enhancedProducts.length} products with optimized data`);
       
-      // Check for cancellation
+      // Kontrol et için cancellation
       if (cancelExcelGeneration) {
         console.log('Excel generation cancelled during data processing');
         return;
       }
       
-      // Update progress
+      // Güncelle progress
       setExcelProgress({ current: 2, total: 4, operation: 'Stok kodları eşleştiriliyor...' });
       
-      // CSV structure headers from your template
+      // CSV structure Başlıklar den your template
       const headers = [
         '', 'Stok kodu', 'FİRMA', 'Stok Kartı', 'HASIR', 'BOY', 'EN', 'HASIR', 'BOY', 'EN', 'Açıklama', 'UZUNLUK', '', 'ÇUBUK SAYISI', '', 'ARA', '', 'HASIR', 'SOL', 'SAĞ', 'ÖN', 'ARKA', 'ADET', 'TOPLAM', ''
       ];
@@ -3474,21 +3474,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         '', '', 'ADI', '', 'CİNSİ', '', '', 'SAYISI', 'ÇAP', 'ÇAP', '', 'BOY', 'EN', 'BOY', 'EN', 'BOY', 'EN', 'SAYISI', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'FİLİZ', 'KG.', 'KG.', ''
       ];
       
-      // Prepare data array
+      // Prepare Veri Dizi
       const data = [headers, subHeaders];
       
       enhancedProducts.forEach((enhancedProduct, index) => {
-        // Use the enhanced product data directly
+        // Use the enhanced Ürün Veri directly
         const stokKodu = enhancedProduct.existingStokKodu || '';
         const finalCubukSayisiBoy = enhancedProduct.cubukSayisiBoy || 0;
         const finalCubukSayisiEn = enhancedProduct.cubukSayisiEn || 0;
         
-        // Reduced logging: Only log for first few products or when there are issues
+        // Reduced logging: Only log için first few products or zaman there are issues
         if (index < 3 || finalCubukSayisiBoy <= 0 || finalCubukSayisiEn <= 0) {
           console.log(`KAYNAK PROGRAMI: Product ${index + 1} - ${stokKodu} - Boy Cubuk: ${finalCubukSayisiBoy}, En Cubuk: ${finalCubukSayisiEn} (${enhancedProduct.source})`);
         }
         
-        // Map enhanced product data to CSV structure
+        // Map et enhanced Ürün Veri a CSV structure
         data.push([
           index + 1, // Row number
           stokKodu, // Stock code from analysis
@@ -3518,16 +3518,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ]);
       });
       
-      // Check for cancellation before final Excel generation
+      // Kontrol et için cancellation before final Excel generation
       if (cancelExcelGeneration) {
         console.log('Excel generation cancelled before file creation');
         return;
       }
       
-      // Update progress
+      // Güncelle progress
       setExcelProgress({ current: 3, total: 4, operation: 'Excel dosyası oluşturuluyor...' });
       
-      // Create workbook using XLSX (same as exportToExcel)
+      // Oluştur workbook using XLSX (same olarak exportToExcel)
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.aoa_to_sheet(data);
       
@@ -3535,13 +3535,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const colWidths = headers.map(h => ({ wch: Math.max(String(h).length, 15) }));
       ws['!cols'] = colWidths;
       
-      // Add worksheet to workbook
+      // Ekle worksheet a workbook
       XLSX.utils.book_append_sheet(wb, ws, "Kaynak Programı");
       
-      // Update final progress
+      // Güncelle final progress
       setExcelProgress({ current: 4, total: 4, operation: 'Dosya indiriliyor...' });
       
-      // Download as Excel (.xlsx) file
+      // Download olarak Excel (.xlsx) file
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
       XLSX.writeFile(wb, `Kaynak_Programi_${timestamp}.xlsx`);
       
@@ -3552,7 +3552,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.error('Error generating Kaynak Programı Excel:', error);
       toast.error('Kaynak Programı Excel oluşturulurken hata oluştu');
     } finally {
-      // UNIFIED MODAL: Reset all loading states to close unified modal
+      // UNIFIED Modal: Sıfırla all Yükleniyor states a Kapat unified Modal
       setIsGeneratingExcel(false);
       setIsSavingToDatabase(false); // Close unified modal
       setExcelProgress({ current: 0, total: 0, operation: '' });
@@ -3563,7 +3563,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Excel dosyalarını oluştur
   const generateExcelFiles = useCallback(async (inputProducts, includeAllProducts = false) => {
     try {
-      // Continue from database save progress - don't reset
+      // Continue den database Kaydet progress - don't Sıfırla
       setIsGeneratingExcel(true);
       setDatabaseProgress(prev => ({ ...prev, operation: '📊 Excel dosyaları oluşturuluyor...', currentProduct: 'Veriler hazırlanıyor' }));
       setExcelProgress({ current: 0, total: 4, operation: 'Excel verisi hazırlanıyor...' });
@@ -3571,7 +3571,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       // CRITICAL FIX: Always ensure we have the correct database-first + fallback values
       let products = inputProducts;
       
-      // If we have existing stok codes, fetch fresh data from database with fallback
+      // If we have existing stok codes, Getir fresh Veri den database ile fallback
       const existingStokKodes = inputProducts
         .filter(p => p.existingStokKodu)
         .map(p => p.existingStokKodu);
@@ -3580,7 +3580,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.log('Excel generation: Fetching fresh database data with fallback for', existingStokKodes.length, 'products');
           
           try {
-          // SIMPLE APPROACH: Direct fetch like working Vercel version
+          // SIMPLE APPROACH: Direct Getir like working Vercel version
           console.log('Using simple Vercel-style fetch for stok codes:', existingStokKodes);
           const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
             fetchWithAuth(`${API_URLS.celikHasirMm}`),
@@ -3594,13 +3594,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ntelResponse.ok ? ntelResponse.json() : []
           ]);
 
-          // Filter for our products
+          // Filtrele için our products
           const ourMM = allMM.filter(p => existingStokKodes.includes(p.stok_kodu));
           console.log(`Simple fetch found ${ourMM.length} MM products for Excel`);
 
-          // Transform to Excel format EXACTLY like multiselection (lines 1308-1324)
+          // Dönüştür a Excel Formatla EXACTLY like multiselection (lines 1308-1324)
           const freshDatabaseProducts = ourMM.map(product => {
-            // Extract hasir_tipi from stok_adi when hasir_tipi field is incorrect
+            // Extract hasir_tipi den stok_adi zaman hasir_tipi Alan is incorrect
             let actualHasirTipi = product.hasir_tipi || '';
             if (actualHasirTipi === 'MM' || actualHasirTipi === '') {
               const stokAdiMatch = (product.stok_adi || '').match(/^(Q\d+(?:\/\d+)?|R\d+(?:\/\d+)?|TR\d+(?:\/\d+)?)/i);
@@ -3611,20 +3611,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             const cleanIngilizceIsim = (product.ingilizce_isim || '').replace(/^Wire Mesh-\s*/, 'Wire Mesh ');
 
-            // Parse göz aralığı from database if available, otherwise calculate
+            // Parse et göz aralığı den database if Mevcut, otherwise Hesapla
             const dbGozAraligi = product.goz_araligi || '';
             let boyAraligi, enAraligi, gozAraligi;
 
             if (dbGozAraligi && dbGozAraligi.includes('x')) {
-              // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
+              // Use database Değer (e.g., "7.5x15", "15x25", "15x7,5")
               const parts = dbGozAraligi.split('x');
-              // Replace Turkish comma with period before parsing
+              // Replace Turkish comma ile Periyot before parsing
               boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(actualHasirTipi, 'boy');
               enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(actualHasirTipi, 'en');
-              // Normalize to period format for Excel
+              // Normalize a Periyot Formatla için Excel
               gozAraligi = `${boyAraligi}x${enAraligi}`;
             } else {
-              // Fallback to calculation if database value missing
+              // Fallback a calculation if database Değer missing
               boyAraligi = calculateGozAraligi(actualHasirTipi, 'boy');
               enAraligi = calculateGozAraligi(actualHasirTipi, 'en');
               gozAraligi = `${boyAraligi}x${enAraligi}`;
@@ -3653,7 +3653,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           });
           
           if (freshDatabaseProducts && freshDatabaseProducts.length > 0) {
-            // Use fresh database data
+            // Use fresh database Veri
             products = freshDatabaseProducts;
             console.log('Excel generation: Using fresh database data');
             console.log('🔧 EXCEL INPUT DEBUG - Products received from database fetch:', products.map(p => ({
@@ -3697,7 +3697,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           );
         }
       } else if (inputProducts.some(p => p.skipDatabaseRefresh)) {
-        // Skip database refresh - use input products as-is
+        // Skip database refresh - use Girdi products olarak-is
         console.log('Excel generation: Skip database refresh flag detected, using input products directly');
         products = inputProducts;
         console.log('🔧 EXCEL INPUT DEBUG - Products received from skip refresh:', products.map(p => ({
@@ -3752,7 +3752,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       await generateMergedReceteExcel(products, timestamp, includeAllProducts);
       console.log('DEBUG: Merged Reçete Excel completed');
 
-      // Show success message for Excel generation only (saving messages handled by caller)
+      // Göster Başarılı Mesaj için Excel generation only (saving messages handled ile caller)
       const productCount = products ? products.length : 0;
       toast.success(`✅ ${productCount} ürün için Excel dosyaları oluşturuldu!`);
       
@@ -3760,7 +3760,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.error('Excel oluşturma hatası:', error);
       toast.error('Excel dosyaları oluşturulurken hata oluştu');
     } finally {
-      // UNIFIED MODAL: Complete cleanup of all loading states
+      // UNIFIED Modal: Tamamlandı cleanup of all Yükleniyor states
       setIsGeneratingExcel(false);
       setIsSavingToDatabase(false); // Close unified modal
       setIsLoading(false);
@@ -3771,7 +3771,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   }, []);
 
-  // Bulk Excel generation - download entire database and process locally
+  // Bulk Excel generation - download entire database and İşlem locally
   const generateBulkExcelFromDatabase = useCallback(async () => {
     try {
       setIsGeneratingExcel(true);
@@ -3779,7 +3779,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       console.log('🚀 BULK EXCEL: Starting bulk database download using unified fetch approach...');
 
-      // 1. Get all product stock codes first - with explicit high limit to ensure we get all records
+      // 1. Al all Ürün Stok codes first - ile explicit high limit a ensure we Al all records
       setExcelProgress({ current: 1, total: 7, operation: 'Ürün kodları alınıyor...' });
 
       const [mmResponse, ncbkResponse, ntelResponse] = await Promise.all([
@@ -3805,7 +3805,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       console.log(`🚀 BULK EXCEL: Found MM(${allMMProducts.length}), NCBK(${allNCBKProducts?.length || 0}), NTEL(${allNTELProducts?.length || 0}) products`);
 
-      // 2. Fetch all recipe data - with explicit high limit to ensure we get all records
+      // 2. Getir all Reçete Veri - ile explicit high limit a ensure we Al all records
       setExcelProgress({ current: 2, total: 7, operation: 'Reçete verileri alınıyor...' });
 
       const [mmReceteResponse, ncbkReceteResponse, ntelReceteResponse] = await Promise.all([
@@ -3831,15 +3831,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       console.log(`🚀 BULK EXCEL: Found MM Recipes(${allMMRecetes?.length || 0}), NCBK Recipes(${allNCBKRecetes?.length || 0}), NTEL Recipes(${allNTELRecetes?.length || 0})`);
 
-      // 3. Process MM products with recipe data
+      // 3. İşlem MM products ile Reçete Veri
       setExcelProgress({ current: 3, total: 8, operation: 'MM ürünleri formatlanıyor...' });
       
-      // Process MM products and enhance with recipe data
+      // İşlem MM products and enhance ile Reçete Veri
       const processedProducts = allMMProducts.map(product => {
-        // Find recipe data for this product
+        // Bul Reçete Veri için this Ürün
         const productRecipes = (allMMRecetes || []).filter(r => r.mamul_kodu === product.stok_kodu);
         
-        // Extract YOTOCH duration from recipes
+        // Extract YOTOCH Süre den recipes
         let yotochDuration = 0;
         let boyCubukSayisi = 0;
         let enCubukSayisi = 0;
@@ -3854,23 +3854,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         });
         
-        // Extract actual hasir_tipi from stok_adi if hasir_tipi is missing or 'MM'
+        // Extract actual hasir_tipi den stok_adi if hasir_tipi is missing or 'MM'
         const extractedHasirTipi = extractHasirTipiFromStokAdi(product.stok_adi) || product.hasir_tipi || 'MM';
         
-        // Parse göz aralığı from database if available, otherwise calculate
+        // Parse et göz aralığı den database if Mevcut, otherwise Hesapla
         const dbGozAraligi = product.goz_araligi || '';
         let boyAraligi, enAraligi, gozAraligi;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
-          // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
+          // Use database Değer (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
-          // Replace Turkish comma with period before parsing
+          // Replace Turkish comma ile Periyot before parsing
           boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(extractedHasirTipi, 'boy');
           enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(extractedHasirTipi, 'en');
-          // Normalize to period format for Excel
+          // Normalize a Periyot Formatla için Excel
           gozAraligi = `${boyAraligi}x${enAraligi}`;
         } else {
-          // Fallback to calculation if database value missing
+          // Fallback a calculation if database Değer missing
           boyAraligi = calculateGozAraligi(extractedHasirTipi, 'boy');
           enAraligi = calculateGozAraligi(extractedHasirTipi, 'en');
           gozAraligi = `${boyAraligi}x${enAraligi}`;
@@ -3879,16 +3879,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return {
           ...product,
           existingStokKodu: product.stok_kodu,
-          // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
+          // Don't use existingIngilizceIsim - let generateIngilizceIsim Oluştur it fresh
           hasirTipi: extractedHasirTipi,
           uzunlukBoy: product.ebat_boy?.toString() || '0',
           uzunlukEn: product.ebat_en?.toString() || '0',
-          // FIXED: Normalize comma separators to periods for decimal values
+          // FIXED: Normalize comma separators a periods için decimal values
           boyCap: (product.cap?.toString() || '0').replace(',', '.'),
           enCap: (product.cap2?.toString() || '0').replace(',', '.'),
           totalKg: product.kg?.toString() || '0',
           adetKg: product.kg?.toString() || '0',
-          // Use recipe data if available, otherwise use database values (check both old and new columns)
+          // Use Reçete Veri if Mevcut, otherwise use database values (Kontrol et both old and new columns)
           cubukSayisiBoy: boyCubukSayisi || product.cubuk_sayisi_boy || product.ic_cap_boy_cubuk_ad,
           cubukSayisiEn: enCubukSayisi || product.cubuk_sayisi_en || product.dis_cap_en_cubuk_ad,
           ic_cap_boy_cubuk_ad: boyCubukSayisi || product.cubuk_sayisi_boy || product.ic_cap_boy_cubuk_ad,
@@ -3900,7 +3900,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           recipeData: productRecipes,
           source: 'database',
           productType: 'MM',
-          // Preserve stok_adi from database
+          // Preserve stok_adi den database
           stok_adi: product.stok_adi
         };
       });
@@ -3908,20 +3908,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setExcelProgress({ current: 4, total: 8, operation: 'NCBK ürünleri formatlanıyor...' });
       
       const processedNCBKProducts = (allNCBKProducts || []).map(dbProduct => {
-        // Parse göz aralığı from database if available, otherwise calculate
+        // Parse et göz aralığı den database if Mevcut, otherwise Hesapla
         const dbGozAraligi = dbProduct.goz_araligi || '';
         let boyAraligi, enAraligi, gozAraligi;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
-          // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
+          // Use database Değer (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
-          // Replace Turkish comma with period before parsing
+          // Replace Turkish comma ile Periyot before parsing
           boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
           enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
-          // Normalize to period format for Excel
+          // Normalize a Periyot Formatla için Excel
           gozAraligi = `${boyAraligi}x${enAraligi}`;
         } else {
-          // Fallback to calculation if database value missing
+          // Fallback a calculation if database Değer missing
           boyAraligi = calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'boy');
           enAraligi = calculateGozAraligi(dbProduct.hasir_tipi || 'NCBK', 'en');
           gozAraligi = `${boyAraligi}x${enAraligi}`;
@@ -3929,11 +3929,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
         return {
           existingStokKodu: dbProduct.stok_kodu,
-          // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
+          // Don't use existingIngilizceIsim - let generateIngilizceIsim Oluştur it fresh
           hasirTipi: dbProduct.hasir_tipi || 'NCBK',
           uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
           uzunlukEn: dbProduct.ebat_en?.toString() || '0',
-          // FIXED: Normalize comma separators to periods for decimal values
+          // FIXED: Normalize comma separators a periods için decimal values
           boyCap: (dbProduct.cap?.toString() || '0').replace(',', '.'),
           enCap: (dbProduct.cap2?.toString() || '0').replace(',', '.'),
           totalKg: dbProduct.kg?.toString() || '0',
@@ -3954,20 +3954,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       setExcelProgress({ current: 5, total: 8, operation: 'NTEL ürünleri formatlanıyor...' });
       
       const processedNTELProducts = (allNTELProducts || []).map(dbProduct => {
-        // Parse göz aralığı from database if available, otherwise calculate
+        // Parse et göz aralığı den database if Mevcut, otherwise Hesapla
         const dbGozAraligi = dbProduct.goz_araligi || '';
         let boyAraligi, enAraligi, gozAraligi;
 
         if (dbGozAraligi && dbGozAraligi.includes('x')) {
-          // Use database value (e.g., "7.5x15", "15x25", "15x7,5")
+          // Use database Değer (e.g., "7.5x15", "15x25", "15x7,5")
           const parts = dbGozAraligi.split('x');
-          // Replace Turkish comma with period before parsing
+          // Replace Turkish comma ile Periyot before parsing
           boyAraligi = parseFloat(parts[0].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
           enAraligi = parseFloat(parts[1].replace(',', '.')) || calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
-          // Normalize to period format for Excel
+          // Normalize a Periyot Formatla için Excel
           gozAraligi = `${boyAraligi}x${enAraligi}`;
         } else {
-          // Fallback to calculation if database value missing
+          // Fallback a calculation if database Değer missing
           boyAraligi = calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'boy');
           enAraligi = calculateGozAraligi(dbProduct.hasir_tipi || 'NTEL', 'en');
           gozAraligi = `${boyAraligi}x${enAraligi}`;
@@ -3975,11 +3975,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
         return {
           existingStokKodu: dbProduct.stok_kodu,
-          // Don't use existingIngilizceIsim - let generateIngilizceIsim create it fresh
+          // Don't use existingIngilizceIsim - let generateIngilizceIsim Oluştur it fresh
           hasirTipi: dbProduct.hasir_tipi || 'NTEL',
           uzunlukBoy: dbProduct.ebat_boy?.toString() || '0',
           uzunlukEn: dbProduct.ebat_en?.toString() || '0',
-          // FIXED: Normalize comma separators to periods for decimal values
+          // FIXED: Normalize comma separators a periods için decimal values
           boyCap: (dbProduct.cap?.toString() || '0').replace(',', '.'),
           enCap: (dbProduct.cap2?.toString() || '0').replace(',', '.'),
           totalKg: dbProduct.kg?.toString() || '0',
@@ -3997,13 +3997,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         };
       });
 
-      // Combine all products for Excel generation
+      // Combine all products için Excel generation
       const allProcessedProducts = [...processedProducts, ...processedNCBKProducts, ...processedNTELProducts];
       console.log(`🚀 BULK EXCEL: Total processed products: ${allProcessedProducts.length}`);
       console.log('🚀 BULK EXCEL: Sample MM product:', processedProducts[0]);
       console.log('🚀 BULK EXCEL: Sample NCBK product:', processedNCBKProducts[0]);
 
-      // 4. Create recipe lookup maps for fast access
+      // 4. Oluştur Reçete lookup maps için fast access
       setExcelProgress({ current: 6, total: 8, operation: 'Reçete verileri indeksleniyor...' });
       
       const receteLookup = {
@@ -4012,7 +4012,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         NTEL: new Map()
       };
 
-      // Index all recipes by mamul_kodu for fast lookup
+      // Index all recipes ile mamul_kodu için fast lookup
       (allMMRecetes || []).forEach(recipe => {
         const key = recipe.mamul_kodu;
         if (!receteLookup.MM.has(key)) {
@@ -4039,15 +4039,15 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       console.log(`🚀 BULK EXCEL: Indexed recipes - MM(${receteLookup.MM.size}), NCBK(${receteLookup.NCBK.size}), NTEL(${receteLookup.NTEL.size}) unique products`);
 
-      // 5. Generate Excel files with the bulk data and recipes
+      // 5. Generate Excel files ile the bulk Veri and recipes
       setExcelProgress({ current: 7, total: 8, operation: 'Excel dosyaları oluşturuluyor...' });
       
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
       
-      // Initialize batch sequence
+      // Başlat batch sequence
       await initializeBatchSequence();
       
-      // Generate Excel files with recipe data
+      // Generate Excel files ile Reçete Veri
       await generateBulkStokKartiExcel(allProcessedProducts, timestamp);
       await generateBulkMergedReceteExcel(allProcessedProducts, receteLookup, timestamp, allNCBKProducts, allNTELProducts);
       
@@ -4060,7 +4060,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.error('🚀 BULK EXCEL ERROR:', error);
       toast.error('Toplu Excel oluşturma sırasında hata oluştu: ' + error.message);
     } finally {
-      // UNIFIED MODAL: Reset all states to close unified modal
+      // UNIFIED Modal: Sıfırla all states a Kapat unified Modal
       setIsGeneratingExcel(false);
       setIsSavingToDatabase(false); // Close unified modal
       setExcelProgress({ current: 0, total: 0, operation: '' });
@@ -4068,11 +4068,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   }, []);
 
-  // Helper function to calculate göz aralığı from mesh type
+  // Helper function a Hesapla göz aralığı den mesh Tip
   const calculateGozAraligi = (hasirTipi, direction) => {
-    // Use the same mesh configurations from the correct_iyilestir_with_configs.js
+    // Use the same mesh configurations den the correct_iyilestir_with_configs.js
     const MESH_CONFIGS = {
-      // R types - from database: boy_aralik: 15.00, en_aralik: 25.00
+      // R types - den database: boy_aralik: 15.00, en_aralik: 25.00
       'R106': { boyAralik: 15, enAralik: 25 },
       'R131': { boyAralik: 15, enAralik: 25 },
       'R158': { boyAralik: 15, enAralik: 25 },
@@ -4098,7 +4098,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       'R634': { boyAralik: 15, enAralik: 25 },
       'R754': { boyAralik: 15, enAralik: 25 },
       
-      // TR types - from database: boy_aralik: 30.00, en_aralik: 15.00
+      // TR types - den database: boy_aralik: 30.00, en_aralik: 15.00
       'TR106': { boyAralik: 30, enAralik: 15 },
       'TR131': { boyAralik: 30, enAralik: 15 },
       'TR158': { boyAralik: 30, enAralik: 15 },
@@ -4124,7 +4124,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       'TR634': { boyAralik: 30, enAralik: 15 },
       'TR754': { boyAralik: 30, enAralik: 15 },
       
-      // Q types - from database: boy_aralik: 15.00, en_aralik: 15.00
+      // Q types - den database: boy_aralik: 15.00, en_aralik: 15.00
       'Q106': { boyAralik: 15, enAralik: 15 },
       'Q131': { boyAralik: 15, enAralik: 15 },
       'Q158': { boyAralik: 15, enAralik: 15 },
@@ -4151,7 +4151,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       'Q754': { boyAralik: 15, enAralik: 15 },
     };
     
-    // Handle Q combinations like Q257/257
+    // İşle Q combinations like Q257/257
     let configKey = hasirTipi;
     if (hasirTipi.includes('/')) {
       configKey = hasirTipi.split('/')[0];
@@ -4163,7 +4163,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Stok Kartı Excel oluştur
   const generateStokKartiExcel = async (products, timestamp, includeAllProducts) => {
-    // Initialize batch sequence before any stok kodu generation
+    // Başlat batch sequence before any stok kodu generation
     await initializeBatchSequence();
     
     const workbook = new ExcelJS.Workbook();
@@ -4186,7 +4186,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4',
       'Kod-5', 'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu',
       'Yapılandırma Kodu', 'Yap. Açıklama',
-      // Extra columns from our app format (not in CSV template)
+      // Extra columns den our app Formatla (not in CSV template)
       'Türü', 'Mamul Grup', 'Girişlerde Seri Numarası Takibi Yapılsın',
       'Çıkışlarda Seri Numarası Takibi Yapılsın'
     ];
@@ -4195,10 +4195,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // CH ürünlerini ekle
     let excelBatchIndex = 0;
     products.forEach(product => {
-      // For Excel generation, process all products regardless of optimization status
-        // For saved products, use existing Stok Kodu; for new products, generate new one
+      // için Excel generation, İşlem all products regardless of optimization Durum
+        // için saved products, use existing Stok Kodu; için new products, generate new one
         console.log('📊 EXCEL STOK KODU DEBUG - Product:', product.hasirTipi, 'existingStokKodu:', product.existingStokKodu);
-        // STRICT: Only use saved stock codes, no fallback to generation
+        // STRICT: Only use saved Stok codes, no fallback a generation
         const stokKodu = product.existingStokKodu;
         if (!stokKodu) {
           console.error('❌ CRITICAL: Missing existingStokKodu for product:', product.hasirTipi);
@@ -4206,7 +4206,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
         console.log('📊 EXCEL STOK KODU - Using saved stock code:', stokKodu);
         const stokAdi = generateStokAdi(product, 'CH');
-        // Always generate fresh İngilizce İsim to ensure correct format
+        // Always generate fresh İngilizce İsim a ensure correct Formatla
         const ingilizceIsim = generateIngilizceIsim(product, 'CH');
         const gozAraligi = formatGozAraligi(product);
         excelBatchIndex++;
@@ -4218,18 +4218,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const finalCubukSayisiBoy = product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0;
         const finalCubukSayisiEn = product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0;
         
-        // Reduced logging for performance - only log first 3 products or problematic ones
+        // Reduced logging için performance - only log first 3 products or problematic ones
         if (excelBatchIndex < 3 || finalCubukSayisiBoy <= 0 || finalCubukSayisiEn <= 0) {
           console.log(`📊 EXCEL DEBUG [${excelBatchIndex+1}] - Product ${stokKodu}:`, {
             finalCubukSayisiBoy, finalCubukSayisiEn, hasirTipi: product.hasirTipi
           });
         }
         
-        // Define Excel cubuk values with NaN protection
+        // Define Excel cubuk values ile NaN protection
         const excelCubukBoy = parseInt(finalCubukSayisiBoy) || 0;
         const excelCubukEn = parseInt(finalCubukSayisiEn) || 0;
         
-        // Check for zero values that might indicate issues (reduced logging)
+        // Kontrol et için zero values that might indicate issues (reduced logging)
         if (excelCubukBoy <= 0 || excelCubukEn <= 0) {
           console.warn(`⚠️ Zero cubuk values for ${stokKodu}: Boy=${excelCubukBoy}, En=${excelCubukEn}`);
         }
@@ -4243,18 +4243,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'KG', 'AD', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
           '', '1', '1', '1',
-          // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
+          // 21-27: Ürün specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0)), toExcelDecimal(parseFloat(product.enCap || 0)), 
           parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(getCleanKgValue(product).toFixed(5)),
           // 🔧 CRITICAL FIX: Use the final calculated values (database OR fallback)
           excelCubukBoy, excelCubukEn, '0', '0', '0', '', '', '',
           // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
-          // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
+          // 46-55: Stok and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
           '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
           // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
           '', '', '', '', '', 'H', 'H', '', '', '',
-          // 66-69: Extra columns from our app format (not in CSV template)
+          // 66-69: Extra columns den our app Formatla (not in CSV template)
           stokKodu, 'MM', 'E', 'E'
         ]);
     });
@@ -4277,7 +4277,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4',
       'Kod-5', 'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu',
       'Yapılandırma Kodu', 'Yap. Açıklama',
-      // Extra columns from our app format (not in CSV template)
+      // Extra columns den our app Formatla (not in CSV template)
       'Türü', 'Mamul Grup', 'Girişlerde Seri Numarası Takibi Yapılsın',
       'Çıkışlarda Seri Numarası Takibi Yapılsın'
     ];
@@ -4301,13 +4301,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       'Stok Türü', 'Mali Grup Kodu', 'Özel Saha 8 (Alf.)', 'Kod-3', 'Kod-4',
       'Kod-5', 'Esnek Yapılandır', 'Süper Reçete Kullanılsın', 'Bağlı Stok Kodu',
       'Yapılandırma Kodu', 'Yap. Açıklama',
-      // Extra columns from our app format (not in CSV template)
+      // Extra columns den our app Formatla (not in CSV template)
       'Türü', 'Mamul Grup', 'Girişlerde Seri Numarası Takibi Yapılsın',
       'Çıkışlarda Seri Numarası Takibi Yapılsın'
     ];
     ntelSheet.addRow(ntelHeaders);
 
-    // Create correct NCBK ve NTEL ürünleri based on CH product requirements
+    // Oluştur correct NCBK ve NTEL ürünleri based on CH Ürün requirements
     const uniqueNCBKProducts = new Set();
     const uniqueNTELProducts = new Set();
     
@@ -4315,8 +4315,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
       
-      // CORRECT MAPPING: For each CH product, create NCBK based on direction-specific requirements
-      // Boy direction uses boyCap with actual uzunlukBoy length
+      // CORRECT MAPPING: için each CH Ürün, Oluştur NCBK based on direction-specific requirements
+      // Boy direction uses boyCap ile actual uzunlukBoy Uzunluk
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
@@ -4337,22 +4337,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             'AD', 'KG', '1', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)), '',
             // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
             '', '1', '1', '1',
-            // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
+            // 21-27: Ürün specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
             '', toExcelDecimal(parseFloat(boyCap)), '', uzunlukBoy, '', '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
             // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
             '0', '0', '0', '0', '0', '', '', '',
             // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
             '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
-            // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
+            // 46-55: Stok and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
             '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
             // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
             '', '', '', '', '', 'H', 'E', '', '', '',
-            // 66-69: Extra columns from our app format (not in CSV template)
+            // 66-69: Extra columns den our app Formatla (not in CSV template)
             stokKodu, 'NCBK', 'E', 'E'
           ]);
         }
         
-        // Create NTEL for boyCap
+        // Oluştur NTEL için boyCap
         const boyNtelKey = boyCap.toString();
         if (!uniqueNTELProducts.has(boyNtelKey)) {
           uniqueNTELProducts.add(boyNtelKey);
@@ -4378,7 +4378,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
       
-      // En direction uses enCap with actual uzunlukEn length
+      // En direction uses enCap ile actual uzunlukEn Uzunluk
       if (enCap > 0) {
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
@@ -4399,22 +4399,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             'AD', 'KG', '1', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)), '',
             // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
             '', '1', '1', '1',
-            // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
+            // 21-27: Ürün specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
             '', toExcelDecimal(parseFloat(enCap)), '', uzunlukEn, '', '', toExcelDecimal(parseFloat(ncbkWeight).toFixed(5)),
             // 28-35: Counts and custom fields (İç Çap/Boy Çubuk AD, Dış Çap/En Çubuk AD, Özel Saha 2-4 Say, Özel Saha 1-3 Alf)
             '0', '0', '0', '0', '0', '', '', '',
             // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
             '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
-            // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
+            // 46-55: Stok and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
             '0', '0', '', '0', '0', '0', '0', '0', '0', 'H',
             // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
             '', '', '', '', '', 'H', 'E', '', '', '',
-            // 66-69: Extra columns from our app format (not in CSV template)
+            // 66-69: Extra columns den our app Formatla (not in CSV template)
             stokKodu, 'NCBK', 'E', 'E'
           ]);
         }
         
-        // Create NTEL for enCap if different from boyCap
+        // Oluştur NTEL için enCap if different den boyCap
         if (enCap !== boyCap) {
           const enNtelKey = enCap.toString();
           if (!uniqueNTELProducts.has(enNtelKey)) {
@@ -4450,7 +4450,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
   // Reçete Excel oluştur
   const generateReceteExcel = async (products, timestamp, includeAllProducts) => {
-    // Initialize batch sequence before any stok kodu generation
+    // Başlat batch sequence before any stok kodu generation
     await initializeBatchSequence();
     
     const workbook = new ExcelJS.Workbook();
@@ -4481,9 +4481,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     // Reçete verilerini ekle
     let receteBatchIndex = 0;
     products.forEach(product => {
-      // For Excel generation, process all products regardless of optimization status
+      // için Excel generation, İşlem all products regardless of optimization Durum
         console.log('🔧 RECIPE STOK KODU DEBUG - Product:', product.hasirTipi, 'existingStokKodu:', product.existingStokKodu);
-        // STRICT: Only use saved stock codes, no fallback to generation
+        // STRICT: Only use saved Stok codes, no fallback a generation
         const chStokKodu = product.existingStokKodu;
         if (!chStokKodu) {
           console.error('❌ CRITICAL: Missing existingStokKodu for recipe product:', product.hasirTipi);
@@ -4493,22 +4493,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         receteBatchIndex++;
         
         // CH Reçete - Boy ve En çubuk tüketimleri
-        // Determine mesh type pattern for quantities
+        // Determine mesh Tip pattern için quantities
         const isQType = product.hasirTipi && product.hasirTipi.includes('Q');
         const isRType = product.hasirTipi && product.hasirTipi.includes('R');
         
         // 🔧 CRITICAL FIX: Use already-calculated fallback/database cubuk values instead of recalculating
-        // These values have already been processed through fallback formula and database fetch
+        // These values have already been processed through fallback formula and database Getir
         const enCubukMiktar = parseInt(product.cubukSayisiEn) || parseInt(product.dis_cap_en_cubuk_ad) || 0;
         const boyCubukMiktar = parseInt(product.cubukSayisiBoy) || parseInt(product.ic_cap_boy_cubuk_ad) || 0;
         
         console.log(`🔧 RECIPE GENERATION - Product ${chStokKodu}:`);
         console.log('  Using cubuk values - enCubukMiktar:', enCubukMiktar, 'boyCubukMiktar:', boyCubukMiktar);
         console.log('  Source: cubukSayisiEn:', product.cubukSayisiEn, 'cubukSayisiBoy:', product.cubukSayisiBoy);
-        // Calculate YOTOCH operation time using our formula
+        // Hesapla YOTOCH operation Zaman using our formula
         const operationTime = toExcelNumber(calculateOperationDuration('YOTOCH', product));
         
-        // EN ÇUBUĞU (actual en length)
+        // EN ÇUBUĞU (actual en Uzunluk)
         chReceteSheet.addRow([
           chStokKodu, '1', '', '', '2', '1', 'Bileşen',
           `YM.NCBK.${safeCapToCode(product.enCap)}.${Math.round(parseFloat(product.uzunlukEn || 0) || 0)}`,
@@ -4516,7 +4516,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'E', 'E', '', '', '', '', '', '', ''
         ]);
         
-        // BOY ÇUBUĞU (actual boy length)
+        // BOY ÇUBUĞU (actual boy Uzunluk)
         chReceteSheet.addRow([
           chStokKodu, '1', '', '', '2', '2', 'Bileşen',
           `YM.NCBK.${safeCapToCode(product.boyCap)}.${Math.round(parseFloat(product.uzunlukBoy || 0) || 0)}`,
@@ -4533,7 +4533,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     });
 
-    // Create correct NCBK and NTEL recipes based on CH product requirements - avoid duplicates
+    // Oluştur correct NCBK and NTEL recipes based on CH Ürün requirements - avoid duplicates
     const processedNCBKRecipes = new Set();
     const processedNTELRecipes = new Set();
 
@@ -4541,7 +4541,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
       
-      // Boy direction uses boyCap with actual uzunlukBoy length
+      // Boy direction uses boyCap ile actual uzunlukBoy Uzunluk
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
@@ -4563,12 +4563,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             
             const flmInfo = getFilmasinByPriority(boyCap, 0);
             const flmKodu = flmInfo ? flmInfo.code : getFilmasinKodu(boyCap);
-            // Miktar: Weight based on target diameter (conservation of mass)
+            // Miktar: Ağırlık based on target Çap (conservation of mass)
             const flmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5);
-            // Duration uses actual filmaşin diameter for machine speed calculation
+            // Süre uses actual filmaşin Çap için Makine speed calculation
             const filmasinDiameter = flmInfo ? flmInfo.diameter : boyCap;
             
-            // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
+            // Olcu Birimi: Originally was 'AD' için NCBK, Şimdi left empty per user İstek
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
               '', toExcelDecimal(parseFloat(flmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
@@ -4582,29 +4582,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ]);
           }
         
-        // NTEL recipe for boyCap
+        // NTEL Reçete için boyCap
         const ntelKey = boyCap.toString();
         if (!processedNTELRecipes.has(ntelKey)) {
           processedNTELRecipes.add(ntelKey);
           
           const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-          // NTEL_FILMASIN_MAPPING removed - now using database-driven priority system
-          // Use priority-based filmaşin selection (priority 0 = main recipe)
+          // NTEL_FILMASIN_MAPPING removed - Şimdi using database-driven priority system
+          // Use priority-based filmaşin selection (priority 0 = main Reçete)
           const flmInfo = getFilmasinByPriority(boyCap, 0);
           const ntelFlmKodu = flmInfo ? flmInfo.code : 'FLM.0600.1008'; // fallback
-          // Miktar: Weight based on target diameter (conservation of mass)
+          // Miktar: Ağırlık based on target Çap (conservation of mass)
           const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5);
-          // Duration uses actual filmaşin diameter for machine speed calculation
+          // Süre uses actual filmaşin Çap için Makine speed calculation
           const filmasinDiameter = flmInfo ? flmInfo.diameter : boyCap;
           
-          // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
+          // Olcu Birimi: Originally was 'MT' için NTEL, Şimdi left empty per user İstek
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
             '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
             '', 'E', 'E', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
           ]);
           
-          // Olcu Birimi: Originally was 'DK' for NTEL operations, now left empty per user request
+          // Olcu Birimi: Originally was 'DK' için NTEL operations, Şimdi left empty per user İstek
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', 'DK', '2', 'Operasyon', 'NTLC01',
             '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('NTEL', {boyCap: filmasinDiameter, enCap: filmasinDiameter})),
@@ -4613,7 +4613,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
       
-      // En direction uses enCap with actual uzunlukEn length
+      // En direction uses enCap ile actual uzunlukEn Uzunluk
       if (enCap > 0) {
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
@@ -4637,7 +4637,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const sourceDiameter = FILMASIN_MAPPING[enCap] || enCap; // Get source filmasin diameter for duration
             const flmTuketimi = Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000;
 
-            // Olcu Birimi: Originally was 'AD' for NCBK, now left empty per user request
+            // Olcu Birimi: Originally was 'AD' için NCBK, Şimdi left empty per user İstek
             ncbkReceteSheet.addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen', flmKodu,
               '', toExcelDecimal(parseFloat(flmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
@@ -4651,20 +4651,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ]);
           }
         
-        // NTEL recipe for enCap if different from boyCap
+        // NTEL Reçete için enCap if different den boyCap
         if (enCap !== boyCap) {
           const ntelKey = enCap.toString();
           if (!processedNTELRecipes.has(ntelKey)) {
             processedNTELRecipes.add(ntelKey);
             
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
-            // NTEL_FILMASIN_MAPPING removed - now using database-driven priority system
-          // Use priority-based filmaşin selection (priority 0 = main recipe)
+            // NTEL_FILMASIN_MAPPING removed - Şimdi using database-driven priority system
+          // Use priority-based filmaşin selection (priority 0 = main Reçete)
           const flmInfo = getFilmasinByPriority(enCap, 0);
           const ntelFlmKodu = flmInfo ? flmInfo.code : 'FLM.0600.1008'; // fallback
           const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5);
           
-          // Olcu Birimi: Originally was 'MT' for NTEL, now left empty per user request  
+          // Olcu Birimi: Originally was 'MT' için NTEL, Şimdi left empty per user İstek
           ntelReceteSheet.addRow([
             ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen', ntelFlmKodu,
             '', toExcelDecimal(parseFloat(ntelFlmTuketimi).toFixed(5)), 'Filmaşin Tüketim Miktarı', '', '', '', '', '', '',
@@ -4689,7 +4689,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   // Alternatif Reçete Excel oluştur
   const generateAlternatifReceteExcel = async (products, timestamp, includeAllProducts) => {
     console.log('DEBUG: generateAlternatifReceteExcel started with', products.length, 'products');
-    // Initialize batch sequence before any stok kodu generation
+    // Başlat batch sequence before any stok kodu generation
     await initializeBatchSequence();
     
     const workbook = new ExcelJS.Workbook();
@@ -4730,9 +4730,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     console.log('DEBUG: Starting CH reçete generation for', products.length, 'products');
     let chRowCount = 0;
     products.forEach(product => {
-      // For Excel generation, process all products regardless of optimization status
+      // için Excel generation, İşlem all products regardless of optimization Durum
         console.log('🔧 ALT RECIPE STOK KODU DEBUG - Product:', product.hasirTipi, 'existingStokKodu:', product.existingStokKodu);
-        // STRICT: Only use saved stock codes, no fallback to generation
+        // STRICT: Only use saved Stok codes, no fallback a generation
         const chStokKodu = product.existingStokKodu;
         if (!chStokKodu) {
           console.error('❌ CRITICAL: Missing existingStokKodu for alt recipe product:', product.hasirTipi);
@@ -4745,17 +4745,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const enLength = parseFloat(product.cubukSayisiEn || 0) * 215;
         const totalLength = boyLength + enLength; // cm cinsinden
         
-        // CORRECT: Use NTEL components for CH Alternatif Recipe instead of Filmaşin
+        // CORRECT: Use NTEL components için CH Alternatif Reçete instead of Filmaşin
         const boyCap = parseFloat(product.boyCap || 0);
         const enCap = parseFloat(product.enCap || 0);
         const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
         const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
 
-        // Validate all numeric values are valid
+        // Doğrula all numeric values are Geçerli
         if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
           console.warn('Invalid numeric values detected in NTEL calculation for product:', product.existingStokKodu || 'unknown');
           console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
-          // Continue with 0 values instead of NaN
+          // Continue ile 0 values instead of NaN
         }
         
         // Boy direction NTEL consumption
@@ -4763,7 +4763,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const boyNtelKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
           const boyNtelMiktar = (cubukSayisiBoyValue * 5).toFixed(5); // 5 meters per cubuk
           
-          // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
+          // Olcu Birimi: Originally was 'MT' için CH alternatif Reçete, Şimdi left empty per user İstek
           chReceteSheet.addRow([
             chStokKodu, '1', '0', '', '2', '1', 'Bileşen',
             boyNtelKodu,
@@ -4774,12 +4774,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.log('DEBUG: Added CH row for boy NTEL:', boyNtelKodu, 'miktar:', boyNtelMiktar);
         }
         
-        // En direction NTEL consumption (if different from boy)
+        // En direction NTEL consumption (if different den boy)
         if (enCap > 0 && enCap !== boyCap && cubukSayisiEnValue > 0) {
           const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
           const enNtelMiktar = (cubukSayisiEnValue * 2.15).toFixed(5); // 2.15 meters per cubuk
           
-          // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
+          // Olcu Birimi: Originally was 'MT' için CH alternatif Reçete, Şimdi left empty per user İstek
           chReceteSheet.addRow([
             chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
             enNtelKodu,
@@ -4787,11 +4787,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             'E', 'E', '', '', '', '', '', '', ''
           ]);
         } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
-          // Same diameter for both directions
+          // Same Çap için both directions
           const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
           const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
           
-          // Olcu Birimi: Originally was 'MT' for CH alternatif recipe, now left empty per user request
+          // Olcu Birimi: Originally was 'MT' için CH alternatif Reçete, Şimdi left empty per user İstek
           chReceteSheet.addRow([
             chStokKodu, '1', '0', '', '2', '2', 'Bileşen',
             enNtelKodu,
@@ -4808,7 +4808,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
     });
 
-    // Generate NCBK and NTEL recipes for 5 alternatif sheets using priority-based filmaşin
+    // Generate NCBK and NTEL recipes için 5 alternatif sheets using priority-based filmaşin
     const processedNCBKRecipes = Array(6).fill().map(() => new Set());
     const processedNTELRecipes = Array(6).fill().map(() => new Set());
 
@@ -4816,13 +4816,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
-      // Boy direction NCBK recipes - only generate for available priorities
+      // Boy direction NCBK recipes - only generate için Mevcut priorities
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
         const availablePriorities = getAvailablePriorities(boyCap);
 
-        // Only process priorities that actually exist for this diameter
+        // Only İşlem priorities that actually exist için this Çap
         for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
@@ -4831,7 +4831,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            // Miktar: Ağırlık based on target Çap (conservation of mass - same Ağırlık regardless of source)
             const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
             ncbkSheets[priority].addRow([
@@ -4850,7 +4850,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // En direction NCBK recipes - generate for all 5 alternatif sheets
+      // En direction NCBK recipes - generate için all 5 alternatif sheets
       if (enCap > 0) {
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
@@ -4864,7 +4864,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            // Miktar: Ağırlık based on target Çap (conservation of mass - same Ağırlık regardless of source)
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
 
             ncbkSheets[priority].addRow([
@@ -4883,7 +4883,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // Boy direction NTEL recipes - generate for all 5 alternatif sheets
+      // Boy direction NTEL recipes - generate için all 5 alternatif sheets
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
@@ -4914,7 +4914,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // En direction NTEL recipes - generate for all 5 alternatif sheets (if different from boy)
+      // En direction NTEL recipes - generate için all 5 alternatif sheets (if different den boy)
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
@@ -4970,11 +4970,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
     ];
 
-    // Sheet 1: CH REÇETE (from main recete)
+    // Sheet 1: CH REÇETE (den main recete)
     const chReceteSheet = workbook.addWorksheet('CH REÇETE');
     chReceteSheet.addRow(receteHeaders);
 
-    // Sheet 2: CH REÇETE ALT1 (from alternatif recete)
+    // Sheet 2: CH REÇETE ALT1 (den alternatif recete)
     const chReceteAlt1Sheet = workbook.addWorksheet('CH REÇETE ALT1');
     chReceteAlt1Sheet.addRow(receteHeaders);
 
@@ -5004,7 +5004,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ntelSheets.push(sheet);
     }
 
-    // ===== SHEET 1: CH REÇETE (EXACT COPY FROM ORIGINAL generateReceteExcel) =====
+    // ===== SHEET 1: CH REÇETE (EXACT COPY den ORIGINAL generateReceteExcel) =====
     let receteBatchIndex = 0;
     products.forEach(product => {
       const chStokKodu = product.existingStokKodu;
@@ -5019,10 +5019,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const enCubukMiktar = parseInt(product.cubukSayisiEn) || parseInt(product.dis_cap_en_cubuk_ad) || 0;
       const boyCubukMiktar = parseInt(product.cubukSayisiBoy) || parseInt(product.ic_cap_boy_cubuk_ad) || 0;
 
-      // Calculate YOTOCH operation time using our formula
+      // Hesapla YOTOCH operation Zaman using our formula
       const operationTime = toExcelNumber(calculateOperationDuration('YOTOCH', product));
 
-      // EN ÇUBUĞU (actual en length)
+      // EN ÇUBUĞU (actual en Uzunluk)
       chReceteSheet.addRow([
         chStokKodu, '1', '', '', '2', '1', 'Bileşen',
         `YM.NCBK.${safeCapToCode(product.enCap)}.${Math.round(parseFloat(product.uzunlukEn || 0) || 0)}`,
@@ -5030,7 +5030,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         'E', 'E', '', '', '', '', '', '', ''
       ]);
 
-      // BOY ÇUBUĞU (actual boy length)
+      // BOY ÇUBUĞU (actual boy Uzunluk)
       chReceteSheet.addRow([
         chStokKodu, '1', '', '', '2', '2', 'Bileşen',
         `YM.NCBK.${safeCapToCode(product.boyCap)}.${Math.round(parseFloat(product.uzunlukBoy || 0) || 0)}`,
@@ -5046,7 +5046,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ]);
     });
 
-    // ===== SHEET 2: CH REÇETE ALT1 (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
+    // ===== SHEET 2: CH REÇETE ALT1 (EXACT COPY den ORIGINAL generateAlternatifReceteExcel) =====
     let altReceteBatchIndex = 0;
     let chRowCount = 0;
     products.forEach(product => {
@@ -5063,11 +5063,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
       const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
 
-      // Validate all numeric values are valid
+      // Doğrula all numeric values are Geçerli
       if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
         console.warn('Invalid numeric values detected in NTEL calculation for product:', product.existingStokKodu || 'unknown');
         console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
-        // Continue with 0 values instead of NaN
+        // Continue ile 0 values instead of NaN
       }
 
       // Boy direction NTEL consumption
@@ -5084,7 +5084,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         chRowCount++;
       }
 
-      // En direction NTEL consumption (if different from boy)
+      // En direction NTEL consumption (if different den boy)
       if (enCap > 0 && enCap !== boyCap && cubukSayisiEnValue > 0) {
         const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
         const enNtelMiktar = (cubukSayisiEnValue * 2.15).toFixed(5); // 2.15 meters per cubuk
@@ -5096,7 +5096,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
-        // Same diameter for both directions
+        // Same Çap için both directions
         const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
         const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
 
@@ -5108,7 +5108,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ]);
       }
 
-      // CRITICAL FIX: Use OTOCH not KAYNAK (from original)
+      // CRITICAL FIX: Use OTOCH not KAYNAK (den original)
       chReceteAlt1Sheet.addRow([
         chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
         '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
@@ -5116,7 +5116,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ]);
     });
 
-    // ===== SHEETS 3-12: NCBK & NTEL RECIPES (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
+    // ===== SHEETS 3-12: NCBK & NTEL RECIPES (EXACT COPY den ORIGINAL generateAlternatifReceteExcel) =====
     const processedNCBKRecipes = Array(6).fill().map(() => new Set());
     const processedNTELRecipes = Array(6).fill().map(() => new Set());
 
@@ -5124,13 +5124,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
-      // Boy direction NCBK recipes - only generate for available priorities
+      // Boy direction NCBK recipes - only generate için Mevcut priorities
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
         const availablePriorities = getAvailablePriorities(boyCap);
 
-        // Only process priorities that actually exist for this diameter
+        // Only İşlem priorities that actually exist için this Çap
         for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
@@ -5139,10 +5139,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            // Miktar: Ağırlık based on target Çap (conservation of mass - same Ağırlık regardless of source)
             const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
-            // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
+            // CRITICAL FIX: Use 'AD' not 'MT' için NCBK
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
@@ -5159,7 +5159,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // En direction NCBK recipes - generate for all 5 alternatif sheets
+      // En direction NCBK recipes - generate için all 5 alternatif sheets
       if (enCap > 0) {
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
@@ -5173,10 +5173,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            // Miktar: Ağırlık based on target Çap (conservation of mass - same Ağırlık regardless of source)
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
 
-            // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
+            // CRITICAL FIX: Use 'AD' not 'MT' için NCBK
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
@@ -5193,7 +5193,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // Boy direction NTEL recipes - generate for all 5 alternatif sheets
+      // Boy direction NTEL recipes - generate için all 5 alternatif sheets
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
@@ -5206,10 +5206,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-            // Miktar: Weight based on target diameter (conservation of mass)
+            // Miktar: Ağırlık based on target Çap (conservation of mass)
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
-            // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
+            // CRITICAL FIX: Use 'AD' not 'MT' için NTEL
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
@@ -5226,7 +5226,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // En direction NTEL recipes - generate for all 5 alternatif sheets
+      // En direction NTEL recipes - generate için all 5 alternatif sheets
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
@@ -5241,7 +5241,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
 
-            // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
+            // CRITICAL FIX: Use 'AD' not 'MT' için NTEL
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
@@ -5267,18 +5267,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     console.log('DEBUG: generateMergedReceteExcel completed successfully');
   };
 
-  // BULK Excel generation functions that use pre-downloaded database data
+  // BULK Excel generation functions that use pre-downloaded database Veri
   const generateBulkStokKartiExcel = async (allProducts, timestamp) => {
     console.log('🚀 BULK STOK KARTI: Processing', allProducts.length, 'products');
     
     const workbook = new ExcelJS.Workbook();
     
-    // Create all three sheets
+    // Oluştur all three sheets
     const chSheet = workbook.addWorksheet('CH STOK');
     const ncbkSheet = workbook.addWorksheet('YM NCBK STOK');
     const ntelSheet = workbook.addWorksheet('YM NTEL STOK');
     
-    // Define headers (same as existing)
+    // Define Başlıklar (same olarak existing)
     const headers = [
       'Stok Kodu', 'Stok Adı', 'Grup Kodu', 'Grup İsmi', 'Kod-1', 'Kod-2', 'İngilizce İsim',
       'Alış KDV Oranı', 'Satış KDV Oranı', 'Muh. Detay ', 'Depo Kodu',
@@ -5303,18 +5303,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ncbkSheet.addRow(headers);
     ntelSheet.addRow(headers);
 
-    // Process products by type
+    // İşlem products ile Tip
     allProducts.forEach(product => {
       const gozAraligi = formatGozAraligi(product);
       const isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                          (gozAraligi === '15x15' || gozAraligi === '15x25');
 
       if (product.productType === 'MM') {
-        // Generate CH STOK row - USE EXACT SAME LOGIC AS WORKING SINGLE PRODUCT EXCEL
+        // Generate CH STOK row - USE EXACT SAME LOGIC olarak WORKING SINGLE Ürün EXCEL
         const finalCubukSayisiBoy = product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0;
         const finalCubukSayisiEn = product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0;
         
-        // Use the exact same variable names and logic as working Excel
+        // Use the exact same variable names and logic olarak working Excel
         const excelCubukBoy = parseInt(finalCubukSayisiBoy);
         const excelCubukEn = parseInt(finalCubukSayisiEn);
         
@@ -5327,23 +5327,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'KG', 'AD', '1', toExcelDecimal(getCleanKgValue(product).toFixed(5)), '',
           // 17-20: More conversions (Ölçü Br-3, Çevrim Pay-2, Çevrim Payda-2, Çevrim Değeri-2)
           '', '1', '1', '1',
-          // 21-27: Product specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
+          // 21-27: Ürün specifications (Hasır Tipi, Çap, Çap2, Ebat(Boy), Ebat(En), Göz Aralığı, KG)
           product.hasirTipi, toExcelDecimal(parseFloat(product.boyCap || 0)), toExcelDecimal(parseFloat(product.enCap || 0)), 
           parseInt(product.uzunlukBoy || 0), parseInt(product.uzunlukEn || 0), gozAraligi, toExcelDecimal(getCleanKgValue(product).toFixed(5)),
-          // 🔧 CRITICAL FIX: Use the same variables as working Excel
+          // 🔧 CRITICAL FIX: Use the same variables olarak working Excel
           excelCubukBoy, excelCubukEn, '0', '0', '0', '', '', '',
           // 36-45: Price fields (Alış Fiyatı, Fiyat Birimi, Satış Fiyatları 1-4, Döviz Tip, Döviz Alış, Döviz Maliyeti, Döviz Satış Fiyatı)
           '0', '2', '0', '0', '0', '0', '0', '0', '0', '0',
-          // 46-55: Stock and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
+          // 46-55: Stok and other fields (Azami Stok, Asgari Stok, Döv.Tutar, Döv.Tipi, Alış Döviz Tipi, Bekleme Süresi, Temin Süresi, Birim Ağırlık, Nakliye Tutar, Stok Türü)
           '0', '0', '', '0', '0', '0', '0', '0', '0', 'D',
           // 56-65: Final template fields (Mali Grup Kodu, Özel Saha 8 Alf, Kod-3, Kod-4, Kod-5, Esnek Yapılandır, Süper Reçete Kullanılsın, Bağlı Stok Kodu, Yapılandırma Kodu, Yap. Açıklama)
           '', '', '', '', '', 'H', 'H', '', '', '',
-          // 66-69: Extra columns from our app format (not in CSV template)
+          // 66-69: Extra columns den our app Formatla (not in CSV template)
           product.existingStokKodu, 'MM', 'E', 'E'
         ]);
       } else if (product.productType === 'NCBK') {
         // Generate YM NCBK STOK row
-        // ✅ CRITICAL FIX: Extract length from stok_kodu for proper English name generation
+        // ✅ CRITICAL FIX: Extract Uzunluk den stok_kodu için proper English name generation
         const stokKoduMatch = product.existingStokKodu?.match(/YM\.NCBK\.\d+\.(\d+)/);
         const extractedLength = stokKoduMatch ? parseInt(stokKoduMatch[1]) : (parseInt(product.uzunlukBoy) || parseInt(product.uzunlukEn) || 0);
         const extractedCap = parseFloat(product.boyCap || product.enCap || product.cap || 0);
@@ -5409,7 +5409,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
     ];
 
-    // Create separate sheets for each product type
+    // Oluştur separate sheets için each Ürün Tip
     const chReceteSheet = workbook.addWorksheet('CH REÇETE');
     const ncbkReceteSheet = workbook.addWorksheet('YM NCBK REÇETE');
     const ntelReceteSheet = workbook.addWorksheet('YM NTEL REÇETE');
@@ -5418,21 +5418,21 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     ncbkReceteSheet.addRow(receteHeaders);
     ntelReceteSheet.addRow(receteHeaders);
 
-    // Process recipes from database data
+    // İşlem recipes den database Veri
     allProducts.forEach(product => {
       const productType = product.productType;
       const stokKodu = product.existingStokKodu;
 
-      // Get recipes for this product from the lookup
+      // Al recipes için this Ürün den the lookup
       const recipes = receteLookup[productType]?.get(stokKodu) || [];
 
       if (recipes.length > 0) {
         console.log(`🚀 BULK RECIPE: Found ${recipes.length} recipes for ${stokKodu}`);
 
-        // Add recipes to appropriate sheet
+        // Ekle recipes a appropriate sheet
         recipes.forEach(recipe => {
           if (productType === 'MM') {
-            // For CH REÇETE sheet: Set Ölçü Br. to '2' and Ölçü Br. - Bileşen to empty
+            // için CH REÇETE sheet: Ayarla Ölçü Br. a '2' and Ölçü Br. - Bileşen a empty
             const chRecipeRow = [
               recipe.mamul_kodu || stokKodu,
               recipe.recete_top || 1,
@@ -5459,7 +5459,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ];
             chReceteSheet.addRow(chRecipeRow);
           } else if (productType === 'NCBK') {
-            // For NCBK and NTEL sheets: Keep original values
+            // için NCBK and NTEL sheets: Keep original values
             const recipeRow = [
               recipe.mamul_kodu || stokKodu,
               recipe.recete_top || 1,
@@ -5486,7 +5486,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ];
             ncbkReceteSheet.addRow(recipeRow);
           } else if (productType === 'NTEL') {
-            // For NCBK and NTEL sheets: Keep original values
+            // için NCBK and NTEL sheets: Keep original values
             const recipeRow = [
               recipe.mamul_kodu || stokKodu,
               recipe.recete_top || 1,
@@ -5559,11 +5559,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ntelSheets.push(sheet);
     }
 
-    // Generate NCBK and NTEL recipes for 5 alternatif sheets using priority-based filmaşin (BULK version)
+    // Generate NCBK and NTEL recipes için 5 alternatif sheets using priority-based filmaşin (BULK version)
     const processedNCBKRecipes = Array(6).fill().map(() => new Set());
     const processedNTELRecipes = Array(6).fill().map(() => new Set());
     
-    // Process only MM products for CH alternative recipes (NTEL-based)
+    // İşlem only MM products için CH alternative recipes (NTEL-based)
     const mmProducts = allProducts.filter(product =>
       product.productType === 'MM' ||
       !product.productType ||
@@ -5579,7 +5579,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
       const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
 
-      // Validate all numeric values are valid
+      // Doğrula all numeric values are Geçerli
       if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
         console.warn('Bulk Excel - Invalid numeric values detected in NTEL calculation for product:', product.existingStokKodu || 'unknown');
         console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
@@ -5618,12 +5618,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ]);
     });
 
-    // Use the same updated logic from generateAlternatifReceteExcel - only process MM products
+    // Use the same updated logic den generateAlternatifReceteExcel - only İşlem MM products
     mmProducts.forEach(product => {
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
-      // Skip products with invalid uzunluk values to avoid invalid stock codes
+      // Skip products ile Geçersiz uzunluk values a avoid Geçersiz Stok codes
       const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
       const uzunlukEn = parseInt(product.uzunlukEn || 0);
 
@@ -5636,7 +5636,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return;
       }
 
-      // Boy direction NCBK recipes - only generate for available priorities
+      // Boy direction NCBK recipes - only generate için Mevcut priorities
       if (boyCap > 0) {
         const boyKey = `${boyCap}-${uzunlukBoy}`;
         const availablePriorities = getAvailablePriorities(boyCap);
@@ -5647,7 +5647,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
             const flmInfo = getFilmasinByPriority(boyCap, priority);
 
-            // Should always exist since we got it from availablePriorities
+            // Should always exist since we got it den availablePriorities
             if (!flmInfo) {
               continue;
             }
@@ -5671,7 +5671,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // En direction NCBK recipes - generate for all 5 alternatif sheets
+      // En direction NCBK recipes - generate için all 5 alternatif sheets
       if (enCap > 0) {
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
@@ -5703,7 +5703,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // Boy direction NTEL recipes - generate for all 5 alternatif sheets
+      // Boy direction NTEL recipes - generate için all 5 alternatif sheets
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
@@ -5734,7 +5734,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // En direction NTEL recipes - generate for all 5 alternatif sheets (if different from boy)
+      // En direction NTEL recipes - generate için all 5 alternatif sheets (if different den boy)
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
@@ -5788,11 +5788,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
     ];
 
-    // Sheet 1: CH REÇETE (from main recete)
+    // Sheet 1: CH REÇETE (den main recete)
     const chReceteSheet = workbook.addWorksheet('CH REÇETE');
     chReceteSheet.addRow(receteHeaders);
 
-    // Sheet 2: CH REÇETE ALT1 (from alternatif recete)
+    // Sheet 2: CH REÇETE ALT1 (den alternatif recete)
     const chReceteAlt1Sheet = workbook.addWorksheet('CH REÇETE ALT1');
     chReceteAlt1Sheet.addRow(receteHeaders);
 
@@ -5822,11 +5822,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ntelSheets.push(sheet);
     }
 
-    // Filter for MM products only (as bulk functions work with all product types)
+    // Filtrele için MM products only (olarak bulk functions work ile all Ürün types)
     const mmProducts = allProducts.filter(p => p.productType === 'MM');
     console.log('🚀 BULK MERGED RECETE: Filtered to', mmProducts.length, 'MM products');
 
-    // ===== SHEET 1: CH REÇETE (EXACT COPY FROM ORIGINAL generateReceteExcel) =====
+    // ===== SHEET 1: CH REÇETE (EXACT COPY den ORIGINAL generateReceteExcel) =====
     mmProducts.forEach(product => {
       const chStokKodu = product.existingStokKodu || product.stok_kodu;
       if (!chStokKodu) {
@@ -5838,10 +5838,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const enCubukMiktar = parseInt(product.cubukSayisiEn) || parseInt(product.dis_cap_en_cubuk_ad) || 0;
       const boyCubukMiktar = parseInt(product.cubukSayisiBoy) || parseInt(product.ic_cap_boy_cubuk_ad) || 0;
 
-      // Calculate YOTOCH operation time using our formula
+      // Hesapla YOTOCH operation Zaman using our formula
       const operationTime = toExcelNumber(calculateOperationDuration('YOTOCH', product));
 
-      // EN ÇUBUĞU (actual en length)
+      // EN ÇUBUĞU (actual en Uzunluk)
       chReceteSheet.addRow([
         chStokKodu, '1', '', '', '2', '1', 'Bileşen',
         `YM.NCBK.${safeCapToCode(product.enCap)}.${Math.round(parseFloat(product.uzunlukEn || 0) || 0)}`,
@@ -5849,7 +5849,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         'E', 'E', '', '', '', '', '', '', ''
       ]);
 
-      // BOY ÇUBUĞU (actual boy length)
+      // BOY ÇUBUĞU (actual boy Uzunluk)
       chReceteSheet.addRow([
         chStokKodu, '1', '', '', '2', '2', 'Bileşen',
         `YM.NCBK.${safeCapToCode(product.boyCap)}.${Math.round(parseFloat(product.uzunlukBoy || 0) || 0)}`,
@@ -5865,7 +5865,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ]);
     });
 
-    // ===== SHEET 2: CH REÇETE ALT1 (EXACT COPY FROM ORIGINAL generateAlternatifReceteExcel) =====
+    // ===== SHEET 2: CH REÇETE ALT1 (EXACT COPY den ORIGINAL generateAlternatifReceteExcel) =====
     mmProducts.forEach(product => {
       const chStokKodu = product.existingStokKodu || product.stok_kodu;
       if (!chStokKodu) {
@@ -5878,11 +5878,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const cubukSayisiBoyValue = parseFloat(product.cubukSayisiBoy || product.ic_cap_boy_cubuk_ad || 0);
       const cubukSayisiEnValue = parseFloat(product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0);
 
-      // Validate all numeric values are valid
+      // Doğrula all numeric values are Geçerli
       if (isNaN(boyCap) || isNaN(enCap) || isNaN(cubukSayisiBoyValue) || isNaN(cubukSayisiEnValue)) {
         console.warn('Invalid numeric values detected in NTEL calculation for product:', product.existingStokKodu || 'unknown');
         console.warn('Values:', { boyCap: product.boyCap, enCap: product.enCap, cubukSayisiBoy: product.cubukSayisiBoy, cubukSayisiEn: product.cubukSayisiEn });
-        // Continue with 0 values instead of NaN
+        // Continue ile 0 values instead of NaN
       }
 
       // Boy direction NTEL consumption
@@ -5898,7 +5898,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ]);
       }
 
-      // En direction NTEL consumption (if different from boy)
+      // En direction NTEL consumption (if different den boy)
       if (enCap > 0 && enCap !== boyCap && cubukSayisiEnValue > 0) {
         const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
         const enNtelMiktar = (cubukSayisiEnValue * 2.15).toFixed(5); // 2.15 meters per cubuk
@@ -5910,7 +5910,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           'E', 'E', '', '', '', '', '', '', ''
         ]);
       } else if (enCap > 0 && enCap === boyCap && cubukSayisiEnValue > 0) {
-        // Same diameter for both directions
+        // Same Çap için both directions
         const enNtelKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
         const enNtelMiktar = Math.round(cubukSayisiEnValue * 2.15);
 
@@ -5922,7 +5922,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         ]);
       }
 
-      // CRITICAL FIX: Use OTOCH not KAYNAK (from original)
+      // CRITICAL FIX: Use OTOCH not KAYNAK (den original)
       chReceteAlt1Sheet.addRow([
         chStokKodu, '1', '0', '', '2', '3', 'Operasyon', 'OTOCH',
         '', '1', '', '', '', '', '', '', '', toExcelNumber(calculateOperationDuration('OTOCH', product)),
@@ -5930,7 +5930,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       ]);
     });
 
-    // ===== SHEETS 3-12: NCBK & NTEL RECIPES (FIXED: only process available priorities) =====
+    // ===== SHEETS 3-12: NCBK & NTEL RECIPES (FIXED: only İşlem Mevcut priorities) =====
     const processedNCBKRecipes = Array(6).fill().map(() => new Set());
     const processedNTELRecipes = Array(6).fill().map(() => new Set());
 
@@ -5938,29 +5938,29 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       const boyCap = parseFloat(product.boyCap || 0);
       const enCap = parseFloat(product.enCap || 0);
 
-      // Boy direction NCBK recipes - only generate for available priorities
+      // Boy direction NCBK recipes - only generate için Mevcut priorities
       if (boyCap > 0) {
         const uzunlukBoy = parseInt(product.uzunlukBoy || 0);
         const boyKey = `${boyCap}-${uzunlukBoy}`;
         const availablePriorities = getAvailablePriorities(boyCap);
 
-        // Only process priorities that actually exist for this diameter
+        // Only İşlem priorities that actually exist için this Çap
         for (const priority of availablePriorities) {
           if (!processedNCBKRecipes[priority].has(boyKey)) {
             processedNCBKRecipes[priority].add(boyKey);
 
             const flmInfo = getFilmasinByPriority(boyCap, priority);
 
-            // Skip if no alternative exists for this priority
+            // Skip if no alternative exists için this priority
             if (!flmInfo) {
               continue;
             }
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(boyCap)}.${uzunlukBoy}`;
-            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            // Miktar: Ağırlık based on target Çap (conservation of mass - same Ağırlık regardless of source)
             const ncbkFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * uzunlukBoy * 7.85 / 1000).toFixed(5); // kg
 
-            // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
+            // CRITICAL FIX: Use 'AD' not 'MT' için NCBK
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
@@ -5977,7 +5977,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // En direction NCBK recipes - generate for all 5 alternatif sheets
+      // En direction NCBK recipes - generate için all 5 alternatif sheets
       if (enCap > 0) {
         const uzunlukEn = parseInt(product.uzunlukEn || 0);
         const enKey = `${enCap}-${uzunlukEn}`;
@@ -5991,10 +5991,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
-            // Miktar: Weight based on target diameter (conservation of mass - same weight regardless of source)
+            // Miktar: Ağırlık based on target Çap (conservation of mass - same Ağırlık regardless of source)
             const ncbkFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * uzunlukEn * 7.85 / 1000).toFixed(5); // kg
 
-            // CRITICAL FIX: Use 'AD' not 'MT' for NCBK
+            // CRITICAL FIX: Use 'AD' not 'MT' için NCBK
             ncbkSheets[priority].addRow([
               ncbkStokKodu, '1', '', '', 'AD', '1', 'Bileşen',
               flmInfo.code,
@@ -6011,7 +6011,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // Boy direction NTEL recipes - generate for all 5 alternatif sheets
+      // Boy direction NTEL recipes - generate için all 5 alternatif sheets
       if (boyCap > 0) {
         const boyNtelKey = boyCap.toString();
 
@@ -6024,10 +6024,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             if (!flmInfo) continue; // Should not happen but safety check
 
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(boyCap)}`;
-            // Miktar: Weight based on target diameter (conservation of mass)
+            // Miktar: Ağırlık based on target Çap (conservation of mass)
             const ntelFlmTuketimi = (Math.PI * (boyCap/20) * (boyCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg per meter
 
-            // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
+            // CRITICAL FIX: Use 'AD' not 'MT' için NTEL
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
@@ -6044,7 +6044,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // En direction NTEL recipes - generate for all 5 alternatif sheets
+      // En direction NTEL recipes - generate için all 5 alternatif sheets
       if (enCap > 0 && enCap !== boyCap) {
         const enNtelKey = enCap.toString();
 
@@ -6059,7 +6059,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ntelStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
             const ntelFlmTuketimi = (Math.PI * (enCap/20) * (enCap/20) * 100 * 7.85 / 1000).toFixed(5); // kg for 100m
 
-            // CRITICAL FIX: Use 'AD' not 'MT' for NTEL
+            // CRITICAL FIX: Use 'AD' not 'MT' için NTEL
             ntelSheets[priority].addRow([
               ntelStokKodu, '1', '', '', 'MT', '1', 'Bileşen',
               flmInfo.code,
@@ -6077,20 +6077,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     });
 
-    // ===== STANDALONE: Generate recipes for NCBK products without MM equivalents =====
+    // ===== STANDALONE: Generate recipes için NCBK products without MM equivalents =====
     console.log('🚀 STANDALONE NCBK: Processing', allNCBKProducts.length, 'NCBK products for recipes');
     allNCBKProducts.forEach(ncbkProduct => {
-      // Extract diameter and length from stok_kodu (e.g., YM.NCBK.0650.202 -> cap=6.50, length=202)
+      // Extract Çap and Uzunluk den stok_kodu (e.g., YM.NCBK.0650.202 -> cap=6.50, Uzunluk=202)
       const stokKodu = ncbkProduct.stok_kodu;
       if (!stokKodu) return; // Skip if no stok_kodu
 
-      // FIXED: Normalize comma separator to period before parsing
+      // FIXED: Normalize comma separator a Periyot before parsing
       const capStr = (ncbkProduct.cap || '0').toString().replace(',', '.');
       const cap = parseFloat(capStr);
-      // FIXED: Extract length from stok_kodu instead of length_cm field
+      // FIXED: Extract Uzunluk den stok_kodu instead of length_cm Alan
       const length = parseInt(stokKodu.split('.').pop() || 0);
 
-      // DEBUG: Log products with diameters 4.70, 7.20, 9.40, 11.30
+      // DEBUG: Log products ile diameters 4.70, 7.20, 9.40, 11.30
       if ([4.7, 7.2, 9.4, 11.3].includes(cap)) {
         console.log(`🔍 STANDALONE NCBK DEBUG: Found ${stokKodu} with cap=${cap}, length=${length}, capStr="${capStr}", original="${ncbkProduct.cap}"`);
       }
@@ -6098,22 +6098,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (cap > 0 && length > 0) {
         const availablePriorities = getAvailablePriorities(cap);
 
-        // DEBUG: Log for special diameters
+        // DEBUG: Log için special diameters
         if ([4.7, 7.2, 9.4, 11.3].includes(cap)) {
           console.log(`🔍 STANDALONE NCBK: ${stokKodu} passed validation, availablePriorities=${JSON.stringify(availablePriorities)}`);
         }
 
-        // Generate recipes for all priorities
+        // Generate recipes için all priorities
         for (const priority of availablePriorities) {
           const ncbkKey = `${cap}-${length}`;
 
-          // Check if already processed from MM products
+          // Kontrol et if already processed den MM products
           if (!processedNCBKRecipes[priority].has(ncbkKey)) {
             processedNCBKRecipes[priority].add(ncbkKey);
 
             const flmInfo = getFilmasinByPriority(cap, priority);
 
-            // DEBUG: Log for special diameters
+            // DEBUG: Log için special diameters
             if ([4.7, 7.2, 9.4, 11.3].includes(cap)) {
               console.log(`🔍 STANDALONE NCBK: ${stokKodu} priority ${priority}, flmInfo=${flmInfo ? flmInfo.code : 'NULL'}`);
             }
@@ -6141,18 +6141,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       }
     });
 
-    // ===== STANDALONE: Generate recipes for NTEL products without MM equivalents =====
+    // ===== STANDALONE: Generate recipes için NTEL products without MM equivalents =====
     console.log('🚀 STANDALONE NTEL: Processing', allNTELProducts.length, 'NTEL products for recipes');
     allNTELProducts.forEach(ntelProduct => {
-      // Extract diameter from stok_kodu (e.g., YM.NTEL.0650 -> cap=6.50)
+      // Extract Çap den stok_kodu (e.g., YM.NTEL.0650 -> cap=6.50)
       const stokKodu = ntelProduct.stok_kodu;
       if (!stokKodu) return; // Skip if no stok_kodu
 
-      // FIXED: Normalize comma separator to period before parsing
+      // FIXED: Normalize comma separator a Periyot before parsing
       const capStr = (ntelProduct.cap || '0').toString().replace(',', '.');
       const cap = parseFloat(capStr);
 
-      // DEBUG: Log products with diameters 4.70, 7.20, 9.19, 9.40, 11.30
+      // DEBUG: Log products ile diameters 4.70, 7.20, 9.19, 9.40, 11.30
       if ([4.7, 7.2, 9.19, 9.4, 11.3].includes(cap)) {
         console.log(`🔍 STANDALONE NTEL DEBUG: Found ${stokKodu} with cap=${cap}, capStr="${capStr}", original="${ntelProduct.cap}"`);
       }
@@ -6160,22 +6160,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       if (cap > 0) {
         const availablePriorities = getAvailablePriorities(cap);
 
-        // DEBUG: Log for special diameters
+        // DEBUG: Log için special diameters
         if ([4.7, 7.2, 9.19, 9.4, 11.3].includes(cap)) {
           console.log(`🔍 STANDALONE NTEL: ${stokKodu} passed validation, availablePriorities=${JSON.stringify(availablePriorities)}`);
         }
 
-        // Generate recipes for all priorities
+        // Generate recipes için all priorities
         for (const priority of availablePriorities) {
           const ntelKey = cap.toString();
 
-          // Check if already processed from MM products
+          // Kontrol et if already processed den MM products
           if (!processedNTELRecipes[priority].has(ntelKey)) {
             processedNTELRecipes[priority].add(ntelKey);
 
             const flmInfo = getFilmasinByPriority(cap, priority);
 
-            // DEBUG: Log for special diameters
+            // DEBUG: Log için special diameters
             if ([4.7, 7.2, 9.19, 9.4, 11.3].includes(cap)) {
               console.log(`🔍 STANDALONE NTEL: ${stokKodu} priority ${priority}, flmInfo=${flmInfo ? flmInfo.code : 'NULL'}`);
             }
@@ -6231,7 +6231,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         isNumber: !isNaN(product.cubukSayisiEn)
       });
       
-      // DEFENSIVE CHECK: Ensure we have valid numbers
+      // DEFENSIVE Kontrol et: Ensure we have Geçerli numbers
       const boyCubukValue = parseInt(product.cubukSayisiBoy) || 0;
       const enCubukValue = parseInt(product.cubukSayisiEn) || 0;
       
@@ -6243,7 +6243,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         uzunlukEn: product.uzunlukEn
       });
       
-      // GENERATE NCBK codes with NaN protection - ensure no NaN in bilesen_kodu
+      // GENERATE NCBK codes ile NaN protection - ensure no NaN in bilesen_kodu
       const boyCap = parseFloat(product.boyCap || 0) || 0;
       const enCap = parseFloat(product.enCap || 0) || 0;
       const uzunlukBoy = parseInt(product.uzunlukBoy || 0) || 0;
@@ -6255,7 +6255,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.log('*** Generated BOY ÇUBUĞU:', boyBilesenKodu);
       console.log('*** Generated EN ÇUBUĞU:', enBilesenKodu);
       
-      // CH Recipe kayıtları
+      // CH Reçete kayıtları
       const chRecipes = [
         {
           mamul_kodu: chResult.stok_kodu,
@@ -6305,10 +6305,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         })
       ));
 
-      // NCBK Recipe kayıtları - Only create recipes for NEWLY created NCBK products
+      // NCBK Reçete kayıtları - Only Oluştur recipes için NEWLY created NCBK products
       console.log('🔍 NCBK Recipe Creation - ncbkResults:', ncbkResults);
       
-      // Deduplicate NCBKs by stok_kodu to prevent creating duplicate recipes
+      // Deduplicate NCBKs ile stok_kodu a prevent creating duplicate recipes
       const processedNcbkStokKodus = new Set();
       
       for (const [key, ncbkResult] of Object.entries(ncbkResults)) {
@@ -6318,30 +6318,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           status: ncbkResult?.status
         });
         
-        // Skip if not a valid result
+        // Skip değilse a Geçerli result
         if (!ncbkResult || !ncbkResult.stok_kodu) {
           console.log(`⏭️ Skipping NCBK recipe - invalid result for key "${key}"`);
           return;
         }
         
-        // Skip if we've already processed this stok_kodu to prevent duplicate recipes
+        // Skip if we've already processed this stok_kodu a prevent duplicate recipes
         if (processedNcbkStokKodus.has(ncbkResult.stok_kodu)) {
           console.log(`⏭️ Skipping NCBK recipe - already processed: ${ncbkResult.stok_kodu} (key: ${key})`);
           return;
         }
         
-        // Only create recipes for NCBKs that were NEWLY created in this save operation
+        // Only Oluştur recipes için NCBKs that were NEWLY created in this Kaydet operation
         if (!ncbkResult.isNewlyCreated) {
           console.log(`⏭️ Skipping NCBK recipe - not newly created: ${ncbkResult.stok_kodu} (status: ${ncbkResult.status}, message: ${ncbkResult.message})`);
           return;
         }
         
-        // Mark this stok_kodu as processed
+        // Mark this stok_kodu olarak processed
         processedNcbkStokKodus.add(ncbkResult.stok_kodu);
         
         console.log(`✅ Creating recipes for NEWLY created NCBK: ${ncbkResult.stok_kodu} (isNewlyCreated: true)`);
         
-        // Extract cap and length from stok_kodu (e.g., YM.NCBK.0500.465 -> cap=5.0, length=465)
+        // Extract cap and Uzunluk den stok_kodu (e.g., YM.NCBK.0500.465 -> cap=5.0, Uzunluk=465)
         const stokParts = ncbkResult.stok_kodu.match(/YM\.NCBK\.(\d{4})\.(\d+)/);
         if (!stokParts) {
           console.warn('Invalid NCBK stok kodu format:', ncbkResult.stok_kodu);
@@ -6407,10 +6407,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log(`*** NCBK recipes: ${successfulNcbkRecipes} successful, ${failedNcbkRecipes} failed`);
       }
 
-      // NTEL Recipe kayıtları - Only create recipes for NEWLY created NTEL products
+      // NTEL Reçete kayıtları - Only Oluştur recipes için NEWLY created NTEL products
       if (ntelResult && ntelResult.stok_kodu && ntelResult.isNewlyCreated) {
         console.log(`✅ Creating recipes for NEWLY created NTEL: ${ntelResult.stok_kodu} (isNewlyCreated: true)`);
-        // Extract cap from stok_kodu (e.g., YM.NTEL.0650 -> cap=6.5)
+        // Extract cap den stok_kodu (e.g., YM.NTEL.0650 -> cap=6.5)
         const ntelStokParts = ntelResult.stok_kodu.match(/YM\.NTEL\.(\d{4})/);
         const ntelCap = ntelStokParts ? parseInt(ntelStokParts[1]) / 100 : parseFloat(product.boyCap || 0);
         
@@ -6478,17 +6478,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Sequence güncelleme with dual backup system
+  // Sequence güncelleme ile dual backup system
   const updateSequences = async (product, actualSequenceNumber = null) => {
     try {
       console.log('*** Updating sequences with dual backup system');
       
-      // CH sequence güncelle with UPSERT operation
-      // CRITICAL FIX: Check stok_kodu first to determine if it's OZL or STD
+      // CH sequence güncelle ile UPSERT operation
+      // CRITICAL FIX: Kontrol et stok_kodu first a determine if it's OZL or STD
       let isStandard = false;
       let kod2 = 'OZL'; // Default to OZL
       
-      // If product has a stok_kodu, use that to determine type
+      // If Ürün has a stok_kodu, use that a determine Tip
       if (product.stok_kodu || product.existingStokKodu) {
         const stokKodu = product.stok_kodu || product.existingStokKodu;
         if (stokKodu.includes('CHOZL')) {
@@ -6501,7 +6501,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.log('*** Product classified as STD based on stok_kodu:', stokKodu);
         }
       } else {
-        // Fallback to dimension-based classification only if no stok_kodu
+        // Fallback a dimension-based classification only if no stok_kodu
         isStandard = product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                      (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25');
         kod2 = isStandard ? 'STD' : 'OZL';
@@ -6511,11 +6511,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       console.log('*** Final classification - kod2:', kod2, 'isStandard:', isStandard);
       const capCode = isStandard ? safeCapToCode(product.boyCap) : '';
       
-      // For OZL products, implement dual sequence check and update
+      // için OZL products, implement dual sequence Kontrol et and Güncelle
       if (kod2 === 'OZL' && actualSequenceNumber) {
         console.log('*** OZL product - checking both backup and actual sequences');
 
-        // Use exact key match to avoid picking up rows with NULL cap_code
+        // Use exact key match a avoid picking up rows ile NULL cap_code
         const ozlSequenceKey = 'CH_OZL_';
         const ozlBackupKey = 'CH_OZL_BACKUP_';
 
@@ -6524,20 +6524,20 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         console.log('*** Current sequences - Actual:', currentActual, 'Backup:', currentBackup, 'New:', actualSequenceNumber);
         
-        // Take the bigger sequence number and update both if needed
+        // Take the bigger sequence Sayı and Güncelle both if needed
         const maxSequence = Math.max(currentActual, currentBackup, actualSequenceNumber);
         
-        // Update actual sequence if it's stale
+        // Güncelle actual sequence if it's stale
         if (maxSequence > currentActual) {
           console.log('*** Updating stale actual sequence from', currentActual, 'to', maxSequence);
           
-          // First, find the existing sequence ID
+          // First, Bul the existing sequence ID
           const existingSequenceResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL`);
           if (existingSequenceResponse.ok) {
             const allSequences = await existingSequenceResponse.json();
             console.log('🔍 CRITICAL DEBUG - Backend returned:', allSequences.length, 'rows');
             
-            // FRONTEND FILTERING - Backend query is buggy, filter here
+            // FRONTEND FILTERING - Backend Sorgu is buggy, Filtrele here
             const existingSequences = allSequences.filter(seq => 
               seq.product_type === 'CH' && seq.kod_2 === 'OZL'
             );
@@ -6554,7 +6554,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 });
               });
               
-              // Update existing sequence using PUT - FIRST OZL ROW [0]
+              // Güncelle existing sequence using PUT - FIRST OZL ROW [0]
               const sequenceId = existingSequences[0].id;
               console.log('🚨 UPDATING OZL ROW ID:', sequenceId, 'with sequence:', maxSequence);
               await fetchWithAuth(`${API_URLS.celikHasirSequence}/${sequenceId}`, {
@@ -6580,17 +6580,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        // Update backup sequence if it's stale
+        // Güncelle backup sequence if it's stale
         if (maxSequence > currentBackup) {
           console.log('*** Updating stale backup sequence from', currentBackup, 'to', maxSequence);
           
-          // First, find the existing backup sequence ID
+          // First, Bul the existing backup sequence ID
           const existingBackupResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=OZL_BACKUP`);
           if (existingBackupResponse.ok) {
             const allBackups = await existingBackupResponse.json();
             console.log('🔍 CRITICAL DEBUG - Backend returned:', allBackups.length, 'backup rows');
             
-            // FRONTEND FILTERING - Backend query is buggy, filter here
+            // FRONTEND FILTERING - Backend Sorgu is buggy, Filtrele here
             const existingBackups = allBackups.filter(seq => 
               seq.product_type === 'CH' && seq.kod_2 === 'OZL_BACKUP'
             );
@@ -6607,7 +6607,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 });
               });
               
-              // Update existing backup sequence using PUT - FIRST OZL_BACKUP ROW [0]
+              // Güncelle existing backup sequence using PUT - FIRST OZL_BACKUP ROW [0]
               const backupId = existingBackups[0].id;
               console.log('🚨 UPDATING OZL_BACKUP ROW ID:', backupId, 'with sequence:', maxSequence);
               await fetchWithAuth(`${API_URLS.celikHasirSequence}/${backupId}`, {
@@ -6633,7 +6633,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        // Update local sequences state to reflect the changes
+        // Güncelle local sequences State a reflect the changes
         const updatedSequences = { ...sequences };
         updatedSequences[ozlSequenceKey] = maxSequence;
         updatedSequences[ozlBackupKey] = maxSequence;
@@ -6641,17 +6641,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         console.log('*** Dual sequence update completed. Both sequences now at:', maxSequence);
       } else if (kod2 === 'STD') {
-        // For STD products only - UPDATE existing sequence, don't create new ones!
+        // için STD products only - Güncelle existing sequence, don't Oluştur new ones!
         console.log('*** STD product - updating specific cap code sequence for capCode:', capCode);
         
-        // First, find the existing STD sequence for this cap_code
+        // First, Bul the existing STD sequence için this cap_code
         const existingStdResponse = await fetchWithAuth(`${API_URLS.celikHasirSequence}?product_type=CH&kod_2=STD&cap_code=${capCode}`);
         if (existingStdResponse.ok) {
           const existingStdSequences = await existingStdResponse.json();
           console.log('*** Found existing STD sequences for cap_code', capCode, ':', existingStdSequences);
           
           if (existingStdSequences.length > 0) {
-            // Update existing STD sequence using PUT
+            // Güncelle existing STD sequence using PUT
             const stdSequenceId = existingStdSequences[0].id;
             console.log('*** Updating existing STD sequence ID:', stdSequenceId, 'with new sequence:', actualSequenceNumber);
             
@@ -6680,7 +6680,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.error('*** Failed to fetch existing STD sequences for cap_code:', capCode);
         }
       } else if (kod2 === 'OZL') {
-        // OZL product without actualSequenceNumber - do nothing, don't update any sequences
+        // OZL Ürün without actualSequenceNumber - do nothing, don't Güncelle any sequences
         console.log('*** OZL product without sequence number - skipping sequence update');
       }
       
@@ -6693,17 +6693,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   const saveToDatabase = async (products, keepProgressForExcel = false) => {
     console.log(`🚨🚨🚨 saveToDatabase CALLED with ${products?.length || 0} products, keepProgress: ${keepProgressForExcel} 🚨🚨🚨`);
     try {
-      // Reset batch sequence counter for new batch
+      // Sıfırla batch sequence counter için new batch
       resetBatchSequenceCounter();
       
-      // Initialize batch sequence before any stok kodu generation
+      // Başlat batch sequence before any stok kodu generation
       await initializeBatchSequence();
       
       setIsLoading(true);
       setIsSavingToDatabase(true);
       setDatabaseProgress({ current: 0, total: 0, operation: 'Veritabanı kontrol ediliyor...', currentProduct: '' });
       
-      // Optimization check removed - save products with or without optimization
+      // Optimization Kontrol et removed - Kaydet products ile or without optimization
       
       // Sadece kaydedilmesi gereken ürünleri kaydet
       const productsToSave = getProductsToSave();
@@ -6713,12 +6713,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         return;
       }
 
-      // Skip database refresh during save to avoid timeout - use existing data  
+      // Skip database refresh during Kaydet a avoid timeout - use existing Veri
       setDatabaseProgress({ current: 0, total: 0, operation: 'Mevcut veriler kullanılıyor...', currentProduct: '' });
       
       console.log('Using existing database state for save operation (avoiding timeout)');
       
-      // Use existing savedProducts instead of fetching fresh data to avoid timeout
+      // Use existing savedProducts instead of fetching fresh Veri a avoid timeout
       const freshSavedProducts = savedProducts;
       
       console.log('Fresh database state:', {
@@ -6730,10 +6730,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       setSavedProducts(freshSavedProducts);
       
-      // Create a map of Stok Adı to all related Stok Kodus
+      // Oluştur a Map et of Stok Adı a all related Stok Kodus
       const stokAdiToStokKodusMap = new Map();
       
-      // Map all existing products by Stok Adı
+      // Map et all existing products ile Stok Adı
       [...freshSavedProducts.mm, ...freshSavedProducts.ncbk, ...freshSavedProducts.ntel].forEach(p => {
         if (p.stok_adi) {
           if (!stokAdiToStokKodusMap.has(p.stok_adi)) {
@@ -6761,10 +6761,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       });
       
       if (newProducts.length === 0) {
-        // Show detailed info about skipped products with their existing Stok Kodus
+        // Göster detailed info about skipped products ile their existing Stok Kodus
         const allSkippedStokKodus = new Set();
         skippedProducts.forEach(p => {
-          // Collect all Stok Kodus from all variants (CH, NCBK, NTEL)
+          // Collect all Stok Kodus den all variants (CH, NCBK, NTEL)
           if (p.existingStokKodus) p.existingStokKodus.forEach(kod => allSkippedStokKodus.add(kod));
           if (p.existingStokAdiVariants?.ch) p.existingStokAdiVariants.ch.forEach(kod => allSkippedStokKodus.add(kod));
           if (p.existingStokAdiVariants?.ncbk500) p.existingStokAdiVariants.ncbk500.forEach(kod => allSkippedStokKodus.add(kod));
@@ -6783,7 +6783,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ? `Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı. Örnekler: ${skippedInfo}...`
           : `Tüm ürünler zaten veritabanında kayıtlı. ${skippedProducts.length} ürün atlandı: ${skippedInfo}`;
         
-        // Show a more detailed modal with all Stok Kodus
+        // Göster a more detailed Modal ile all Stok Kodus
         console.log('*** SETTING MODAL DATA FOR SKIPPED PRODUCTS ***');
         console.log('skippedProducts:', skippedProducts);
         console.log('batchDuplicates:', batchDuplicates);
@@ -6825,7 +6825,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       let ntelApiCalls = 0;
       console.log('⚡ OPTIMIZATION: Using batch-level NCBK/NTEL cache to eliminate redundant operations');
 
-      // Add comprehensive logging to track save process
+      // Ekle comprehensive logging a track Kaydet İşlem
       let successfulSaves = 0;
       let failedSaves = 0;
       let skippedSaves = 0;
@@ -6843,14 +6843,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         } : 'none'
       });
       
-      // Log all field names for first few products to understand Excel structure
+      // Log all Alan names için first few products a understand Excel structure
       if (newProducts.length > 0) {
         console.log('🔍 EXCEL FIELD ANALYSIS - First 3 products field names:');
         for (let idx = 0; idx < Math.min(3, newProducts.length); idx++) {
           const productFields = Object.keys(newProducts[idx]);
           console.log(`  Product ${idx + 1} fields:`, productFields.join(', '));
           
-          // Look for diameter-related fields
+          // Look için Çap-related fields
           const diameterFields = productFields.filter(field => 
             field.toLowerCase().includes('cap') || 
             field.toLowerCase().includes('diameter') || 
@@ -6887,27 +6887,27 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           totalKg: product.totalKg
         });
         
-        // Use helper function to get clean kg value
+        // Use helper function a Al clean kg Değer
         const kgValue = getCleanKgValue(product) || 0.1; // Minimum weight to prevent NaN/0
         console.log(`📊 SAVE DEBUG - kgValue after validation: ${kgValue}`);
         
         
-        // Generate stok_kodu and capture it for sequence tracking
+        // Generate stok_kodu and capture it için sequence tracking
         let generatedStokKodu = generateStokKodu(product, 'CH', i);
         
         
-        // CRITICAL FIX: Dynamic field detection and mapping
-        // Handle field mapping between Excel import flow and form flow
-        // Excel import may use completely different field names
+        // CRITICAL FIX: Dynamic Alan detection and mapping
+        // İşle Alan mapping between Excel import flow and Form flow
+        // Excel import may use completely different Alan names
         
-        // Dynamic field detection based on field names
+        // Dynamic Alan detection based on Alan names
         const productFields = Object.keys(product);
         
-        // Find diameter fields - EXACT match first
+        // Bul Çap fields - EXACT match first
         let boyCapField = 'boyCap';  // Default to expected field name
         let enCapField = 'enCap';    // Default to expected field name
         
-        // Check if these fields actually exist
+        // Kontrol et if these fields actually exist
         if (!product.hasOwnProperty('boyCap')) {
           console.log(`  ⚠️ boyCap field not found, searching alternatives...`);
           boyCapField = productFields.find(f => 
@@ -6934,11 +6934,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           ) || null;
         }
         
-        // If still not found, look for any field containing diameter/çap values
+        // If still not found, look için any Alan containing Çap/çap values
         if (!boyCapField || !enCapField) {
           console.log(`  ⚠️ Standard cap fields not found, searching for alternative fields...`);
           
-          // Look for fields that might contain diameter data
+          // Look için fields that might contain Çap Veri
           const capFields = productFields.filter(f => 
             f.toLowerCase().includes('çap') || 
             f.toLowerCase().includes('cap') ||
@@ -6947,18 +6947,18 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           console.log(`  Found ${capFields.length} cap-related fields:`, capFields);
           
-          // Try to intelligently assign them
+          // Dene a intelligently assign them
           if (capFields.length >= 2) {
             boyCapField = capFields[0];
             enCapField = capFields[1];
           } else if (capFields.length === 1) {
-            // If only one cap field, use it for both
+            // If only one cap Alan, use it için both
             boyCapField = capFields[0];
             enCapField = capFields[0];
           }
         }
         
-        // Find dimension fields dynamically  
+        // Bul dimension fields dynamically
         const uzunlukBoyField = productFields.find(f =>
           f.toLowerCase().includes('uzunlukboy') ||
           f.toLowerCase().includes('uzunluk_boy') ||
@@ -6982,7 +6982,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           uzunlukEnField: uzunlukEnField || 'NOT FOUND'
         });
         
-        // Extract actual values from detected fields
+        // Extract actual values den detected fields
         const extractedBoyCap = boyCapField ? product[boyCapField] : null;
         const extractedEnCap = enCapField ? product[enCapField] : null;
         const extractedUzunlukBoy = uzunlukBoyField ? product[uzunlukBoyField] : null;
@@ -6994,22 +6994,22 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log(`    uzunlukBoy: field="${uzunlukBoyField}" value="${extractedUzunlukBoy}"`);
         console.log(`    uzunlukEn: field="${uzunlukEnField}" value="${extractedUzunlukEn}"`);
         
-        // Parse and validate extracted values
+        // Parse et and Doğrula extracted values
         let parsedBoyCap = parseFloat(extractedBoyCap);
         let parsedEnCap = parseFloat(extractedEnCap);
 
-        // 🔧 COMPREHENSIVE FIX: Prevent systematic 2-decimal to 1-decimal rounding
-        // This preserves exact diameter values and prevents systematic rounding issues
+        // 🔧 COMPREHENSIVE FIX: Prevent systematic 2-decimal a 1-decimal rounding
+        // This preserves exact Çap values and prevents systematic rounding issues
         const preserveExactDiameter = (value) => {
-          // Primary fixes for known problematic values
+          // Primary fixes için known problematic values
           if (Math.abs(value - 4.8) < 0.01) return 4.75; // Fix 4.8 back to 4.75
           if (Math.abs(value - 4.5) < 0.01) return 4.45; // Fix 4.5 back to 4.45
 
-          // Comprehensive fix: Check if value appears to be rounded to 1 decimal
-          // by comparing with known 2-decimal values from FILMASIN_MAPPING
+          // Comprehensive fix: Kontrol et if Değer appears a be rounded a 1 decimal
+          // ile comparing ile known 2-decimal values den FILMASIN_MAPPING
           const knownPreciseValues = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
 
-          // For each precise value, check if current value is its 1-decimal rounded version
+          // için each precise Değer, Kontrol et if current Değer is its 1-decimal rounded version
           for (const precise of knownPreciseValues) {
             const rounded = Math.round(precise * 10) / 10; // Round to 1 decimal
             if (Math.abs(value - rounded) < 0.01 && precise !== rounded) {
@@ -7021,7 +7021,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           return value;
         };
 
-        // Apply surgical fix to prevent rounding
+        // Apply surgical fix a prevent rounding
         if (!isNaN(parsedBoyCap)) {
           parsedBoyCap = preserveExactDiameter(parsedBoyCap);
         }
@@ -7029,10 +7029,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           parsedEnCap = preserveExactDiameter(parsedEnCap);
         }
         
-        // If parsing fails, show detailed error
+        // If parsing fails, Göster detailed Hata
         if (isNaN(parsedBoyCap) || parsedBoyCap === 0) {
           console.error(`  ❌ Failed to parse boyCap: raw="${extractedBoyCap}", parsed=${parsedBoyCap}`);
-          // Try alternative fields
+          // Dene alternative fields
           const altBoyCap = parseFloat(product.boyCap) || parseFloat(product.cap) || parseFloat(product['Boy Çap']) || parseFloat(product['Çap']);
           if (!isNaN(altBoyCap) && altBoyCap > 0) {
             console.log(`  ✅ Found alternative boyCap value: ${altBoyCap}`);
@@ -7042,7 +7042,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         if (isNaN(parsedEnCap) || parsedEnCap === 0) {
           console.error(`  ❌ Failed to parse enCap: raw="${extractedEnCap}", parsed=${parsedEnCap}`);
-          // Try alternative fields
+          // Dene alternative fields
           const altEnCap = parseFloat(product.enCap) || parseFloat(product.cap2) || parseFloat(product['En Çap']) || parseFloat(product['Çap2']);
           if (!isNaN(altEnCap) && altEnCap > 0) {
             console.log(`  ✅ Found alternative enCap value: ${altEnCap}`);
@@ -7052,7 +7052,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         const productWithValidCaps = {
           ...product,
-          // Use parsed values with validation
+          // Use parsed values ile validation
           boyCap: !isNaN(parsedBoyCap) ? parsedBoyCap : 0,
           enCap: !isNaN(parsedEnCap) ? parsedEnCap : 0,
           uzunlukBoy: extractedUzunlukBoy || product.uzunlukBoy || product.ebat_boy || 0,
@@ -7062,7 +7062,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cubukSayisiEn: product.cubukSayisiEn || product.dis_cap_en_cubuk_ad || 0
         };
         
-        // Add extensive logging to debug field mapping issues
+        // Ekle extensive logging a debug Alan mapping issues
         console.log(`🔍 FIELD MAPPING DEBUG for product ${i + 1}:`);
         console.log('  RAW PRODUCT DATA:', JSON.stringify(product, null, 2));
         console.log('  MAPPED VALUES:', JSON.stringify({
@@ -7073,7 +7073,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           uzunlukEn: productWithValidCaps.uzunlukEn
         }, null, 2));
         
-        // Generate and validate the problematic fields with ensured valid caps
+        // Generate and Doğrula the problematic fields ile ensured Geçerli caps
         let generatedStokAdi = generateStokAdi(productWithValidCaps, 'CH');
         let generatedIngilizceIsim = generateIngilizceIsim(productWithValidCaps, 'CH');
         
@@ -7083,14 +7083,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         console.log(`    stokAdi contains NaN: ${generatedStokAdi.includes('NaN')}`);
         console.log(`    ingilizceIsim contains NaN: ${generatedIngilizceIsim.includes('NaN')}`);
         
-        // Character-by-character inspection if NaN detected
+        // Character-ile-character inspection if NaN detected
         if (generatedStokAdi.includes('NaN') || generatedIngilizceIsim.includes('NaN')) {
           console.log(`🚨 NaN DETECTED! Breaking down strings:`);
           console.log(`    stokAdi chars: ${generatedStokAdi.split('').map((c,i) => `${i}:'${c}'`).join(' ')}`);
           console.log(`    ingilizceIsim chars: ${generatedIngilizceIsim.split('').map((c,i) => `${i}:'${c}'`).join(' ')}`);
         }
         
-        // CRITICAL: Validate that no NaN values made it through
+        // CRITICAL: Doğrula that no NaN values made it through
         if (generatedStokAdi.includes('NaN') || generatedIngilizceIsim.includes('NaN')) {
           console.error('🚨 CRITICAL ERROR: NaN detected in generated strings for product', i + 1, '!', {
             productIndex: i,
@@ -7100,7 +7100,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             mappedValues: productWithValidCaps
           });
           
-          // Instead of skipping, try to fix the values with fallback defaults
+          // Instead of skipping, Dene a fix the values ile fallback defaults
           const fallbackStokAdi = `${normalizeHasirTipi(productWithValidCaps.hasirTipi || '')} Çap(0x0 mm) Ebat(${productWithValidCaps.uzunlukBoy || 0}x${productWithValidCaps.uzunlukEn || 0} cm)`;
           const fallbackIngilizceIsim = `Wire Mesh- ${productWithValidCaps.hasirTipi || ''} Dia(0x0 mm) Size(${productWithValidCaps.uzunlukBoy || 0}x${productWithValidCaps.uzunlukEn || 0} cm)`;
           
@@ -7109,7 +7109,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             fallbackIngilizceIsim
           });
           
-          // Use fallback values instead of skipping the product
+          // Use fallback values instead of skipping the Ürün
           generatedStokAdi = fallbackStokAdi;
           generatedIngilizceIsim = fallbackIngilizceIsim;
         }
@@ -7123,7 +7123,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           kod_2: (product.uzunlukBoy === '500' && product.uzunlukEn === '215' && 
                   (formatGozAraligi(product) === '15x15' || formatGozAraligi(product) === '15x25')) ? 'STD' : 'OZL',
           ingilizce_isim: generatedIngilizceIsim,
-          // Standard columns from SQL
+          // Standard columns den SQL
           alis_kdv_orani: 20,
           satis_kdv_orani: 20,
           muh_detay: 31,
@@ -7137,12 +7137,12 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           cevrim_pay_2: 1,
           cevrim_payda_2: 1,
           cevrim_degeri_2: 1,
-          // Product specific columns - CRITICAL: Database expects DECIMAL types
-          // Use the mapped values from productWithValidCaps to ensure consistency
+          // Ürün specific columns - CRITICAL: Database expects DECIMAL types
+          // Use the mapped values den productWithValidCaps a ensure consistency
           hasir_tipi: normalizeHasirTipi(productWithValidCaps.hasirTipi),
           cap: (() => {
             const val = parseFloat(productWithValidCaps.boyCap) || 0;
-            // 🔧 COMPREHENSIVE FIX: Prevent systematic diameter rounding
+            // 🔧 COMPREHENSIVE FIX: Prevent systematic Çap rounding
             const knownPrecise = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
             for (const precise of knownPrecise) {
               if (Math.abs(val - Math.round(precise * 10) / 10) < 0.01 && precise !== Math.round(precise * 10) / 10) {
@@ -7153,7 +7153,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           })(),
           cap2: (() => {
             const val = parseFloat(productWithValidCaps.enCap) || 0;
-            // 🔧 COMPREHENSIVE FIX: Prevent systematic diameter rounding
+            // 🔧 COMPREHENSIVE FIX: Prevent systematic Çap rounding
             const knownPrecise = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
             for (const precise of knownPrecise) {
               if (Math.abs(val - Math.round(precise * 10) / 10) < 0.01 && precise !== Math.round(precise * 10) / 10) {
@@ -7174,7 +7174,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           adet_kg: parseFloat(kgValue.toFixed(5)) || 0,
           toplam_kg: parseFloat(kgValue.toFixed(5)) || 0,
           hasir_turu: 'MM',
-          // Default values from SQL
+          // Default values den SQL
           ozel_saha_2_say: 0,
           ozel_saha_3_say: 0,
           ozel_saha_4_say: 0,
@@ -7207,7 +7207,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           
           // CH kaydı - Önce var mı kontrol et, yoksa oluştur
           
-          // CRITICAL VALIDATION: Check for NaN before saving to database
+          // CRITICAL VALIDATION: Kontrol et için NaN before saving a database
           if (chData.stok_adi && chData.stok_adi.includes('NaN')) {
             console.error('🔥 NaN DETECTED in stok_adi:', chData.stok_adi);
           }
@@ -7221,7 +7221,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.log(`  hasir_tipi: ${chData.hasir_tipi}, goz_araligi: ${chData.goz_araligi}`);
           console.log(`  kg: ${chData.kg}, cubuk: ${chData.cubuk_sayisi_boy}x${chData.cubuk_sayisi_en}`);
           
-          // Check for any NaN or invalid values
+          // Kontrol et için any NaN or Geçersiz values
           const invalidFields = [];
           if (isNaN(chData.cap) || chData.cap <= 0) invalidFields.push(`cap: ${chData.cap}`);
           if (isNaN(chData.cap2) || chData.cap2 <= 0) invalidFields.push(`cap2: ${chData.cap2}`);
@@ -7244,10 +7244,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.log(`📊 SAVE DEBUG - CH Response status: ${chResponse.status}`);
           
           if (chResponse.status === 409) {
-            // Duplicate detected - try with next sequence number
+            // Duplicate detected - Dene ile İleri sequence Sayı
             console.log(`*** DUPLICATE DETECTED: ${chData.stok_kodu} already exists, retrying with next sequence`);
             
-            // Increment sequence counter and try again (max 3 attempts)
+            // Increment sequence counter and Dene again (max 3 attempts)
             let retryAttempts = 0;
             let retrySuccess = false;
             
@@ -7257,10 +7257,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               const newStokKodu = `CHOZL${String(batchSequenceCounter).padStart(4, '0')}`;
               console.log(`*** Retry attempt ${retryAttempts}: trying with ${newStokKodu}`);
               
-              // Update the chData with new stok_kodu
+              // Güncelle the chData ile new stok_kodu
               chData.stok_kodu = newStokKodu;
               
-              // Try saving again
+              // Dene saving again
               const retryResponse = await fetchWithRetry(`${API_URLS.celikHasirMm}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -7273,7 +7273,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 generatedStokKodu = newStokKodu; // Update the generated code for sequence tracking
                 retrySuccess = true;
                 
-                // CRITICAL FIX: Update the product in newProducts with the retry stock code
+                // CRITICAL FIX: Güncelle the Ürün in newProducts ile the retry Stok code
                 newProducts[i] = {
                   ...newProducts[i],
                   existingStokKodu: newStokKodu,
@@ -7283,7 +7283,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 console.log(`🔧 RETRY FIXED: Updated newProducts[${i}] with retry existingStokKodu:`, newStokKodu);
               } else if (retryResponse.status === 409) {
                 console.log(`*** ${newStokKodu} also exists, trying next sequence`);
-                // Continue loop to try next number
+                // Continue loop a Dene İleri Sayı
               } else {
                 throw new Error(`CH kaydı başarısız: ${retryResponse.status} (retry ${retryAttempts})`);
               }
@@ -7306,7 +7306,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               saved: true
             });
             
-            // CRITICAL FIX: Update the product in newProducts with the saved stok_kodu
+            // CRITICAL FIX: Güncelle the Ürün in newProducts ile the saved stok_kodu
             newProducts[i] = {
               ...newProducts[i],
               existingStokKodu: chData.stok_kodu,
@@ -7316,7 +7316,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log(`🔧 FIXED: Updated newProducts[${i}] with existingStokKodu:`, chData.stok_kodu);
           }
           
-          // Track the save result
+          // Track the Kaydet result
           saveResults.push({
             productIndex: i + 1,
             stokKodu: chData.stok_kodu,
@@ -7325,7 +7325,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           });
 
           // NCBK kayıtları (Boy ve En için ayrı ayrı - gerçek boyutları kullan)
-          // Database should create ALL NCBKs including duplicates for recipe accuracy
+          // Database should Oluştur ALL NCBKs including duplicates için Reçete accuracy
           const boyLength = parseInt(product.uzunlukBoy) || 0;
           const enLength = parseInt(product.uzunlukEn) || 0;
 
@@ -7341,7 +7341,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             { cap: product.enCap, length: enLength, type: 'en' }
           ].filter(spec => spec.cap > 0 && spec.length > 0); // ✅ Only create NCBK if both cap and length are valid
           
-          // Deduplicate NCBK specs to prevent creating same product twice (and thus duplicate recipes)
+          // Deduplicate NCBK specs a prevent creating same Ürün twice (and thus duplicate recipes)
           const seenStokKodus = new Set();
           const ncbkSpecs = allNcbkSpecs.filter(spec => {
             const stokKodu = `YM.NCBK.${safeCapToCode(spec.cap)}.${spec.length}`;
@@ -7358,7 +7358,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const length = spec.length;
             const ncbkStokKodu = `YM.NCBK.${safeCapToCode(cap)}.${length}`;
             
-            // OPTIMIZATION: Check batch cache first
+            // OPTIMIZATION: Kontrol et batch cache first
             if (batchNcbkCache.has(ncbkStokKodu)) {
               const cachedResult = batchNcbkCache.get(ncbkStokKodu);
               ncbkCacheHits++;
@@ -7375,11 +7375,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const ncbkWeight = (Math.PI * (cap/20) * (cap/20) * length * 7.85 / 1000);
             console.log(`📊 NCBK DEBUG - Calculated weight: ${ncbkWeight}`);
             
-            // Generate NCBK strings with validation
+            // Generate NCBK strings ile validation
             const ncbkStokAdi = `YM Nervürlü Çubuk ${formatDecimalForDisplay(cap, true)} mm ${length} cm`;
             const ncbkIngilizceIsim = `Ribbed Rebar ${formatDecimalForDisplay(cap, false)} mm ${length} cm`;
             
-            // Critical debug for NCBK
+            // Critical debug için NCBK
             console.log(`🚨 CRITICAL NCBK CHECK - ${ncbkStokKodu}:`, {
               stok_adi: ncbkStokAdi,
               ingilizce_isim: ncbkIngilizceIsim,
@@ -7409,7 +7409,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               cevrim_pay_2: 1,
               cevrim_payda_2: 1,
               cevrim_degeri_2: 1,
-              // Product specific - 🔧 COMPREHENSIVE FIX: Prevent systematic diameter rounding
+              // Ürün specific - 🔧 COMPREHENSIVE FIX: Prevent systematic Çap rounding
               cap: (() => {
                 const val = parseFloat(cap || 0);
                 const knownPrecise = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
@@ -7493,10 +7493,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               console.log(`⚠️ NCBK already exists (409), will NOT create recipe: ${ncbkData.stok_kodu}`);
               const existingResult = { stok_kodu: ncbkData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
 
-              // OPTIMIZATION: Cache result for future products
+              // OPTIMIZATION: Cache result için future products
               batchNcbkCache.set(ncbkStokKodu, existingResult);
 
-              // Store result for current product
+              // Store result için current Ürün
               const specKey = `${spec.type}-${cap}-${length}`;
               ncbkResults[specKey] = existingResult;
               ncbkResults[length] = existingResult;
@@ -7509,16 +7509,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               
               const createdResult = { ...ncbkResult, status: ncbkResponse.status, message: 'created', isNewlyCreated: true };
               
-              // OPTIMIZATION: Cache successful creation for future products  
+              // OPTIMIZATION: Cache successful creation için future products
               batchNcbkCache.set(ncbkStokKodu, createdResult);
               
-              // Mark this NCBK as newly created in this session
+              // Mark this NCBK olarak newly created in this session
               newlyCreatedNcbks.add(ncbkData.stok_kodu);
               
-              // Store with spec type to handle boy/en separately even if same dimensions
+              // Store ile spec Tip a İşle boy/en separately even if same dimensions
               const specKey = `${spec.type}-${cap}-${length}`;
               ncbkResults[specKey] = createdResult;
-              // Also store with just length for recipe lookup compatibility
+              // Also store ile just Uzunluk için Reçete lookup compatibility
               ncbkResults[length] = createdResult;
             }
           }
@@ -7527,13 +7527,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           const ntelCap = parseFloat(product.boyCap || 0);
           const ntelStokKodu = `YM.NTEL.${safeCapToCode(ntelCap)}`;
           
-          // OPTIMIZATION: Check batch cache first for NTEL
+          // OPTIMIZATION: Kontrol et batch cache first için NTEL
           if (batchNtelCache.has(ntelStokKodu)) {
             const cachedNtelResult = batchNtelCache.get(ntelStokKodu);
             ntelCacheHits++;
             console.log(`⚡ CACHE HIT: Using cached NTEL result for ${ntelStokKodu} (hit #${ntelCacheHits})`);
             ntelResult = cachedNtelResult;
-            // Skip API call, continue to recipe creation
+            // Skip API call, continue a Reçete creation
           } else {
             ntelApiCalls++;
             console.log(`📊 NTEL DEBUG - Creating NTEL for cap=${ntelCap}`);
@@ -7562,7 +7562,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             cevrim_pay_2: 1,
             cevrim_payda_2: 1,
             cevrim_degeri_2: 1,
-            // Product specific - 🔧 COMPREHENSIVE FIX: Prevent systematic diameter rounding
+            // Ürün specific - 🔧 COMPREHENSIVE FIX: Prevent systematic Çap rounding
             cap: (() => {
               const val = parseFloat(ntelCap);
               const knownPrecise = [4.45, 4.50, 4.75, 4.85, 5.00, 5.50, 6.00, 6.50, 7.00, 7.50, 7.80, 8.00, 8.50, 8.60, 9.19, 9.20, 10.60];
@@ -7626,7 +7626,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             console.log(`ℹ️ NTEL already exists, using existing: ${ntelData.stok_kodu}`);
             ntelResult = { stok_kodu: ntelData.stok_kodu, message: 'existing', status: 409, isNewlyCreated: false };
             
-            // OPTIMIZATION: Cache existing result for future products
+            // OPTIMIZATION: Cache existing result için future products
             batchNtelCache.set(ntelStokKodu, ntelResult);
           } else if (!ntelResponse.ok) {
             throw new Error(`NTEL kaydı başarısız: ${ntelResponse.status}`);
@@ -7635,7 +7635,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             ntelResult.isNewlyCreated = true; // Mark as newly created in this session
             console.log(`✅ NTEL created successfully, WILL create recipe: ${ntelData.stok_kodu}`);
             
-            // OPTIMIZATION: Cache successful creation for future products
+            // OPTIMIZATION: Cache successful creation için future products
             batchNtelCache.set(ntelStokKodu, ntelResult);
           }
           } // Close the else block for cache miss
@@ -7658,10 +7658,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           return; // Bu ürünü atla, diğerlerine devam et
         }
 
-        // Recipe kayıtları oluştur (sadece yeni ürünler için)
+        // Reçete kayıtları oluştur (sadece yeni ürünler için)
         if (chResult && chResult.stok_kodu && Object.keys(ncbkResults).length > 0) {
           try {
-            // Only create recipes for NEWLY created NCBK/NTEL (not existing ones)
+            // Only Oluştur recipes için NEWLY created NCBK/NTEL (not existing ones)
             const newNcbkResults = {};
             Object.entries(ncbkResults).forEach(([key, result]) => {
               if (result && result.stok_kodu && result.isNewlyCreated === true) {
@@ -7672,7 +7672,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               }
             });
             
-            // Check if NTEL is newly created (not existing)
+            // Kontrol et if NTEL is newly created (not existing)
             const newNtelResult = (ntelResult && ntelResult.isNewlyCreated === true) ? ntelResult : null;
             if (ntelResult && ntelResult.stok_kodu && !ntelResult.isNewlyCreated) {
               console.log(`🚫 Skipping existing NTEL for recipe: ${ntelResult.stok_kodu} (isNewlyCreated: ${ntelResult.isNewlyCreated})`);
@@ -7690,7 +7690,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               willCreateRecipes: Object.keys(newNcbkResults).length > 0 || newNtelResult
             });
             
-            // DEBUG: Log detailed NCBK results for troubleshooting
+            // DEBUG: Log detailed NCBK results için troubleshooting
             console.log('🔍 DEBUG - All NCBK Results:', ncbkResults);
             console.log('🔍 DEBUG - Filtered New NCBK Results:', newNcbkResults);
             Object.entries(ncbkResults).forEach(([key, result]) => {
@@ -7702,7 +7702,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               });
             });
 
-            // Always create CH recipes when CH is new, even if NCBK/NTEL exist
+            // Always Oluştur CH recipes zaman CH is new, even if NCBK/NTEL exist
             // Use existing NCBK/NTEL if no new ones were created
             const ncbkForRecipe = Object.keys(newNcbkResults).length > 0 ? newNcbkResults : ncbkResults;
             const ntelForRecipe = newNtelResult || ntelResult;
@@ -7714,7 +7714,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               ntelIsNewlyCreated: ntelForRecipe?.isNewlyCreated
             });
             
-            // Check if cubuk values are present from Excel mapping or database - only apply fallback if truly missing
+            // Kontrol et if cubuk values are present den Excel mapping or database - only apply fallback if truly missing
             const hasValidCubukValues = product.cubukSayisiBoy > 0 && product.cubukSayisiEn > 0;
             
             console.log('🔍 ORIGINAL PRODUCT VALUES FROM EXCEL MAPPING:', {
@@ -7727,11 +7727,11 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             let enhancedProduct;
             
             if (hasValidCubukValues) {
-              // Use Excel-mapped or database values - DO NOT override with calculations
+              // Use Excel-mapped or database values - DO NOT override ile calculations
               console.log(`✅ Using Excel-mapped cubuk values for recipe: ${product.hasirTipi} - Boy:${product.cubukSayisiBoy}, En:${product.cubukSayisiEn}`);
               enhancedProduct = { ...product };
             } else {
-              // Only calculate fallback values if cubuk values are missing or invalid
+              // Only Hesapla fallback values if cubuk values are missing or Geçersiz
               console.log(`⚠️ Missing cubuk values, applying fallback calculation for: ${product.hasirTipi}`);
               
               const fallbackResult = await calculateFallbackCubukSayisi(
@@ -7762,8 +7762,8 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             await saveRecipeData(enhancedProduct, chResult, ncbkForRecipe, ntelForRecipe);
             console.log(`✅ Recipe kayıtları başarıyla oluşturuldu: ${product.hasirTipi}`);
             
-            // Sequence güncelle - always update for new products, including when CH exists but we generated new NCBK/NTEL
-            // Extract sequence number from generated stok_kodu for OZL products
+            // Sequence güncelle - always Güncelle için new products, including zaman CH exists but we generated new NCBK/NTEL
+            // Extract sequence Sayı den generated stok_kodu için OZL products
             let actualSequenceNumber = null;
             if (generatedStokKodu && generatedStokKodu.startsWith('CHOZL')) {
               const match = generatedStokKodu.match(/CHOZL(\d+)/);
@@ -7780,7 +7780,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // Don't show success toast yet - wait for Excel generation to complete
+      // Don't Göster Başarılı Toast yet - wait için Excel generation a Tamamlandı
       setDatabaseProgress({ 
         current: processedCount, 
         total: totalCount, 
@@ -7788,7 +7788,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         currentProduct: 'Excel hazırlanıyor'
       });
       
-      // COMPREHENSIVE SAVE SUMMARY
+      // COMPREHENSIVE Kaydet SUMMARY
       console.log('🔥 DATABASE SAVE PROCESS COMPLETED:', {
         totalProductsToSave: newProducts.length,
         successfulSaves,
@@ -7808,14 +7808,14 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           skippedCount: skippedSaves
         });
         
-        // Show detailed results for failed/skipped products
+        // Göster detailed results için Başarısız/skipped products
         const problemProducts = saveResults.filter(r => !r.success);
         console.error('❌ PROBLEM PRODUCTS:', problemProducts);
       } else {
         console.log('✅ ALL PRODUCTS SAVED SUCCESSFULLY');
       }
 
-      // OPTIMIZATION METRICS: Show cache effectiveness
+      // OPTIMIZATION METRICS: Göster cache effectiveness
       const totalNcbkOperations = ncbkCacheHits + ncbkApiCalls;
       const totalNtelOperations = ntelCacheHits + ntelApiCalls;
       const ncbkCacheEfficiency = totalNcbkOperations > 0 ? ((ncbkCacheHits / totalNcbkOperations) * 100).toFixed(1) : 0;
@@ -7840,13 +7840,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         cubukSayisiEn: p.cubukSayisiEn
       })));
       
-      // Listeyi güncelle (don't await to avoid timeout)
+      // Listeyi güncelle (don't await a avoid timeout)
       fetchSavedProducts().catch(error => {
         console.warn('Database refresh failed after save:', error);
         toast.warning('Veritabanı yenileme başarısız - sayfa yenileyebilirsiniz');
       });
       
-      // Keep loading states active - Excel generation will handle final cleanup
+      // Keep Yükleniyor states Aktif - Excel generation will İşle final cleanup
       console.log('⚡ CONTINUITY FIX: Keeping loading states active for Excel generation');
       
       // Sadece yeni kaydedilen ürünleri döndür
@@ -7855,7 +7855,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     } catch (error) {
       console.error('Veritabanına kaydetme hatası:', error);
       
-      // Provide specific error messages based on error type
+      // Provide specific Hata messages based on Hata Tip
       if (error.message?.includes('CORS') || error.message?.includes('Failed to fetch')) {
         toast.error('Ağ bağlantısı hatası - Lütfen internet bağlantınızı kontrol edin');
       } else if (error.message?.includes('Backend responses failed')) {
@@ -7868,7 +7868,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       return [];
     } finally {
-      // Only reset states if Excel generation is not following
+      // Only Sıfırla states if Excel generation is not following
       if (!keepProgressForExcel) {
         setIsLoading(false);
         setIsSavingToDatabase(false);
@@ -7895,7 +7895,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
       console.log(`🗑️ Deleting single product: ${product.stok_kodu}`);
 
-      // Step 1: Delete recipes using bulk deletion by mamul_kodu
+      // Step 1: Sil recipes using bulk deletion ile mamul_kodu
       let recipeApiUrl = '';
       if (productType === 'mm') recipeApiUrl = API_URLS.celikHasirMmRecete;
       else if (productType === 'ncbk') recipeApiUrl = API_URLS.celikHasirNcbkRecete;
@@ -7920,7 +7920,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             const result = await deleteRecipesResponse.json();
             console.log(`✅ Deleted ${result.deletedCount || 'N/A'} recipes for ${product.stok_kodu}`);
           } else if (deleteRecipesResponse.status === 404) {
-            // Fallback: Use old method if bulk endpoint doesn't exist
+            // Fallback: Use old method if bulk Endpoint doesn't exist
             console.log(`ℹ️ Bulk endpoint not found, using fallback for recipes: ${product.stok_kodu}`);
             await deleteRecipesFallback(recipeApiUrl, encodedStokKodu);
           } else {
@@ -7928,7 +7928,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         } catch (recipeError) {
           console.warn(`⚠️ Recipe deletion error for ${product.stok_kodu}:`, recipeError.message);
-          // Try fallback method
+          // Dene fallback method
           try {
             const encodedStokKodu = encodeURIComponent(product.stok_kodu);
             await deleteRecipesFallback(recipeApiUrl, encodedStokKodu);
@@ -7938,7 +7938,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       }
 
-      // Step 2: Delete the main product record by stok_kodu
+      // Step 2: Sil the main Ürün record ile stok_kodu
       const tabEndpoints = {
         mm: API_URLS.celikHasirMm,
         ncbk: API_URLS.celikHasirNcbk,
@@ -7962,13 +7962,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         const result = await deleteProductResponse.json();
         console.log(`✅ Successfully deleted product ${product.stok_kodu}`);
         
-        // Update UI state immediately
+        // Güncelle UI State immediately
         setSavedProducts(prev => ({
           ...prev,
           [productType]: prev[productType].filter(p => p.id !== productId)
         }));
         
-        // Update sequence table if we deleted CH product
+        // Güncelle sequence table if we Silindi CH Ürün
         if (productType === 'mm') {
           try {
             await updateSequenceAfterDeletion(productType);
@@ -7978,37 +7978,37 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           }
         }
         
-        // Aggressive cache clearing to prevent false "exists" detection
+        // Aggressive cache clearing a prevent false "exists" detection
         cacheRef.current.clear();
         
-        // Clear any existing product lookup cache that might contain deleted product
+        // Temizle any existing Ürün lookup cache that might contain Silindi Ürün
         if (window.productLookupCache) {
           window.productLookupCache.clear();
         }
         
-        // CRITICAL: Reset batch sequence counters after individual deletion
+        // CRITICAL: Sıfırla batch sequence counters after individual deletion
         console.log('🔄 CRITICAL: Resetting batch sequence counters after individual deletion');
         resetBatchSequenceCounter();
         
-        // Force refresh data with cache-busting
+        // Force refresh Veri ile cache-busting
         await fetchSavedProducts(false, true);
         
-        // CRITICAL: Refresh sequence data to get updated sequence numbers after deletion
+        // CRITICAL: Refresh sequence Veri a Al updated sequence numbers after deletion
         console.log('🔄 CRITICAL: Refreshing sequence data after individual deletion');
         await fetchSequences(); // Refresh sequence state with fresh data
         
-        // CRITICAL: Re-initialize batch sequence with fresh database state
+        // CRITICAL: Re-Başlat batch sequence ile fresh database State
         console.log('🔄 CRITICAL: Re-initializing batch sequence after individual deletion');
         await initializeBatchSequence();
         
-        // Show success toast AFTER cache is cleared
+        // Göster Başarılı Toast AFTER cache is cleared
         toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
           position: "top-right",
           autoClose: 3000,
           hideProgressBar: false
         });
       } else if (deleteProductResponse.status === 404) {
-        // Fallback: Use old method if bulk endpoint doesn't exist
+        // Fallback: Use old method if bulk Endpoint doesn't exist
         console.log(`ℹ️ Bulk product endpoint not found, using fallback for: ${product.stok_kodu}`);
         const fallbackResponse = await fetchWithRetry(`${tabEndpoints[productType]}/${productId}`, {
           method: 'DELETE',
@@ -8035,30 +8035,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             }
           }
           
-          // Aggressive cache clearing to prevent false "exists" detection
+          // Aggressive cache clearing a prevent false "exists" detection
           cacheRef.current.clear();
           
-          // Clear any existing product lookup cache that might contain deleted product
+          // Temizle any existing Ürün lookup cache that might contain Silindi Ürün
           if (window.productLookupCache) {
             window.productLookupCache.clear();
           }
           
-          // CRITICAL: Reset batch sequence counters after fallback deletion
+          // CRITICAL: Sıfırla batch sequence counters after fallback deletion
           console.log('🔄 CRITICAL: Resetting batch sequence counters after fallback deletion');
           resetBatchSequenceCounter();
           
-          // Force refresh data with cache-busting
+          // Force refresh Veri ile cache-busting
           await fetchSavedProducts(false, true);
           
-          // CRITICAL: Refresh sequence data to get updated sequence numbers after deletion
+          // CRITICAL: Refresh sequence Veri a Al updated sequence numbers after deletion
           console.log('🔄 CRITICAL: Refreshing sequence data after fallback deletion');
           await fetchSequences(); // Refresh sequence state with fresh data
           
-          // CRITICAL: Re-initialize batch sequence with fresh database state
+          // CRITICAL: Re-Başlat batch sequence ile fresh database State
           console.log('🔄 CRITICAL: Re-initializing batch sequence after fallback deletion');
           await initializeBatchSequence();
           
-          // Show success toast AFTER cache is cleared
+          // Göster Başarılı Toast AFTER cache is cleared
           toast.success(`✅ Ürün başarıyla silindi: ${product.stok_kodu}`, {
             position: "top-right",
             autoClose: 3000,
@@ -8092,23 +8092,23 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Update sequence table after product deletion
+  // Güncelle sequence table after Ürün deletion
   const updateSequenceAfterDeletion = async (productType) => {
     try {
-      // Only update sequence for CH (mm) products since they use sequence numbers
+      // Only Güncelle sequence için CH (mm) products since they use sequence numbers
       if (productType !== 'mm') return;
       
       console.log('*** Updating sequence table after product deletion');
       
-      // Get the highest sequence number from remaining CH products
-      // Add timestamp to bypass any caching
+      // Al the highest sequence Sayı den remaining CH products
+      // Ekle timestamp a bypass any caching
       const chResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CHOZL&sort_by=stok_kodu&sort_order=desc&limit=1&_t=${Date.now()}`);
       if (chResponse.ok) {
         const chProducts = await chResponse.json();
         console.log('*** updateSequenceAfterDeletion - API response structure:', chProducts);
         
         let newMaxSequence = null;
-        // Check both possible response structures (direct array or data property)
+        // Kontrol et both possible Yanıt structures (direct Dizi or Veri property)
         const productList = chProducts.data || chProducts;
         if (Array.isArray(productList) && productList.length > 0) {
           const highestProduct = productList[0];
@@ -8121,7 +8121,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           console.log('*** No remaining CHOZL products found after deletion');
           console.log('*** Last resort: Checking all CH products to determine proper sequence...');
           
-          // Last resort: Check all CH products (both STD and OZL) to find the highest sequence
+          // Last resort: Kontrol et all CH products (both STD and OZL) a Bul the highest sequence
           try {
             const allChResponse = await fetchWithAuth(`${API_URLS.celikHasirMm}?search=CH&sort_by=stok_kodu&sort_order=desc&limit=100&_t=${Date.now()}`);
             if (allChResponse.ok) {
@@ -8133,7 +8133,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               
               if (Array.isArray(allProductList)) {
                 allProductList.forEach(product => {
-                  // Check for STD products (CH.STD.XXXX.XX)
+                  // Kontrol et için STD products (CH.STD.XXXX.XX)
                   const stdMatch = product.stok_kodu.match(/CH\.STD\.(\d{4})\./);
                   if (stdMatch) {
                     const seqNum = parseInt(stdMatch[1]);
@@ -8142,7 +8142,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     }
                   }
                   
-                  // Check for any remaining OZL products (shouldn't be any, but double-check)
+                  // Kontrol et için any remaining OZL products (shouldn't be any, but double-Kontrol et)
                   const ozlMatch = product.stok_kodu.match(/CHOZL(\d+)/);
                   if (ozlMatch) {
                     const seqNum = parseInt(ozlMatch[1]);
@@ -8160,30 +8160,30 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 newMaxSequence = highestOzlSequence;
                 console.log('*** Using remaining OZL sequence:', newMaxSequence);
               } else if (highestStdSequence > 1200) {
-                // If STD sequences are above 1200, continue from there for OZL
+                // If STD sequences are above 1200, continue den there için OZL
                 newMaxSequence = highestStdSequence;
                 console.log('*** Using STD sequence as base for OZL:', newMaxSequence);
               } else {
-                // No OZL products and STD is in normal range, start OZL from a safe number
+                // No OZL products and STD is in normal range, Başlangıç OZL den a safe Sayı
                 newMaxSequence = 2443; // Starting point for OZL when no reference exists
                 console.log('*** No suitable reference found, using safe starting point:', newMaxSequence);
               }
             }
           } catch (error) {
             console.error('*** Error checking all CH products:', error);
-            // If all else fails, keep the current sequence value (don't update)
+            // If all else fails, keep the current sequence Değer (don't Güncelle)
             console.log('*** Error occurred, sequence will not be updated');
             return;
           }
         }
         
-        // Only proceed with update if we have a valid sequence
+        // Only proceed ile Güncelle if we have a Geçerli sequence
         if (newMaxSequence === null) {
           console.log('*** No valid sequence determined, skipping update');
           return;
         }
         
-        // Update both OZL and OZL_BACKUP sequences
+        // Güncelle both OZL and OZL_BACKUP sequences
         const updateTasks = ['OZL', 'OZL_BACKUP'].map(async (kod2) => {
           try {
             console.log(`*** Searching for sequence with product_type=CH and kod_2=${kod2}`);
@@ -8192,7 +8192,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               const existingSequences = await existingSequenceResponse.json();
               console.log(`*** Found ${existingSequences.length} sequences for kod_2=${kod2}:`, existingSequences);
               
-              // Filter to ensure we get the exact match (in case API filtering is not working)
+              // Filtrele a ensure we Al the exact match (in case API filtering is not working)
               const exactMatches = existingSequences.filter(seq => 
                 seq.product_type === 'CH' && seq.kod_2 === kod2
               );
@@ -8205,7 +8205,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 
                 console.log(`*** Processing sequence update for ${kod2}: ID=${sequenceId}, current=${currentSequence}, newMax=${newMaxSequence}`);
                 
-                // Only update if current sequence is higher than the new max (meaning we deleted the highest)
+                // Only Güncelle if current sequence is higher than the new max (meaning we Silindi the highest)
                 if (currentSequence > newMaxSequence) {
                   await fetchWithAuth(`${API_URLS.celikHasirSequence}/${sequenceId}`, {
                     method: 'PUT',
@@ -8229,7 +8229,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         
         await Promise.all(updateTasks);
 
-        // Update local sequence state - use exact key match
+        // Güncelle local sequence State - use exact key match
         const updatedSequences = { ...sequences };
         const ozlKey = 'CH_OZL_';
         const backupKey = 'CH_OZL_BACKUP_';
@@ -8246,7 +8246,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     }
   };
 
-  // Tümünü sil - OPTIMIZED VERSION  
+  // Tümünü sil - OPTIMIZED VERSION
   const bulkDeleteAll = async () => {
     try {
       setIsLoading(true);
@@ -8271,7 +8271,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         currentItem: `${tabName} reçeteleri` 
       });
       
-      // Step 1: Delete ALL recipes for this product type using bulk endpoint
+      // Step 1: Sil ALL recipes için this Ürün Tip using bulk Endpoint
       const recipeApiUrl = activeDbTab === 'mm' ? API_URLS.celikHasirMmRecete :
                           activeDbTab === 'ncbk' ? API_URLS.celikHasirNcbkRecete :
                           API_URLS.celikHasirNtelRecete;
@@ -8297,10 +8297,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         }
       } catch (recipeError) {
         console.warn(`⚠️ Bulk recipe deletion error:`, recipeError.message);
-        // Continue with product deletion even if recipe deletion fails
+        // Continue ile Ürün deletion even if Reçete deletion fails
       }
       
-      // Step 2: Delete ALL products for this type using bulk endpoint
+      // Step 2: Sil ALL products için this Tip using bulk Endpoint
       setBulkDeleteProgress({ 
         current: 1, 
         total: 3, 
@@ -8336,7 +8336,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
         throw productError; // Re-throw to trigger error handling below
       }
       
-      // Step 3: Clear sequence table if CH products were deleted
+      // Step 3: Temizle sequence table if CH products were Silindi
       setBulkDeleteProgress({ 
         current: 2, 
         total: 3, 
@@ -8346,7 +8346,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       if (activeDbTab === 'mm') {
         try {
-          // Reset OZL and OZL_BACKUP sequences to 0
+          // Sıfırla OZL and OZL_BACKUP sequences a 0
           await fetchWithRetry(`${API_URLS.celikHasirSequence}/reset-ch-sequences`, { 
             method: 'POST',
             headers: {
@@ -8370,25 +8370,25 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
       
       toast.success(`✅ Tüm ${totalProducts} ${tabName} kayıtları ve reçeteleri başarıyla silindi`);
       
-      // Update UI state immediately
+      // Güncelle UI State immediately
       setSavedProducts(prev => ({
         ...prev,
         [activeDbTab]: []
       }));
       
-      // CRITICAL: Reset batch sequence counters after bulk delete all
+      // CRITICAL: Sıfırla batch sequence counters after bulk Sil all
       console.log('🔄 CRITICAL: Resetting batch sequence counters after bulk delete all');
       resetBatchSequenceCounter();
       
-      // Force refresh data
+      // Force refresh Veri
       cacheRef.current.clear();
       await fetchSavedProducts(false, true);
       
-      // CRITICAL: Refresh sequence data to get updated sequence numbers after deletion
+      // CRITICAL: Refresh sequence Veri a Al updated sequence numbers after deletion
       console.log('🔄 CRITICAL: Refreshing sequence data after bulk delete all');
       await fetchSequences(); // Refresh sequence state with fresh data
       
-      // CRITICAL: Re-initialize batch sequence with fresh database state
+      // CRITICAL: Re-Başlat batch sequence ile fresh database State
       console.log('🔄 CRITICAL: Re-initializing batch sequence after bulk delete all');
       await initializeBatchSequence();
       
@@ -8413,7 +8413,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
   };
 
 
-  // Render content function
+  // Render et İçerik function
   const renderContent = () => {
     // İzin kontrolü - Çelik Hasır modülü için
     if (!hasPermission('access:celik-hasir')) {
@@ -8435,10 +8435,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
           onClick={async () => {
             setIsLoading(true); // Show immediate feedback
             try {
-              // Refresh saved products state to ensure accurate counts
+              // Refresh saved products State a ensure accurate counts
               await fetchSavedProducts();
 
-              // Show analysis count
+              // Göster analysis count
               const newProductsCount = getProductsToSave().length;
               const existingProductsCount = validProducts.length - newProductsCount;
               toast.info(`Analiz: ${validProducts.length} toplam ürün | ${existingProductsCount} veritabanında mevcut | ${newProductsCount} kaydedilecek`);
@@ -8446,7 +8446,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
               if (validProducts.length === 0) {
                 setShowDatabaseModal(true);
               } else {
-                // Check for unoptimized products and show warning for Netsis operations only
+                // Kontrol et için unoptimized products and Göster warning için Netsis operations only
                 const hasUnoptimized = hasUnoptimizedProducts();
 
                 if (hasUnoptimized) {
@@ -8463,13 +8463,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   }
                 }
 
-                // Analyze products and show pre-save confirmation
+                // Analyze products and Göster pre-Kaydet confirmation
                 const analysisData = await analyzeProductsForConfirmation();
                 setPreSaveConfirmData(analysisData);
                 setShowPreSaveConfirmModal(true);
               }
             } catch (error) {
-              // CRITICAL FIX: Catch database connection errors and show user-friendly message
+              // CRITICAL FIX: Yakala database connection errors and Göster user-friendly Mesaj
               console.error('❌ Veritabanı analizi hatası:', error);
               toast.error(error.message || 'Veritabanı bağlantı hatası oluştu. Lütfen tekrar deneyin.');
               setIsLoading(false);
@@ -8563,7 +8563,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     if (newProducts && newProducts.length > 0) {
                       console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
                       
-                      // SEAMLESS UI: Transition from database to Excel generation without closing modal
+                      // SEAMLESS UI: Transition den database a Excel generation without closing Modal
                       setDatabaseProgress({ 
                         current: 0, 
                         total: 4, 
@@ -8572,9 +8572,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       });
                       setIsGeneratingExcel(true); // Start Excel generation state
                       
-                      // Unified approach: Fetch saved products from database with fallback
+                      // Unified approach: Getir saved products den database ile fallback
                       try {
-                        // Direct unified fetch approach - use the stok_kodu from saved products
+                        // Direct unified Getir approach - use the stok_kodu den saved products
                         const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
                         console.log('Looking for these stok_kodu values:', stokKodular);
                         
@@ -8594,7 +8594,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           cubukSayisiEn: p.cubukSayisiEn
                         })));
                         
-                        // Add small delay to ensure database consistency
+                        // Ekle small delay a ensure database consistency
                         await new Promise(resolve => setTimeout(resolve, 800));
                         
                         setDatabaseProgress({ 
@@ -8604,7 +8604,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           currentProduct: 'Veritabanı sorgusu işleniyor' 
                         });
                         
-                        // DIRECT APPROACH: Use the saved products data directly instead of fetching from database
+                        // DIRECT APPROACH: Use the saved products Veri directly instead of fetching den database
                         console.log('🚀 Using saved products data directly - bypassing database fetch');
                         console.log('🔍 Raw saved products sample:', newProducts.slice(0, 2).map(p => ({
                           hasirTipi: p.hasirTipi,
@@ -8622,7 +8622,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                      product.existingStokKodu?.startsWith('YM.NCBK') ? 'NCBK' : 
                                      product.existingStokKodu?.startsWith('YM.NTEL') ? 'NTEL' : 'MM',
                           isOptimized: true,
-                          // Ensure critical fields are available
+                          // Ensure critical fields are Mevcut
                           stok_adi: product.stokAdi || generateStokAdi(product, 'CH'),
                           ingilizce_isim: product.ingilizceIsim || generateIngilizceIsim(product),
                           hasirTuru: product.hasirTuru || 'Standart',
@@ -8686,7 +8686,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           currentProduct: 'Alternatif yöntem kullanılıyor' 
                         });
                         
-                        // Apply fallback formula even when fetch fails
+                        // Apply fallback formula even zaman Getir fails
                         const fallbackProducts = await Promise.all(
                           newProducts.map(async (product) => {
                             const fallbackResult = await calculateFallbackCubukSayisi(
@@ -8712,9 +8712,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     console.error('Save and Excel generation failed:', error);
                     toast.error('İşlem sırasında hata oluştu');
                   } finally {
-                    // UNIFIED MODAL: Only clear Excel states here, database states cleared by Excel generation completion
+                    // UNIFIED Modal: Only Temizle Excel states here, database states cleared ile Excel generation completion
                     setIsGeneratingExcel(false);
-                    // DON'T set isSavingToDatabase(false) here - let Excel generation handle the unified modal close
+                    // DON'T Ayarla isSavingToDatabase(false) here - let Excel generation İşle the unified Modal Kapat
                     setExcelProgress({ current: 0, total: 0, operation: '' });
                     // Keep database progress until Excel completely finishes
                   }
@@ -8777,9 +8777,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         uzunlukEn: p.uzunlukEn 
                       })));
                       
-                      // Unified approach: Fetch saved products from database with fallback
+                      // Unified approach: Getir saved products den database ile fallback
                       try {
-                        // DIRECT APPROACH: Use saved products data directly instead of database fetch
+                        // DIRECT APPROACH: Use saved products Veri directly instead of database Getir
                         console.log('🚀 Using saved products data directly - bypassing database fetch (instance 2)');
                         const databaseProducts = newProducts.map(product => ({
                           ...product, // Preserve ALL original fields
@@ -8803,7 +8803,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
-                          // DIRECT EXCEL: Call Excel functions directly with saved data
+                          // DIRECT EXCEL: Call Excel functions directly ile saved Veri
                           console.log('🎯 DIRECT EXCEL: Starting Excel generation with saved data');
                           const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
                           
@@ -8813,7 +8813,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           setExcelProgress({ current: 2, total: 2, operation: 'Reçete Excel oluşturuluyor...' });
                           await generateMergedReceteExcel(databaseProducts, timestamp, false);
                           
-                          // CLEANUP: Close modal and reset states after successful Excel generation
+                          // CLEANUP: Kapat Modal and Sıfırla states after successful Excel generation
                           setIsGeneratingExcel(false);
                           setIsSavingToDatabase(false);
                           setIsLoading(false);
@@ -8855,7 +8855,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         await generateExcelFiles(newProducts);
                         toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
                       } finally {
-                        // CLEANUP: Always close modal and reset states after Excel generation (success or failure)
+                        // CLEANUP: Always Kapat Modal and Sıfırla states after Excel generation (Başarılı or failure)
                         setIsGeneratingExcel(false);
                         setIsSavingToDatabase(false);
                         setIsLoading(false);
@@ -8864,7 +8864,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       }
                     } else {
                       toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
-                      // CLEANUP: Also needed when no products are saved
+                      // CLEANUP: Also needed zaman no products are saved
                       setIsGeneratingExcel(false);
                       setIsSavingToDatabase(false);
                       setIsLoading(false);
@@ -8874,7 +8874,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   } catch (error) {
                     console.error('Database save error:', error);
                     toast.error('Veritabanı kaydı sırasında hata oluştu');
-                    // CLEANUP: Also needed when errors occur
+                    // CLEANUP: Also needed zaman errors occur
                     setIsGeneratingExcel(false);
                     setIsSavingToDatabase(false);
                     setIsLoading(false);
@@ -9609,9 +9609,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         uzunlukEn: p.uzunlukEn 
                       })));
                       
-                      // Unified approach: Fetch saved products from database with fallback
+                      // Unified approach: Getir saved products den database ile fallback
                       try {
-                        // DIRECT APPROACH: Use saved products data directly instead of database fetch
+                        // DIRECT APPROACH: Use saved products Veri directly instead of database Getir
                         console.log('🚀 Using saved products data directly - bypassing database fetch (instance 2)');
                         const databaseProducts = newProducts.map(product => ({
                           ...product, // Preserve ALL original fields
@@ -9635,7 +9635,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         } : 'none');
                         
                         if (databaseProducts && databaseProducts.length > 0) {
-                          // DIRECT EXCEL: Call Excel functions directly with saved data
+                          // DIRECT EXCEL: Call Excel functions directly ile saved Veri
                           console.log('🎯 DIRECT EXCEL: Starting Excel generation with saved data');
                           const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
                           
@@ -9645,7 +9645,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           setExcelProgress({ current: 2, total: 2, operation: 'Reçete Excel oluşturuluyor...' });
                           await generateMergedReceteExcel(databaseProducts, timestamp, false);
                           
-                          // CLEANUP: Close modal and reset states after successful Excel generation
+                          // CLEANUP: Kapat Modal and Sıfırla states after successful Excel generation
                           setIsGeneratingExcel(false);
                           setIsSavingToDatabase(false);
                           setIsLoading(false);
@@ -9687,7 +9687,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         await generateExcelFiles(newProducts);
                         toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
                       } finally {
-                        // CLEANUP: Always close modal and reset states after Excel generation (success or failure)
+                        // CLEANUP: Always Kapat Modal and Sıfırla states after Excel generation (Başarılı or failure)
                         setIsGeneratingExcel(false);
                         setIsSavingToDatabase(false);
                         setIsLoading(false);
@@ -9696,7 +9696,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       }
                     } else {
                       toast.info('Hiç yeni ürün eklenmedi, Excel oluşturulmadı.');
-                      // CLEANUP: Also needed when no products are saved
+                      // CLEANUP: Also needed zaman no products are saved
                       setIsGeneratingExcel(false);
                       setIsSavingToDatabase(false);
                       setIsLoading(false);
@@ -9706,7 +9706,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                   } catch (error) {
                     console.error('Database save error:', error);
                     toast.error('Veritabanı kaydı sırasında hata oluştu');
-                    // CLEANUP: Also needed when errors occur
+                    // CLEANUP: Also needed zaman errors occur
                     setIsGeneratingExcel(false);
                     setIsSavingToDatabase(false);
                     setIsLoading(false);
@@ -9898,13 +9898,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 onClick={async () => {
                   setShowExcelOptionsModal(false);
                   
-                  // Initialize batch sequence before any stok kodu generation
+                  // Başlat batch sequence before any stok kodu generation
                   await initializeBatchSequence();
                   
-                  // Combine both approaches: planned codes for new, highest codes for existing
+                  // Combine both approaches: planned codes için new, highest codes için existing
                   const allProductsWithCodes = [];
                   
-                  // Create stokAdi mapping for existing products
+                  // Oluştur stokAdi mapping için existing products
                   const stokAdiToStokKodusMap = new Map();
                   savedProducts.mm.forEach(product => {
                     const productStokAdi = product.stok_adi;
@@ -9916,7 +9916,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     }
                   });
                   
-                  // Reset batch counter for planned stok_kodu generation
+                  // Sıfırla batch counter için planned stok_kodu generation
                   resetBatchSequenceCounter();
                   let plannedIndex = 0;
                   
@@ -9925,7 +9925,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     const existingStokKodus = stokAdiToStokKodusMap.get(productStokAdi) || [];
                     
                     if (existingStokKodus.length > 0) {
-                      // Existing product - use highest stok_kodu
+                      // Existing Ürün - use highest stok_kodu
                       const sortedCodes = existingStokKodus.sort((a, b) => {
                         const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
                         const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
@@ -9938,7 +9938,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                         existingStokKodu: highestStokKodu
                       });
                     } else {
-                      // New product - use planned stok_kodu
+                      // New Ürün - use planned stok_kodu
                       allProductsWithCodes.push({
                         ...product,
                         existingStokKodu: generateStokKodu(product, 'CH', plannedIndex)
@@ -9968,13 +9968,13 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     return;
                   }
                   
-                  // Reset batch counter for new planned stok_kodu generation
+                  // Sıfırla batch counter için new planned stok_kodu generation
                   resetBatchSequenceCounter();
                   
-                  // Initialize batch sequence before any stok kodu generation
+                  // Başlat batch sequence before any stok kodu generation
                   await initializeBatchSequence();
                   
-                  // Add planned stok_kodu to new products for Excel generation 
+                  // Ekle planned stok_kodu a new products için Excel generation
                   const newProductsWithPlannedCodes = [];
                   for (let index = 0; index < newProducts.length; index++) {
                     const product = newProducts[index];
@@ -10001,10 +10001,10 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                 onClick={async () => {
                   setShowExcelOptionsModal(false);
                   
-                  // Find existing products using the same duplicate finder logic
+                  // Bul existing products using the same duplicate finder logic
                   const existingProductsWithHighestCodes = [];
                   
-                  // Use the same stokAdi mapping logic from saveToDatabase
+                  // Use the same stokAdi mapping logic den saveToDatabase
                   const stokAdiToStokKodusMap = new Map();
                   savedProducts.mm.forEach(product => {
                     const productStokAdi = product.stok_adi;
@@ -10021,7 +10021,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     const existingStokKodus = stokAdiToStokKodusMap.get(productStokAdi) || [];
                     
                     if (existingStokKodus.length > 0) {
-                      // Find the highest stok_kodu (CHOZL1500 > CHOZL1000)
+                      // Bul the highest stok_kodu (CHOZL1500 > CHOZL1000)
                       const sortedCodes = existingStokKodus.sort((a, b) => {
                         const numA = parseInt(a.match(/CHOZL(\d+)/)?.[1] || '0');
                         const numB = parseInt(b.match(/CHOZL(\d+)/)?.[1] || '0');
@@ -10073,7 +10073,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
             <div className="mt-4 pt-3 border-t border-gray-200">
               <button
                 onClick={() => {
-                  // Cancel any ongoing Excel generation
+                  // İptal any ongoing Excel generation
                   if (isGeneratingExcel) {
                     setCancelExcelGeneration(true);
                     setIsGeneratingExcel(false);
@@ -10182,7 +10182,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             <td className="p-2 border-r border-gray-200">
                               <div className="font-mono text-xs">
                                 {(() => {
-                                  // Generate specific NCBK products needed for this CH product
+                                  // Generate specific NCBK products needed için this CH Ürün
                                   const boyCap = parseFloat(product.boyCap || 0);
                                   const enCap = parseFloat(product.enCap || 0);
                                   const neededNCBK = [];
@@ -10201,7 +10201,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                     });
                                   }
                                   
-                                  // En direction NCBK (actual uzunlukEn) 
+                                  // En direction NCBK (actual uzunlukEn)
                                   if (enCap > 0) {
                                     const uzunlukEn = parseInt(product.uzunlukEn || 0);
                                     const enNCBKStokKodu = `YM.NCBK.${safeCapToCode(enCap)}.${uzunlukEn}`;
@@ -10229,7 +10229,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             <td className="p-2">
                               <div className="font-mono text-xs">
                                 {(() => {
-                                  // Generate specific NTEL products needed for this CH product
+                                  // Generate specific NTEL products needed için this CH Ürün
                                   const boyCap = parseFloat(product.boyCap || 0);
                                   const enCap = parseFloat(product.enCap || 0);
                                   const neededNTEL = [];
@@ -10248,7 +10248,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                                     });
                                   }
                                   
-                                  // En direction NTEL (if different from boy)
+                                  // En direction NTEL (if different den boy)
                                   if (enCap > 0 && enCap !== boyCap) {
                                     const enNTELStokKodu = `YM.NTEL.${safeCapToCode(enCap)}`;
                                     const enNTELStokAdi = `YM Nervürlü Tel ${enCap} mm`;
@@ -10294,17 +10294,17 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                     </div>
                     <div className="max-h-40 overflow-y-auto">
                       {preSaveConfirmData.batchDuplicates.map((duplicate, index) => {
-                        // Extract Göz Aralığı from stok adı
+                        // Extract Göz Aralığı den stok adı
                         const gozMatch = duplicate.stokAdi.match(/Göz Ara\(([^)]+)\)/);
                         const gozAraligi = gozMatch ? gozMatch[1] : 'N/A';
                         
                         // Use the main analysis results instead of re-analyzing
-                        // Check if this duplicate's stokAdi is in the newProducts list
+                        // Kontrol et if this duplicate's stokAdi is in the newProducts Liste
                         const isInNewProducts = preSaveConfirmData.newProducts.some(p => 
                           p.stokAdi === duplicate.stokAdi
                         );
                         
-                        // Check if this duplicate's stokAdi is in the existingProducts list
+                        // Kontrol et if this duplicate's stokAdi is in the existingProducts Liste
                         const existingProduct = preSaveConfirmData.existingProducts?.find(p => 
                           p.stokAdi === duplicate.stokAdi
                         ) || preSaveConfirmData.skippedProducts?.find(p => 
@@ -10393,16 +10393,16 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                       if (newProducts && newProducts.length > 0) {
                         console.log(`Excel oluşturma başlıyor: ${newProducts.length} yeni ürün için - database fetch mode`);
                         
-                        // Unified approach: Fetch saved products from database with fallback
+                        // Unified approach: Getir saved products den database ile fallback
                         try {
-                          // Direct unified fetch approach - use the stok_kodu from saved products
+                          // Direct unified Getir approach - use the stok_kodu den saved products
                           const stokKodular = newProducts.map(p => p.existingStokKodu || generateStokKodu(p, 'CH', 0)).filter(Boolean);
                           console.log('Looking for these stok_kodu values:', stokKodular);
                           
-                          // Add small delay to ensure database consistency
+                          // Ekle small delay a ensure database consistency
                           await new Promise(resolve => setTimeout(resolve, 800));
                           
-                          // DIRECT APPROACH: Use saved products data directly instead of database fetch
+                          // DIRECT APPROACH: Use saved products Veri directly instead of database Getir
                           console.log('🚀 Using saved products data directly - bypassing database fetch (instance 4)');
                           const databaseProducts = newProducts.map(product => ({
                             ...product,
@@ -10419,7 +10419,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           }));
                           
                           if (databaseProducts && databaseProducts.length > 0) {
-                            // DIRECT EXCEL: Call Excel functions directly with saved data
+                            // DIRECT EXCEL: Call Excel functions directly ile saved Veri
                             console.log('🎯 DIRECT EXCEL: Starting Excel generation with saved data');
                             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('.')[0];
                             
@@ -10429,7 +10429,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             setExcelProgress({ current: 2, total: 2, operation: 'Reçete Excel oluşturuluyor...' });
                             await generateMergedReceteExcel(databaseProducts, timestamp, false);
                             
-                            // CLEANUP: Close modal and reset states after successful Excel generation
+                            // CLEANUP: Kapat Modal and Sıfırla states after successful Excel generation
                             setIsGeneratingExcel(false);
                             setIsSavingToDatabase(false);
                             setIsLoading(false);
@@ -10438,7 +10438,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                             
                             toast.success(`${databaseProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Direct Data)`);
                           } else {
-                            // Fallback to original method if unified fetch fails
+                            // Fallback a original method if unified Getir fails
                             console.warn('Unified fetch returned no data, using original data');
                             await generateExcelFiles(newProducts, false);
                             toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Original method)`);
@@ -10448,7 +10448,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
                           await generateExcelFiles(newProducts, false);
                           toast.success(`${newProducts.length} yeni ürün için Excel dosyaları oluşturuldu! (Fallback to original)`);
                         } finally {
-                          // CLEANUP: Always close modal and reset states after Excel generation (success or failure)
+                          // CLEANUP: Always Kapat Modal and Sıfırla states after Excel generation (Başarılı or failure)
                           setIsGeneratingExcel(false);
                           setIsSavingToDatabase(false);
                           setIsLoading(false);
@@ -10475,7 +10475,7 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
     );
   };
 
-  // Expose fetchSavedProducts to parent component
+  // Expose fetchSavedProducts a parent Bileşen
   React.useImperativeHandle(ref, () => ({
     fetchSavedProducts
   }));
@@ -10489,9 +10489,9 @@ const CelikHasirNetsis = React.forwardRef(({ optimizedProducts = [], onProductsU
 
 CelikHasirNetsis.displayName = 'CelikHasirNetsis';
 
-// OPTIMIZATION: Memoize the component to prevent unnecessary re-renders
+// OPTIMIZATION: Memoize the Bileşen a prevent unnecessary re-renders
 export default memo(CelikHasirNetsis, (prevProps, nextProps) => {
-  // Custom comparison function for better performance
+  // Custom comparison function için better performance
   return (
     prevProps.optimizedProducts?.length === nextProps.optimizedProducts?.length &&
     prevProps.optimizedProducts?.every((prev, index) => {

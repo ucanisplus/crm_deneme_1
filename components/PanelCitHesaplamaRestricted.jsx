@@ -79,7 +79,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 
-// Palet ağırlıkları için referans tabloları - UPDATED with exact values from the requirements
+// Palet ağırlıkları için referans tabloları - UPDATED ile exact values den the requirements
 const PALLET_WEIGHTS = {
   Single: {
     '250': {
@@ -110,16 +110,16 @@ const getClosestHeight = (height, panelType, widthStr) => {
   const lookupTable = PALLET_WEIGHTS[panelType]?.[widthStr];
   if (!lookupTable) return null;
 
-  // Convert height to string and check for exact match
+  // Çevir Yükseklik a String and Kontrol et için exact match
   const heightStr = height.toString();
   if (lookupTable[heightStr]) {
     return heightStr;
   }
 
-  // If no exact match, find the closest value
+  // If no exact match, Bul the closest Değer
   const heights = Object.keys(lookupTable).map(Number);
 
-  // Sort heights numerically to find closest
+  // Sırala heights numerically a Bul closest
   const closestHeight = heights.reduce((prev, curr) => {
     return (Math.abs(curr - height) < Math.abs(prev - height) ? curr : prev);
   });
@@ -165,7 +165,7 @@ const formatDisplayValue = (value) => {
 const formatTableValue = (value, columnType) => {
   if (value === null || value === undefined) return '';
   
-  // Eğer boş string ise boş döndür, ancak 0 değeri için boş döndürme
+  // Eğer boş String ise boş döndür, ancak 0 değeri için boş döndürme
   if (value === '' && value !== 0) return '';
 
   const num = parseFloat(value);
@@ -278,11 +278,11 @@ useEffect(() => {
             topScrollbar.scrollLeft = e.target.scrollLeft;
           };
           
-          // Remove existing listeners to prevent duplicates
+          // Kaldır existing listeners a prevent duplicates
           topScrollbar.removeEventListener('scroll', handleTopScroll);
           tableContainer.removeEventListener('scroll', handleMainScroll);
           
-          // Add new listeners
+          // Ekle new listeners
           topScrollbar.addEventListener('scroll', handleTopScroll);
           tableContainer.addEventListener('scroll', handleMainScroll);
         }
@@ -416,7 +416,7 @@ useEffect(() => {
       const response = await axios.get(endpoint);
       console.log(`${section} veri:`, response.data);
 
-      // Check if data exists
+      // Kontrol et if Veri exists
       if (!response.data || response.data.length === 0) {
         console.warn(`${section} için veri bulunamadı`);
         setSectionLoading(prev => ({ ...prev, [section]: false }));
@@ -446,7 +446,7 @@ useEffect(() => {
         }
       });
 
-      // Add missing fields for genel section if needed
+      // Ekle missing fields için genel section if needed
       if (section === 'genel') {
         if (!formattedRecord.usd_tl) formattedRecord.usd_tl = '';
         if (!formattedRecord.eur_usd) formattedRecord.eur_usd = '';
@@ -484,7 +484,7 @@ useEffect(() => {
       }
     } catch (error) {
       console.error('Döviz kuru çekme hatası:', error);
-      // APı başarısız olursa mevcut değerleri kullan (sessizce devam et)
+      // API başarısız olursa mevcut değerleri kullan (sessizce devam et)
     }
   };
 
@@ -533,7 +533,7 @@ useEffect(() => {
     }));
   };
 
-  // Panel listesini sıralama - IMPROVED for better sorting
+  // Panel listesini sıralama - IMPROVED için better sorting
   const sortPanelList = (key) => {
     let direction = 'ascending';
 
@@ -572,7 +572,7 @@ useEffect(() => {
     filterPanelList();
   }, [panelSearch, selectedPanelType, columnFilters, panelList]);
 
-  // Maliyet tablosunu filtreleme - IMPROVED to handle more search fields
+  // Maliyet tablosunu filtreleme - IMPROVED a İşle more Ara fields
   const filterMaliyetListesi = () => {
     // Önce temel filtreleme - arama terimi
     let filtered = [...maliyetListesi];
@@ -656,7 +656,7 @@ const calculatePanelKodu = (panel) => {
 
   // Maliyet hesaplama fonksiyonu - geliştirilmiş performans ve doğruluk için optimize edildi
   const calculateCosts = async (isPanelList = true, explicitGalvanizliValue = null) => {
-    // explicitGalvanizliValue parametresi null değilse, o değeri kullan; null ise state'teki değeri kullan
+    // explicitGalvanizliValue parametresi null değilse, o değeri kullan; null ise State'teki değeri kullan
     const effectiveGalvanizliValue = explicitGalvanizliValue !== null ? explicitGalvanizliValue : galvanizliSecimi;
     
     // Hesaplamayı ve UI'ı temizle
@@ -749,14 +749,14 @@ const calculatePanelKodu = (panel) => {
       setSatisListesi(satisListesiData);
 
       // Veritabanını temizle ve yeni verileri kaydet (opsiyonel)
-      // REMOVED FOR RESTRICTED VERSION - no database saving
+      // REMOVED için RESTRICTED VERSION - no database saving
       // saveToDatabaseAsync(geciciHesaplarData, maliyetListesiData);
 
-      // Sonuçlar sayfasına geç - DISABLED FOR RESTRICTED VERSION
+      // Sonuçlar sayfasına geç - Devre dışı için RESTRICTED VERSION
       // setShowResults(true);
       // setActiveTab('results');
       
-      // Show results inline for restricted version
+      // Göster results inline için restricted version
       setShowResults(true);
     } catch (error) {
       console.error('Hesaplama hatası:', error);
@@ -800,7 +800,7 @@ const calculatePanelKodu = (panel) => {
 
       console.log('Tüm veriler veritabanına başarıyla kaydedildi');
       
-      // Create notification for calculation completion
+      // Oluştur Bildirim için calculation completion
       try {
         const user = JSON.parse(sessionStorage.getItem('user') || '{}');
         const notificationData = {
@@ -854,7 +854,7 @@ const calculatePanelKodu = (panel) => {
 
   // Client-side hesaplamalar - veritabanı ihtiyacını ortadan kaldırarak performansı artırır
   const performClientSideCalculations = (panelsToCalculate, isGalvanizli = true) => {
-    // isGalvanizli parametresi, galvanizliSecimi state değişkeni yerine kullanılacak
+    // isGalvanizli parametresi, galvanizliSecimi State değişkeni yerine kullanılacak
     // Sonuç arrayleri
     const geciciHesaplar = [];
     const maliyetListesi = [];
@@ -876,7 +876,7 @@ const calculatePanelKodu = (panel) => {
     // Panel tel fiyatını al - temel hesaplamalarda kullanılacak
     const galvanizliTel = safeParseFloat(panelCitDegiskenler.galvanizli_tel_ton_usd);
     
-    // Profil fiyatlarını al - Set hesaplamalarında seçime göre kullanılacak
+    // Profil fiyatlarını al - Ayarla hesaplamalarında seçime göre kullanılacak
     const galvanizliProfilFiyat = safeParseFloat(profilDegiskenler.galvanizli_profil_kg_usd);
     const galvanizsizProfilFiyat = safeParseFloat(profilDegiskenler.galvanizsiz_profil_kg_usd);
     const panelKaynakElektrik = safeParseFloat(panelCitDegiskenler.panel_kaynak_makinesi_elektrik_tuketim_kwh);
@@ -1116,8 +1116,8 @@ const calculatePanelKodu = (panel) => {
 
 	
 	// Profil Ağırlık Hesaplaması - Düzeltilmiş Formül
-	// Formül: Weight = Cross-sectional area × length × density / 1000
-	// Standard hollow rectangular tube formula with corner radius correction
+	// Formül: Ağırlık = Cross-sectional area × Uzunluk × density / 1000
+	// Standard hollow rectangular tube formula ile corner radius correction
 	const lengthInMm = materialHeight * 10; // cm to mm conversion
 	
 	// Exact calculation (outer area - inner area)
@@ -1127,7 +1127,7 @@ const calculatePanelKodu = (panel) => {
 	const innerArea = innerWidth * innerHeight;
 	const crossSectionalArea = outerArea - innerArea;
 	
-	// Apply corner radius correction factor (typically reduces weight by 1-2%)
+	// Apply corner radius correction factor (typically reduces Ağırlık ile 1-2%)
 	const cornerCorrectionFactor = 0.988; // 1.2% reduction for rounded corners
 	const correctedArea = crossSectionalArea * cornerCorrectionFactor;
 	
@@ -1316,10 +1316,10 @@ const calculatePanelKodu = (panel) => {
     return salesList;
   };
 
-  // Genel değişkenleri güncelleme - FIXED with timestamp handling
+  // Genel değişkenleri güncelleme - FIXED ile timestamp handling
   const updateGenelDegiskenler = async () => {
     try {
-      // Log the current state to see what we're working with
+      // Log the current State a see what we're working ile
       console.log("Current genelDegiskenler state:", genelDegiskenler);
 
       // Veriyi kaydetmek için işle ve hazırla (sadece veritabanındaki alanları içerecek şekilde)
@@ -1335,7 +1335,7 @@ const calculatePanelKodu = (panel) => {
 
       console.log('Kaydedilecek genel veriler:', processedData);
 
-      // Replace any NaN values with null to avoid server errors
+      // Replace any NaN values ile null a avoid server errors
       Object.keys(processedData).forEach(key => {
         if (key !== 'genel_latest_update' && (
           processedData[key] === undefined ||
@@ -1352,7 +1352,7 @@ const calculatePanelKodu = (panel) => {
       const fixedData = fixTimestamps(processedData);
       console.log("Using timestamp-fixed genel data:", fixedData);
 
-      // Try with our enhanced API helper first
+      // Dene ile our enhanced API helper first
       try {
         const result = await postData(API_URLS.genelDegiskenler, fixedData);
         console.log("Genel data saved successfully via enhanced API helper");
@@ -1363,7 +1363,7 @@ const calculatePanelKodu = (panel) => {
         console.error("Enhanced API helper failed for genel değişkenler:", apiError);
       }
 
-      // Fall back to axios
+      // Fall Geri a axios
       const response = await axios.post(API_URLS.genelDegiskenler, fixedData);
 
       if (response.status === 200 || response.status === 201) {
@@ -1374,7 +1374,7 @@ const calculatePanelKodu = (panel) => {
     } catch (error) {
       console.error('Kaydetme hatası:', error);
 
-      // More detailed error logging
+      // More detailed Hata logging
       if (error.response) {
         console.error('Server response data:', error.response.data);
         console.error('Server response status:', error.response.status);
@@ -1385,7 +1385,7 @@ const calculatePanelKodu = (panel) => {
     }
   };
 
-  // Panel Çit Değişkenlerini Güncelleme - FIXED with timestamp fix and format handling
+  // Panel Çit Değişkenlerini Güncelleme - FIXED ile timestamp fix and Formatla handling
   const updatePanelCitDegiskenler = async () => {
     try {
       // Veriyi kaydetmek için işle ve hazırla (sadece veritabanındaki alanları içerecek şekilde)
@@ -1414,7 +1414,7 @@ const calculatePanelKodu = (panel) => {
       const fixedData = fixTimestamps(processedData);
       console.log("Using timestamp-fixed panel data:", fixedData);
 
-      // Try with our enhanced API helper first
+      // Dene ile our enhanced API helper first
       try {
         const result = await postData(API_URLS.panelCitDegiskenler, fixedData);
         console.log("Panel çit data saved successfully via enhanced API helper");
@@ -1425,7 +1425,7 @@ const calculatePanelKodu = (panel) => {
         console.error("Enhanced API helper failed for panel çit:", apiError);
       }
 
-      // Fall back to direct axios
+      // Fall Geri a direct axios
       const response = await axios.post(API_URLS.panelCitDegiskenler, fixedData);
 
       if (response.status === 200 || response.status === 201) {
@@ -1439,7 +1439,7 @@ const calculatePanelKodu = (panel) => {
     }
   };
 
-  // Profil Değişkenlerini Güncelleme - EXTRA FIX for timestamp issues
+  // Profil Değişkenlerini Güncelleme - EXTRA FIX için timestamp issues
   const updateProfilDegiskenler = async () => {
     try {
       // Veriyi kaydetmek için işle ve hazırla (sadece veritabanındaki alanları içerecek şekilde)
@@ -1462,13 +1462,13 @@ const calculatePanelKodu = (panel) => {
         profil_en1: safeParseFloat(profilDegiskenler.profil_en1),
         profil_en2: safeParseFloat(profilDegiskenler.profil_en2),
         profil_et_kalinligi: safeParseFloat(profilDegiskenler.profil_et_kalinligi)
-        // No timestamp field - let the server handle it
+        // No timestamp Alan - let the server İşle it
       };
 
       console.log("Attempting to save profil_degiskenler");
       
       try {
-        // Simple axios POST - the server will handle timestamp issues 
+        // Simple axios POST - the server will İşle timestamp issues
         const response = await axios.post(API_URLS.profilDegiskenler, processedData, {
           headers: {
             'Content-Type': 'application/json'
@@ -1634,11 +1634,11 @@ const exportPanelListToExcel = () => {
     const bukum_sayisi = safeParseFloat(updatedPanel.bukum_sayisi);
 
     // Bükümdeki Çubuk Sayısı hesaplama
-    // New logic as specified
+    // New logic olarak specified
     if (updatedPanel.panel_tipi === "Double") {
       updatedPanel.bukumdeki_cubuk_sayisi = 0;
     } else if (updatedPanel.panel_tipi === "Single") {
-      // For specific height series
+      // için specific Yükseklik series
       const seriesWithValue1 = [63, 83, 103, 123, 153, 173, 183, 203, 223, 243];
       const seriesWithValue2 = [50, 70, 100, 120, 150, 170, 200, 220];
 
@@ -1653,7 +1653,7 @@ const exportPanelListToExcel = () => {
       updatedPanel.bukumdeki_cubuk_sayisi = 0;
     }
 
-    // Set default values for göz aralığı if not provided
+    // Ayarla default values için göz aralığı değilse provided
     if (!updatedPanel.dikey_goz_araligi) {
       if (updatedPanel.panel_tipi === "Double") {
         updatedPanel.dikey_goz_araligi = 20;
@@ -1686,7 +1686,7 @@ const exportPanelListToExcel = () => {
     // =EĞER(M2<5.5;TAVANAYUVARLA(C2/M2;1)+1;EĞER(M2<6;TAVANAYUVARLA(C2/M2;1);TAVANAYUVARLA(C2/M2;1)+1))
     const yatay_goz = safeParseFloat(updatedPanel.yatay_goz_araligi);
 
-    // Note: We're using YATAY göz aralığı for DIKEY çubuk calculation!
+    // Note: We're using YATAY göz aralığı için DIKEY çubuk calculation!
     if (yatay_goz < 5.5) {
       updatedPanel.dikey_cubuk_adet = Math.ceil(panel_genisligi / yatay_goz) + 1;
     } else if (yatay_goz < 6) {
@@ -1699,7 +1699,7 @@ const exportPanelListToExcel = () => {
     // =EĞER(D2="Double";(((B2-3)/L2)+1)*2;EĞER(VE(D2="Single";L2=20);((((B2-3)-(J2*10))/L2)+1)+(J2*2);EĞER(VE(D2="Single";L2=15;B2<200);YUVARLA(((B2/L2)+(J2*2));0);EĞER(VE(D2="Single";L2=15;B2>=200);TAVANAYUVARLA(((B2/L2)+(J2*2));1);"---"))))
     const dikey_goz = safeParseFloat(updatedPanel.dikey_goz_araligi);
 
-    // Note: We're using DIKEY göz aralığı for YATAY çubuk calculation!
+    // Note: We're using DIKEY göz aralığı için YATAY çubuk calculation!
     if (updatedPanel.panel_tipi === "Double") {
       updatedPanel.yatay_cubuk_adet = (((panel_yuksekligi - 3) / dikey_goz) + 1) * 2;
     } else if (updatedPanel.panel_tipi === "Single" && dikey_goz === 20) {
@@ -1709,13 +1709,13 @@ const exportPanelListToExcel = () => {
     } else if (updatedPanel.panel_tipi === "Single" && dikey_goz === 15 && panel_yuksekligi >= 200) {
       updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / dikey_goz) + (bukum_sayisi * 2)));
     } else if (updatedPanel.panel_tipi === "Single") {
-      // For other Single panels with different dikey_goz values
+      // için other Single panels ile different dikey_goz values
       updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / dikey_goz) + (bukum_sayisi * 2)));
     } else if (updatedPanel.panel_tipi === "Guvenlik") {
-      // For Security panels
+      // için Security panels
       updatedPanel.yatay_cubuk_adet = Math.ceil(((panel_yuksekligi / dikey_goz) + (bukum_sayisi * 2)));
     } else {
-      // Default fallback for other panel types
+      // Default fallback için other panel types
       updatedPanel.yatay_cubuk_adet = 0;
     }
 
@@ -1754,7 +1754,7 @@ const exportPanelListToExcel = () => {
     // =EĞER(G2=0;0;EĞER(D2="Double";I2*0.06;EĞER(D2="Single";I2*0.03;0)))
     updatedPanel.boya_kg = calculateBoyaKg(updatedPanel);
 
-    // Boyalı Hali 
+    // Boyalı Hali
     // =P2+R2
     updatedPanel.boyali_hali = updatedPanel.agirlik + updatedPanel.boya_kg;
 
@@ -1864,7 +1864,7 @@ const exportPanelListToExcel = () => {
     }
   };
 
-  // Palet boş ağırlık hesaplama - FIXED to correctly use lookup tables
+  // Palet boş ağırlık hesaplama - FIXED a correctly use lookup tables
   const calculatePaletBosAgirlik = (panel) => {
     if (!panel || !panel.panel_tipi) return 0;
 
@@ -1908,7 +1908,7 @@ const exportPanelListToExcel = () => {
         return 0.769 + ((yatayTelCapi - 3) / (5.5 - 3)) * (1 - 0.769);
       }
     } else if (panelType === "Guvenlik") {
-      // Assume same formula as Single for Guvenlik panels
+      // Assume same formula olarak Single için Guvenlik panels
       if (yatayTelCapi < 3) {
         return 0.769;
       } else if (yatayTelCapi > 5.5) {
@@ -1969,7 +1969,7 @@ const updateOzelPanel = (id, field, value) => {
 };
 
 
-// Tüm bağımlı alanları hesapla - özel panel için tüm hesaplamalar - DÜZELTILDI 
+// Tüm bağımlı alanları hesapla - özel panel için tüm hesaplamalar - DÜZELTILDI
 const recalculateAllFields = (panel) => {
   const result = { ...panel };
   
@@ -2072,7 +2072,7 @@ const recalculateAllFields = (panel) => {
     result.boya_kg = 0;
   }
   
-  // Boyalı Hali 
+  // Boyalı Hali
   result.boyali_hali = safeParseFloat(result.agirlik) + safeParseFloat(result.boya_kg);
   
   // M² Ağırlık
@@ -2173,13 +2173,13 @@ const recalculateAllFields = (panel) => {
         palet_dolu_agirlik, bos_palet_yuksekligi, adet_panel_yuksekligi,
         paletsiz_toplam_panel_yuksekligi, paletli_yukseklik, stok_kodu, ...panelData } = panel;
 
-      // Get the highest existing manual_order
+      // Al the highest existing manual_order
       const panelListRes = await axios.get(API_URLS.panelList).catch(error => {
         console.error("Panel listesi getirme hatası:", error);
         return { data: [] };
       });
 
-      // Find highest manual_order value regardless of prefix
+      // Bul highest manual_order Değer regardless of prefix
       const highestManualOrder = panelListRes.data
         .filter(p => p.manual_order && !isNaN(parseInt(p.manual_order)))
         .reduce((max, p) => {
@@ -2189,23 +2189,23 @@ const recalculateAllFields = (panel) => {
       
       console.log("Highest manual_order found:", highestManualOrder);
 
-      // Set the new manual_order
+      // Ayarla the new manual_order
       const newManualOrder = (highestManualOrder + 1).toString();
 
       // API için hazırlanmış veriyi oluştur - timestamp field removed
       const dataToSave = {
         ...panelData,
         manual_order: newManualOrder,
-        // Let the backend handle timestamps
+        // Let the backend İşle timestamps
       };
       
       console.log("Preparing panel data for save:", dataToSave);
       
-      // Process timestamp fields for PostgreSQL compatibility
+      // İşlem timestamp fields için PostgreSQL compatibility
       const processedData = processTimestampFields(dataToSave);
       console.log("Panel data with processed timestamps:", processedData);
       
-      // Try the directlySubmitPanel function first which uses fetch
+      // Dene the directlySubmitPanel function first which uses Getir
       try {
         console.log("Using direct panel submission...");
         const result = await directlySubmitPanel(processedData, API_URLS.panelList);
@@ -2222,7 +2222,7 @@ const recalculateAllFields = (panel) => {
         console.error("Direct panel submission error:", directError);
       }
       
-      // Try axios with fixed data
+      // Dene axios ile fixed Veri
       try {
         console.log("Using axios with fixed data...");
         const axiosResponse = await axios.post(API_URLS.panelList, fixedData, {
@@ -2239,7 +2239,7 @@ const recalculateAllFields = (panel) => {
         console.error("Axios API call failed:", axiosError.response?.data || axiosError.message);
       }
       
-      // Try our enhanced API helper
+      // Dene our enhanced API helper
       try {
         console.log("Using enhanced API helper...");
         const result = await postData(API_URLS.panelList, fixedData);
@@ -2251,7 +2251,7 @@ const recalculateAllFields = (panel) => {
         console.error("Enhanced API helper failed:", enhancedError);
       }
       
-      // Fall back to original axios method
+      // Fall Geri a original axios method
       console.log("Falling back to original axios method...");
       const response = await axios.post(API_URLS.panelList, dataToSave);
 
@@ -2270,21 +2270,21 @@ const recalculateAllFields = (panel) => {
 
 // Tel çapı input alanları için özel bileşen - ondalık noktayı düzgün işlemeyi sağlar
 const NumberInput = ({ value, onChange, fieldName, panelId, className }) => {
-  // Değeri string olarak ele al, böylece nokta girerken sorunları önle
+  // Değeri String olarak ele al, böylece nokta girerken sorunları önle
   const [inputValue, setInputValue] = useState(value?.toString() || '');
   
-  // Input değiştiğinde hem yerel state'i hem de ana state'i güncelle
+  // Girdi değiştiğinde hem yerel State'i hem de ana State'i güncelle
   const handleChange = (e) => {
     const newValue = e.target.value;
     // Sayısal giriş kontrolü - sadece rakamlar, nokta ve virgül
     if (/^[0-9]*[.,]?[0-9]*$/.test(newValue) || newValue === '') {
       setInputValue(newValue);
-      // Ana state'i güncelle - virgülleri noktalara çevirir
+      // Ana State'i güncelle - virgülleri noktalara çevirir
       onChange(panelId, fieldName, newValue);
     }
   };
   
-  // Value prop değişirse inputValue'yu güncelle
+  // Değer prop değişirse inputValue'yu güncelle
   useEffect(() => {
     if (value?.toString() !== inputValue) {
       setInputValue(value?.toString() || '');
@@ -2313,7 +2313,7 @@ const renderPanelTypeSelector = (panel, updateOzelPanel) => (
   </select>
 );
 
-// Yükseklik Input
+// Yükseklik Girdi
 const renderHeightInput = (panel, updateOzelPanel) => (
   <NumberInput
     value={panel.panel_yuksekligi} 
@@ -2324,7 +2324,7 @@ const renderHeightInput = (panel, updateOzelPanel) => (
   />
 );
 
-// Genişlik Input
+// Genişlik Girdi
 const renderWidthInput = (panel, updateOzelPanel) => (
   <NumberInput
     value={panel.panel_genisligi} 
@@ -2335,7 +2335,7 @@ const renderWidthInput = (panel, updateOzelPanel) => (
   />
 );
 
-// Tel Çapı Input
+// Tel Çapı Girdi
 const renderWireDiameterInput = (panel, updateOzelPanel, fieldName) => (
   <NumberInput
     value={formatTableValue(panel[fieldName], 'tel_capi')} 
@@ -2346,7 +2346,7 @@ const renderWireDiameterInput = (panel, updateOzelPanel, fieldName) => (
   />
 );
 
-// Göz Aralığı Input
+// Göz Aralığı Girdi
 const renderMeshSpacingInput = (panel, updateOzelPanel, fieldName) => (
   <NumberInput
     value={formatTableValue(panel[fieldName], 'goz_araligi')} 
@@ -2357,7 +2357,7 @@ const renderMeshSpacingInput = (panel, updateOzelPanel, fieldName) => (
   />
 );
 
-// Hesaplanan Değer Input
+// Hesaplanan Değer Girdi
 const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 'default', width = "w-16") => (
   <input
     type="text"
@@ -2384,7 +2384,7 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
         return { data: [] };
       });
 
-      // Find the highest manual_order value in the database regardless of prefix
+      // Bul the highest manual_order Değer in the database regardless of prefix
       const highestManualOrder = panelListRes.data
         .filter(p => p.manual_order && !isNaN(parseInt(p.manual_order)))
         .reduce((max, p) => {
@@ -2416,7 +2416,7 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
           const response = await axios.post(API_URLS.panelList, {
             ...panelData,
             manual_order: manualOrderToUse // Yeni manual_order değerini kullan
-            // Let backend handle timestamps
+            // Let backend İşle timestamps
           });
 
           if (response.status === 200 || response.status === 201) {
@@ -2548,7 +2548,7 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
   };
 
 	const resetOzelPanelList = () => {
-	  // Confirm before clearing
+	  // Onayla before clearing
 	  const confirmReset = window.confirm('Özel panel listesini sıfırlamak istediğinize emin misiniz? Bu işlem geri alınamaz.');
 	  if (confirmReset) {
 	    setOzelPanelList([]);
@@ -2963,12 +2963,12 @@ const renderCalculatedInput = (panel, updateOzelPanel, fieldName, displayType = 
 	  handleInputChange(value, setGenelDegiskenler, field);
 	};
 	
-	// For Panel Çit Değişkenler
+	// için Panel Çit Değişkenler
 	const handlePanelCitDegiskenlerChange = (field, value) => {
 	  handleInputChange(value, setPanelCitDegiskenler, field);
 	};
 	
-	// For Profil Değişkenler
+	// için Profil Değişkenler
 	const handleProfilDegiskenlerChange = (field, value) => {
 	  handleInputChange(value, setProfilDegiskenler, field);
 	};
@@ -3140,7 +3140,7 @@ const renderPanelList = () => (
   </div>
 );
 
-// Değişkenler Akordiyon - REMOVED FOR RESTRICTED VERSION
+// Değişkenler Akordiyon - REMOVED için RESTRICTED VERSION
 const renderDegiskenlerAccordion = () => null;
 
 // Özel Panel & Palet Bilgileri Hesaplama - COMPLETELY REDESIGNED to be fully interactive
@@ -4357,7 +4357,7 @@ className = "pl-10 pr-4 py-2 border rounded-md w-full"
   </div>
   );
 
-// Satış Listesi Tablosu - IMPROVED colors for different tiers
+// Satış Listesi Tablosu - IMPROVED colors için different tiers
 const renderSalesView = () => (
   <div className= "bg-white rounded-lg border shadow-sm" >
   <div className="p-4 border-b" >
@@ -4758,7 +4758,7 @@ disabled = { geciciHesaplar.length === 0 }
   );
 
 
-// Sekme butonlarını render eden fonksiyon
+// Sekme butonlarını Render et eden fonksiyon
 const renderTabButtons = () => (
   <div className= "flex flex-wrap gap-2 mb-4" >
   <button
