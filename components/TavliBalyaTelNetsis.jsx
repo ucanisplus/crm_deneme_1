@@ -1581,16 +1581,26 @@ const TavliBalyaTelNetsis = () => {
       
       if (activeDbTab === 'mm') {
         // For MM TT, we need cascade deletion including YM TT
+
+        // Fetch all MM products once to avoid Vercel GET cache issues
+        console.log('Bulk: Fetching all MM products for cascade deletion...');
+        const allMmResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}?limit=2000`);
+        let allMmProducts = [];
+        if (allMmResponse && allMmResponse.ok) {
+          allMmProducts = await allMmResponse.json();
+        }
+
         for (let i = 0; i < selectedDbItems.length; i++) {
           const itemId = selectedDbItems[i];
           try {
             console.log(`Deleting MM TT ${i + 1}/${selectedDbItems.length} with cascade:`, itemId);
 
-            // Get MM TT data before deletion
-            const mmResponse = await fetchWithAuth(`${API_URLS.tavliBalyaMm}/${itemId}`);
-            let mm = null;
-            if (mmResponse && mmResponse.ok) {
-              mm = await mmResponse.json();
+            // Find MM product from the fetched list (avoids Vercel GET by ID cache)
+            const mm = allMmProducts.find(p => p.id === itemId);
+            if (mm) {
+              console.log(`Bulk: Found MM product: ${mm.stok_kodu}`);
+            } else {
+              console.log(`Bulk: MM product ${itemId} not found in list`);
             }
 
             // Step 1: Delete YM TT products and recipes
