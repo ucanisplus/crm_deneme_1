@@ -1249,7 +1249,10 @@ const TavliBalyaTelNetsis = () => {
         const data = await response.json();
         const requestsData = Array.isArray(data) ? data : [];
         setRequests(requestsData);
-        
+
+        // Check for deleted products and update request statuses to "Silinmiş"
+        await checkForDeletedProducts(requestsData);
+
         // Update selectedRequest if it's currently open to refresh the modal with latest data
         if (selectedRequest && showRequestDetailModal) {
           const updatedRequest = requestsData.find(req => req.id === selectedRequest.id);
